@@ -1,3 +1,13 @@
+*.csv
+*.pdf
+*.stl
+*.pkl
+*.packaging
+*.pptx
+*.DS_Store
+*.png
+*.json
+*.gif
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
