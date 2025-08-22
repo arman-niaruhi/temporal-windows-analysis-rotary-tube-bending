@@ -4,7 +4,7 @@ from dash.dependencies import Input, Output
 import pickle
 
 # Load your dictionary
-with open('research/tubebend-main/experiments_process_and_results.pkl', 'rb') as f:
+with open('data/experiments_process_and_results.pkl', 'rb') as f:
     loaded_dict = pickle.load(f)
 
 # Get all experiment numbers for dropdown
