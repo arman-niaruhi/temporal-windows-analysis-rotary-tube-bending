@@ -5,6 +5,7 @@
 *.pptx
 *.DS_Store
 *.png
+*.pkl
 *.json
 *.gif
 # Byte-compiled / optimized / DLL files
