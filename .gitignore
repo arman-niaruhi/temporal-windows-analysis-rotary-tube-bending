@@ -1,7 +1,6 @@
 *.csv
 *.pdf
 *.stl
-*.pkl
 *.packaging
 *.pptx
 *.DS_Store
