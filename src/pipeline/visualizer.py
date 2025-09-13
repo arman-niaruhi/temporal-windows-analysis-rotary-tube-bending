@@ -8,6 +8,7 @@ class DataVisulizer:
     def __init__(self) -> None:
         pass
 
+    @log_function
     def multi_sensor_experiment(
         self,
         dfs: list,
