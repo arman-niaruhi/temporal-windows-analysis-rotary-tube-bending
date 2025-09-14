@@ -2,6 +2,10 @@ from src.logging.log_utils import log_function, logger
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import re
+import ipywidgets as widgets
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from IPython.display import display, clear_output
 
 
 class DataVisulizer:
@@ -53,7 +57,9 @@ class DataVisulizer:
         if df_names is None:
             df_names = [f"Dataset {i+1}" for i in range(len(dfs))]
         elif len(df_names) != len(dfs):
-            raise ValueError("Number of DataFrame names must match number of DataFrames")
+            raise ValueError(
+                "Number of DataFrame names must match number of DataFrames"
+            )
 
         # --- Validate or auto-generate x_axes ---
         if x_axes is None:
@@ -86,7 +92,7 @@ class DataVisulizer:
             # Pick x-axis
             if x_axis_choice == "index":
                 x_axis = experiment_df.index
-                x_label = "Index"
+                x_label = "Time"
             else:
                 if x_axis_choice not in experiment_df.columns:
                     raise ValueError(f"{x_axis_choice} not found in DataFrame {i}")
@@ -100,11 +106,8 @@ class DataVisulizer:
                 if col not in ["Experiment_ID", x_axis_choice]
             ]
 
-            # Legend grouping
-            legend_group = f"group_{i}"
-
-            # Add traces
-            for col in numeric_cols:
+            # Add traces for a given subplot (i)
+            for col_idx, col in enumerate(numeric_cols):
                 legend_name = extract_trace_name(col)
                 if not legend_name.strip():
                     legend_name = col
@@ -115,9 +118,10 @@ class DataVisulizer:
                         y=experiment_df[col],
                         mode="lines",
                         name=legend_name,
-                        legendgroup=legend_group,
-                        legendgrouptitle_text=f"{df_name} Legend",
-                        showlegend=True,
+                        showlegend=True,  # allow independent toggling
+                        legendgrouptitle_text=(
+                            df_name if col_idx == 0 else None
+                        ),  # only first trace shows group title
                     ),
                     row=i,
                     col=1,
@@ -143,8 +147,53 @@ class DataVisulizer:
 
         # --- Save or show ---
         if save_fig:
-            saving_path = f"{base_path}/{part_name}_experiment_plot_{experiment_id}.html"
-            fig.write_html(saving_path)
-            print(
-                f"Interactive plot with {len(dfs)} subplots saved to {saving_path}"
+            saving_path = (
+                f"{base_path}/{part_name}_experiment_plot_{experiment_id}.html"
             )
+            fig.write_html(saving_path)
+            print(f"Interactive plot with {len(dfs)} subplots saved to {saving_path}")
+        else:
+            fig.show()
+
+    @log_function
+    def interactive_plot(self, dfs, df_names=None, x_axes=None, min_id=2, max_id=300):
+        """
+        Display an interactive widget to change Experiment_ID and update plot.
+        Allows selection from min_id to max_id.
+        """
+        if df_names is None:
+            df_names = [f"Dataset {i+1}" for i in range(len(dfs))]
+        if x_axes is None:
+            x_axes = []
+            for df in dfs:
+                x_axes.append("Time_[s]" if "Time_[s]" in df.columns else "index")
+
+        # Use a range of experiment IDs instead of extracting from data
+        all_ids = list(range(min_id, max_id + 1))
+        print(f"Experiment_ID options: {min_id} to {max_id}")
+
+        # Create dropdown widget
+        dropdown = widgets.Dropdown(
+            options=all_ids,
+            value=min_id,
+            description="Experiment_ID:",
+        )
+
+        def update(exp_id):
+            clear_output(wait=True)  # Clear previous plot
+            display(dropdown)  # Keep dropdown visible
+            # Call your plotting function without saving
+            self.multi_sensor_experiment(
+                dfs=dfs,
+                experiment_id=exp_id,
+                df_names=df_names,
+                x_axes=x_axes,
+                save_fig=False,
+            )
+
+        # Trigger update when dropdown value changes
+        dropdown.observe(lambda change: update(change["new"]), names="value")
+
+        # Display dropdown and initial plot
+        display(dropdown)
+        update(min_id)
