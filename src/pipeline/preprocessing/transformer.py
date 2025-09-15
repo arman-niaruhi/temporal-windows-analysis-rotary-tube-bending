@@ -1,4 +1,7 @@
 import pandas as pd
+from sklearn.decomposition import PCA
+import numpy as np
+
 from src.logging.log_utils import log_function, logger
 
 
@@ -74,15 +77,15 @@ class DataTransformer:
             ("df_movements", df_movements),
         ]
 
-        for df_name, df in outputs:
-            nan_counts = {col: df[col].isna().sum() for col in df.columns}
-            total_nans = df.isna().sum().sum()
-            log_text = (
-                f"\nHeaders of {df_name}: {list(df.columns)}\n"
-                f"NaN counts per column in {df_name}: {nan_counts}\n"
-                f"Total NaNs in {df_name}: {total_nans}"
-            )
-            logger.info(log_text)
+        # for df_name, df in outputs:
+        #     nan_counts = {col: df[col].isna().sum() for col in df.columns}
+        #     total_nans = df.isna().sum().sum()
+        #     log_text = (
+        #         f"\nHeaders of {df_name}: {list(df.columns)}\n"
+        #         f"NaN counts per column in {df_name}: {nan_counts}\n"
+        #         f"Total NaNs in {df_name}: {total_nans}"
+        #     )
+        #     logger.info(log_text)
 
         return df_machine_and_movement, df_sensor, df_machine, df_movements
 
@@ -217,3 +220,50 @@ class DataTransformer:
             logger.info(
                 f"Normalized {len(numeric_cols)} numeric columns in '{attr_name}' (excluding 'Experiment_ID')."
             )
+            
+    @log_function
+    def nan_handler(self):
+        """
+        Normalize all numeric columns in all DataFrames to [0, 1],
+        excluding 'Experiment_ID'.
+        """
+        for attr_name in [
+            "df_arc",
+            "df_lin1",
+            "df_lin2",
+            "df_stl_arc",
+            "df_stl_lin1",
+            "df_stl_lin2",
+            "df_machine",
+            "df_sensor",
+            "df_movements",
+            "df_bending",
+        ]:
+            df = getattr(self, attr_name)
+
+            # Select numeric columns excluding 'Experiment_ID'
+            numeric_cols = df.select_dtypes(include="number").columns.difference(
+                ["Experiment_ID", "Angle[degree]ORDistance[mm]"]
+            )
+
+            if len(numeric_cols) == 0:
+                logger.info(f"No numeric columns to normalize in '{attr_name}'.")
+                continue
+
+            # Find columns that are completely NaN
+            nan_cols = df.columns[df.isna().all()].tolist()
+
+            if nan_cols:
+                df = df.drop(columns=nan_cols)
+                logger.info(
+                    f"Dropped {len(nan_cols)} all-NaN columns from '{attr_name}': {nan_cols}"
+                )
+            else:
+                logger.info(f"No all-NaN columns found in '{attr_name}'.")
+                
+            setattr(self, attr_name, df)
+            logger.info(
+                f"Normalized {len(numeric_cols)} numeric columns in '{attr_name}' (excluding 'Experiment_ID')."
+            )
+
+    
