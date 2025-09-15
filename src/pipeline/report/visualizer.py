@@ -156,7 +156,7 @@ class DataVisulizer:
             fig.show()
 
     @log_function
-    def interactive_plot(self, dfs, df_names=None, x_axes=None, min_id=2, max_id=300):
+    def interactive_plot(self, dfs, df_names=None, x_axes=None, min_id=2, max_id=318):
         """
         Display an interactive widget to change Experiment_ID and update plot.
         Allows selection from min_id to max_id.
