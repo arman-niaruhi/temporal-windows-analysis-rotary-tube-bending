@@ -18,15 +18,18 @@ def main():
     transformer.check_quality()
     transformer.delete_failed_experiment(failed_experiment=[1, 48, 166])
     transformer.normalize_data()
+    transformer.nan_handler()
     
-    df_machine_and_movement, df_sensor, _, _ = transformer.get_process_data(experiment_ids=[60])
-    df_arc, _, _, _, _ = transformer.get_geometry_data(experiment_ids=[60])
+    df_machine_and_movement, df_sensor, _, _ = transformer.get_process_data()
+    df_arc, _, _, _, _ = transformer.get_geometry_data()
+    df_machine_and_movement_2, df_sensor_2, _, _ = transformer.get_process_data(experiment_ids=[2])
+    df_arc_2, _, _, _, _ = transformer.get_geometry_data(experiment_ids=[2])
 
     # -----------------------------
     # 3. Context Extraction
     # -----------------------------
-    # context_extractor = ContextExtractor(input_df=df_machine_and_movement, target_df=df_arc)
-    # context_extractor.extract_important_window(target_column="Collapse [mm]")
+    context_extractor = ContextExtractor(input_df=df_sensor_2, target_df=df_arc_2)
+    context_extractor.extract_important_window(target_column="Collapse [mm]", num_top_windows=5, )
 
     # -----------------------------
     # 4. Visualize
@@ -41,14 +44,6 @@ def main():
     #         "Angle[degree]ORDistance[mm]",
     #     ],
     # )
-    vizualiser.interactive_plot(
-        dfs=[df_machine_and_movement, df_arc],
-        df_names=["Machine & Movement", "Geometry"],
-        x_axes=[
-            "index",
-            "Angle[degree]ORDistance[mm]",
-        ],
-    )
 
 
 if __name__ == "__main__":
