@@ -1,5 +1,6 @@
 import pickle
 import pandas as pd
+import sqlite3
 
 from src.logging.log_utils import log_function
 
@@ -85,3 +86,27 @@ class DataExtractor:
         """Print keys of an experiment dictionary with numbering."""
         for key in list(self.loaded_dict.get(f"Exp_{2}")):
             print(key)
+            
+    @log_function
+    def save_to_sqlite(self, db_path="data/experiments.db"):
+        """
+        Stores all bending setups and machine part data into an SQLite database.
+        Each machine part gets its own table.
+        """
+        all_data = self.get_all_bending_setups()  # get dictionary of DataFrames
+        
+        # Connect to SQLite database (creates it if it doesn't exist)
+        conn = sqlite3.connect(db_path)
+        
+        try:
+            for table_name, df in all_data.items():
+                # Ensure column names are valid for SQLite
+                df.columns = [col.replace(" ", "_") for col in df.columns]
+                
+                # Store each DataFrame as a table, replace if table exists
+                df.to_sql(table_name, conn, if_exists="replace", index=False)
+                print(f"Stored '{table_name}' in SQLite database.")
+        finally:
+            conn.close()
+            print(f"All data saved to {db_path}.")
+            
