@@ -14,6 +14,6 @@ def log_function(func):
     def wrapper(*args, **kwargs):
         logger.info(f"Entering {func.__name__}")
         result = func(*args, **kwargs)
-        logger.info(f"Exiting {func.__name__}")
+        logger.info(f"Finishing {func.__name__}")
         return result
     return wrapper
