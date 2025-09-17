@@ -1,55 +1,44 @@
-from src.pipeline.preprocessing.extractor import DataExtractor
-from src.pipeline.preprocessing.transformer import DataTransformer
+from src.pipeline.preprocessing.data_preprecessor import DataPreprocessPipeline
+from src.pipeline.preprocessing.loader import DataLoader
 from src.pipeline.report.visualizer import DataVisulizer
 from src.pipeline.ml.context_extactor import ContextExtractor
 
 
 def main():
     # -----------------------------
-    # 1. Extraction
+    # 3. Load Data From SQLite
     # -----------------------------
-    extractor = DataExtractor()
-    dfs = extractor.get_all_bending_setups()
+    #DataPreprocessPipeline.run()
+    EXPERIMENT_ID = 8
+    # loader = DataLoader("data/tube_geometry.db")
+    # loaded_dfs = loader.load_data_by_experiment(EXPERIMENT_ID)
+    # df_arc = loaded_dfs["df_arc"]
+    # df_machine_and_movement = loaded_dfs["df_machine_and_movement"]
 
     # -----------------------------
-    # 2. Transformation
+    # 2. Context Extraction
     # -----------------------------
-    transformer = DataTransformer(**dfs)
-    transformer.check_quality()
-    transformer.delete_failed_experiment(failed_experiment=[1, 48, 166])
-    transformer.normalize_data()
-    
-    df_machine_and_movement, df_sensor, _, _ = transformer.get_process_data(experiment_ids=[60])
-    df_arc, _, _, _, _ = transformer.get_geometry_data(experiment_ids=[60])
+    #context_extractor = ContextExtractor(input_df=df_sensor_2, target_df=df_arc_2)
+    #context_extractor.extract_important_window(target_column="Collapse [mm]", num_top_windows=5, )
 
     # -----------------------------
-    # 3. Context Extraction
-    # -----------------------------
-    # context_extractor = ContextExtractor(input_df=df_machine_and_movement, target_df=df_arc)
-    # context_extractor.extract_important_window(target_column="Collapse [mm]")
-
-    # -----------------------------
-    # 4. Visualize
+    # 3. Visualize
     # -----------------------------
     vizualiser = DataVisulizer()
     # vizualiser.multi_sensor_experiment(
     #     dfs=[df_machine_and_movement, df_arc],
-    #     experiment_id=60,
+    #     experiment_id=EXPERIMENT_ID,
     #     df_names=["Machine & Movement", "Geometry"],
     #     x_axes=[
     #         "index",
     #         "Angle[degree]ORDistance[mm]",
     #     ],
     # )
-    vizualiser.interactive_plot(
-        dfs=[df_machine_and_movement, df_arc],
-        df_names=["Machine & Movement", "Geometry"],
-        x_axes=[
-            "index",
-            "Angle[degree]ORDistance[mm]",
-        ],
-    )
+
+    vizualiser.interactive_plot_streamlit()
 
 
 if __name__ == "__main__":
     main()
+    
+    # streamlit run main.py 
