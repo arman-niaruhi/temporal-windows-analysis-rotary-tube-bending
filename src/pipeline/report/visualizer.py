@@ -65,12 +65,23 @@ class DataVisulizer:
             numeric_cols = [col for col in experiment_df.columns if col not in ["Experiment_ID", x_axis_choice]]
 
             for col_idx, col in enumerate(numeric_cols):
-                legend_name = f"{df_name}: {extract_trace_name(col) or col}"
+                data_series = experiment_df[col]
+                min_val = data_series.min()
+                max_val = data_series.max()
+                mean_val = data_series.mean()
+                std_val = data_series.std()
+                
+                # Format legend with statistics
+                legend_name = (
+                    f"{df_name}: {extract_trace_name(col) or col} "
+                    f"(min={min_val:.2f}, max={max_val:.2f}, mean={mean_val:.2f}, std={std_val:.2f})"
+                )
+                
                 color = colors[col_idx % len(colors)]
                 fig.add_trace(
                     go.Scatter(
                         x=x_axis,
-                        y=experiment_df[col],
+                        y=data_series,
                         mode="lines",
                         name=legend_name,
                         line=dict(color=color),
@@ -79,6 +90,7 @@ class DataVisulizer:
                     row=i,
                     col=1,
                 )
+
 
             fig.update_yaxes(title_text="Sensor Values", row=i, col=1)
             fig.update_xaxes(title_text=x_label, row=i, col=1)
