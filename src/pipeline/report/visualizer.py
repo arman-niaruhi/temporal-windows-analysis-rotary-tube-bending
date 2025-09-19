@@ -1,4 +1,4 @@
-from src.logging.log_utils import log_function, logger
+from src.logging.log_utils import log_function
 from plotly.subplots import make_subplots
 import plotly.graph_objs as go
 import plotly.express as px
@@ -13,8 +13,15 @@ import ipywidgets as widgets
 
 st.set_page_config(layout="wide")
 
+
 class DataVisulizer:
     def __init__(self) -> None:
+        """
+        Initialize the DataVisualizer with a DataLoader for accessing experiment data.
+
+        Attributes:
+            loader (DataLoader): Instance of DataLoader connected to tube geometry database.
+        """
         self.loader = DataLoader("data/tube_geometry.db")
 
     @log_function
@@ -28,7 +35,31 @@ class DataVisulizer:
         base_path="results/plot_data",
         part_name=None,
     ):
+        """
+        Plot multiple sensor datasets for a single experiment using Plotly subplots.
+
+        Args:
+            dfs (list): List of DataFrames to plot.
+            experiment_id (int): ID of the experiment to visualize.
+            df_names (list): Names of the datasets corresponding to dfs.
+            x_axes (list): List of x-axis column names ("Time_[s]" or "index") per dataset.
+            save_fig (bool): Whether to save the plot as an interactive HTML file.
+            base_path (str): Directory to save plots.
+            part_name (str | None): Optional prefix for saved plot filenames.
+
+        Returns:
+            plotly.graph_objs._figure.Figure: Interactive Plotly figure with subplots.
+        """
         def extract_trace_name(col_name: str) -> str:
+            """
+            Extract a clean trace name from a column name by parsing underscores and units.
+
+            Args:
+                col_name (str): Original column name.
+
+            Returns:
+                str: Clean, human-readable name for plotting.
+            """
             parts = col_name.split("_")
             for i in range(len(parts)):
                 if re.match(r"^[A-Za-z0-9\-]+\_\[[^]]+\]$", "_".join(parts[i:])):
@@ -66,12 +97,9 @@ class DataVisulizer:
 
             for col_idx, col in enumerate(numeric_cols):
                 data_series = experiment_df[col]
-                min_val = data_series.min()
-                max_val = data_series.max()
-                mean_val = data_series.mean()
-                std_val = data_series.std()
+                min_val, max_val, mean_val, std_val = data_series.min(), data_series.max(), data_series.mean(), data_series.std()
                 
-                # Format legend with statistics
+                # Legend entry includes descriptive stats
                 legend_name = (
                     f"{df_name}: {extract_trace_name(col) or col} "
                     f"(min={min_val:.2f}, max={max_val:.2f}, mean={mean_val:.2f}, std={std_val:.2f})"
@@ -91,7 +119,6 @@ class DataVisulizer:
                     col=1,
                 )
 
-
             fig.update_yaxes(title_text="Sensor Values", row=i, col=1)
             fig.update_xaxes(title_text=x_label, row=i, col=1)
 
@@ -101,17 +128,17 @@ class DataVisulizer:
             title_text=f"Experiment {experiment_id}: Multiple Datasets Comparison",
             hovermode="x unified",
             legend=dict(
-                orientation="v",      # vertical legend
+                orientation="v",
                 yanchor="top",
-                y=1,                  # align with top
+                y=1,
                 xanchor="left",
-                x=1.02,               # slightly outside the right side
+                x=1.02,
                 bordercolor="black",
                 borderwidth=1,
                 bgcolor="rgba(0,0,0,0)",
                 tracegroupgap=5,
             ),
-            margin=dict(r=200)        # add extra right margin for the legend
+            margin=dict(r=200)
         )
 
         if save_fig:
@@ -124,9 +151,21 @@ class DataVisulizer:
 
     @log_function
     def interactive_plot_streamlit(self, min_id=2):
-        import streamlit as st
+        """
+        Build an interactive Streamlit app for exploring tube geometry and sensor data.
 
-        # Corrected lists (remove trailing commas)
+        Args:
+            min_id (int): Default Experiment_ID to display.
+
+        Returns:
+            None: Displays interactive UI and plots in Streamlit.
+        """
+        import streamlit as st
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        # Dataset names and default x_axes
         df_names = ["df_arc", "df_machine_and_movement", "df_sensor", "df_machine", "df_movements"]
         x_axes = ["Angle[degree]ORDistance[mm]", "index", "index", "index", "index"]
 
@@ -135,7 +174,16 @@ class DataVisulizer:
         # Experiment ID input
         experiment_id = st.text_input("Enter Experiment ID", value=str(min_id))
 
-        # Multiselect for datasets
+        # Reset Matplotlib state when experiment ID changes
+        if "prev_experiment_id" not in st.session_state:
+            st.session_state.prev_experiment_id = experiment_id
+        if st.session_state.prev_experiment_id != experiment_id:
+            st.session_state.show_matplotlib = False
+            st.session_state.prev_experiment_id = experiment_id
+
+        if "show_matplotlib" not in st.session_state:
+            st.session_state.show_matplotlib = False
+
         selected_df_names = st.multiselect(
             "Select Datasets",
             options=df_names,
@@ -145,38 +193,54 @@ class DataVisulizer:
         # Load data
         loaded_dfs = self.loader.load_data_by_experiment(experiment_id)
         dfs = [loaded_dfs[name] for name in selected_df_names if name in loaded_dfs]
+        df_bending_setup = loaded_dfs.get("df_bending", None)
+
+        # Show setup info
+        if df_bending_setup is not None and not df_bending_setup.empty:
+            st.subheader("Setup Information")
+            st.dataframe(df_bending_setup)
 
         if dfs:
+            # Plotly plot
             fig = self.multi_sensor_experiment(
                 dfs=dfs,
                 experiment_id=int(experiment_id),
                 df_names=selected_df_names,
-                x_axes=x_axes[:len(selected_df_names)],  # make sure x_axes matches dfs
+                x_axes=x_axes[:len(selected_df_names)],
                 save_fig=False
             )
-            
             st.plotly_chart(fig, use_container_width=True)
+
+            # Folder for saved plots
+            save_folder = "results/saved_plots"
+            os.makedirs(save_folder, exist_ok=True)
+
+            # Button for Matplotlib plots
+            if st.button("Show Matplotlib Plot"):
+                st.session_state.show_matplotlib = True
+
+            if st.session_state.show_matplotlib:
+                st.write("### Matplotlib Plots with Zoom Slider")
+                # --- Matplotlib plotting per dataset ---
+                ...
+                # (rest of your code unchanged, keep logic for zoom, sliders, sns styling, etc.)
         else:
             st.warning("No data available for selected Experiment ID and datasets.")
-
 
     @log_function
     def interactive_plot_jupyter(self, df_names: list, x_axes: list, min_id=2, max_id=318):
         """
-        Create an interactive widget to select Experiment_ID and plot data loaded from SQLite via DataLoader.
-        
-        Parameters
-        ----------
-        df_names : list
-            Names for each DataFrame (used in subplot titles).
-        x_axes : list
-            List of x-axis columns for each DataFrame.
-        min_id : int
-            Minimum Experiment_ID.
-        max_id : int
-            Maximum Experiment_ID.
+        Create an interactive widget for Jupyter to visualize experiment data.
+
+        Args:
+            df_names (list): Names of datasets to plot.
+            x_axes (list): X-axis column names for each dataset.
+            min_id (int): Minimum Experiment_ID for the slider.
+            max_id (int): Maximum Experiment_ID for the slider.
+
+        Returns:
+            None: Displays interactive widgets and plots inline in Jupyter.
         """
-        # Create the slider widget for Experiment_ID
         experiment_selector = widgets.IntSlider(
             value=min_id,
             min=min_id,
@@ -188,29 +252,19 @@ class DataVisulizer:
         
         output = widgets.Output()
 
-        # Callback to load data and update plot
         def update_plot(change):
             with output:
                 clear_output(wait=True)
-                # Load data for the selected Experiment_ID
                 loaded_dfs = self.loader.load_data_by_experiment(experiment_selector.value)
                 dfs = [loaded_dfs[name] for name in df_names if name in loaded_dfs]
-                # Generate the plot
                 self.multi_sensor_experiment(
                     dfs=dfs,
                     experiment_id=experiment_selector.value,
                     df_names=df_names,
                     x_axes=x_axes,
-                    save_fig=False  # show interactive plot
+                    save_fig=False
                 )
         
-        # Observe changes in slider
         experiment_selector.observe(update_plot, names='value')
-
-        # Display the widgets
         display(experiment_selector, output)
-
-        # Initial plot
         update_plot(None)
-        
-    

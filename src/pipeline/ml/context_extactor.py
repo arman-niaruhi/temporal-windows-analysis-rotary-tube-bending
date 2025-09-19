@@ -10,6 +10,11 @@ from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
 
+
+import matplotlib
+matplotlib.use('TkAgg')  # or 'Qt5Agg', depending on your system
+
+
 class ContextExtractor():
     def __init__(self, input_df: pd.DataFrame, target_df: pd.DataFrame) -> None:
         self.input_df = input_df
@@ -20,30 +25,22 @@ class ContextExtractor():
                                 method_num=1,
                                 num_top_windows=1,
                                 model_choice='xgboost'):
-        import numpy as np
-        import matplotlib.pyplot as plt
-        from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, AdaBoostRegressor
-        from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
-        from sklearn.svm import SVR
-        from sklearn.neural_network import MLPRegressor
-        from sklearn.metrics import mean_absolute_error, r2_score
-        from xgboost import XGBRegressor
-        from lightgbm import LGBMRegressor
 
         X = np.array(self.input_df.drop(columns=["Experiment_ID"]).copy())
-        y = np.array(self.target_df[target_column].copy())
-        n_timesteps = len(y)
-        n_features = X.shape[1]
+        cols_to_select = [col for col in self.target_df.columns 
+                  if any(keyword in col for keyword in 
+                         ["Angle","Secondary", "Main-axis", "Out-of-roundness", "Collapse"])]
+        subset_df = self.target_df[cols_to_select].copy()
+        y_all = np.array(subset_df)
+        y = y_all[0]
+        def split_non_overlapping(X, window_size):
+            n_samples = X.shape[0]
+            n_windows = n_samples // window_size
+            return np.array(np.split(X[:n_windows*window_size], n_windows))
+        
+        windows = split_non_overlapping(X, window_size=50)
+        
 
-        # ---------------------------
-        # Aggregate X into windows matching target y
-        # ---------------------------
-        window_size = X.shape[0] // n_timesteps
-        leftover = X.shape[0] % n_timesteps
-
-        X_agg = np.array([X[i*window_size:(i+1)*window_size].mean(axis=0) for i in range(n_timesteps-1)])
-        X_last = X[(n_timesteps-1)*window_size:].mean(axis=0)
-        X_agg = np.vstack([X_agg, X_last])  # shape now matches y: (n_timesteps, n_features)
 
         # ---------------------------
         # 3. Choose and fit model
