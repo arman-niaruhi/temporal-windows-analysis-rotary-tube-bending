@@ -2,6 +2,7 @@ from src.pipeline.preprocessing.data_preprecessor import DataPreprocessPipeline
 from src.pipeline.preprocessing.loader import DataLoader
 from src.pipeline.report.visualizer import DataVisulizer
 from src.pipeline.ml.context_extactor import ContextExtractor
+import streamlit as st
 
 
 def main():
@@ -9,12 +10,14 @@ def main():
     # 1. Load Data From SQLite or update the SQLite
     # -----------------------------
     # DataPreprocessPipeline.run()
-    EXPERIMENT_ID = 8
-    loader = DataLoader("data/tube_geometry.db")
-    loaded_dfs = loader.load_data_by_experiment(EXPERIMENT_ID)
+    @st.cache_data
+    def load_data():
+        loader = DataLoader("data/tube_geometry.db")
+        return loader.load_all_data()
+
+    loaded_dfs = load_data()
     df_arc = loaded_dfs["df_arc"]
     df_machine_and_movement = loaded_dfs["df_machine_and_movement"]
-    all_data = loader.load_all_data()
 
     # -----------------------------
     # 2. Context Extraction

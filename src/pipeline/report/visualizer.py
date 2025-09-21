@@ -6,9 +6,11 @@ import streamlit as st
 import re
 import os
 from src.pipeline.preprocessing.loader import DataLoader
+
 # IPython widgets for Jupyter interactivity
 from IPython.display import display, clear_output
 import ipywidgets as widgets
+import seaborn as sns
 
 
 st.set_page_config(layout="wide")
@@ -50,6 +52,7 @@ class DataVisulizer:
         Returns:
             plotly.graph_objs._figure.Figure: Interactive Plotly figure with subplots.
         """
+
         def extract_trace_name(col_name: str) -> str:
             """
             Extract a clean trace name from a column name by parsing underscores and units.
@@ -69,7 +72,9 @@ class DataVisulizer:
         if df_names is None:
             df_names = [f"Dataset {i+1}" for i in range(len(dfs))]
         elif len(df_names) != len(dfs):
-            raise ValueError("Number of DataFrame names must match number of DataFrames")
+            raise ValueError(
+                "Number of DataFrame names must match number of DataFrames"
+            )
 
         if x_axes is None:
             x_axes = ["Time_[s]" if "Time_[s]" in df.columns else "index" for df in dfs]
@@ -79,32 +84,52 @@ class DataVisulizer:
         fig = make_subplots(
             rows=len(dfs),
             cols=1,
-            subplot_titles=[f"{name} - Experiment {experiment_id}" for name in df_names],
+            subplot_titles=[
+                f"{name} - Experiment {experiment_id}" for name in df_names
+            ],
             vertical_spacing=0.15,
         )
 
         colors = px.colors.qualitative.Plotly
 
-        for i, (df, x_axis_choice, df_name) in enumerate(zip(dfs, x_axes, df_names), start=1):
+        for i, (df, x_axis_choice, df_name) in enumerate(
+            zip(dfs, x_axes, df_names), start=1
+        ):
             experiment_df = df[df["Experiment_ID"] == experiment_id]
             if experiment_df.empty:
-                raise ValueError(f"No data found for Experiment_ID {experiment_id} in DataFrame {i}")
+                raise ValueError(
+                    f"No data found for Experiment_ID {experiment_id} in DataFrame {i}"
+                )
 
-            x_axis = experiment_df.index if x_axis_choice == "index" else experiment_df[x_axis_choice]
+            x_axis = (
+                experiment_df.index
+                if x_axis_choice == "index"
+                else experiment_df[x_axis_choice]
+            )
             x_label = "Time" if x_axis_choice == "index" else x_axis_choice
 
-            numeric_cols = [col for col in experiment_df.columns if col not in ["Experiment_ID", x_axis_choice]]
+            numeric_cols = [
+                col
+                for col in experiment_df.columns
+                if col not in ["Experiment_ID", x_axis_choice]
+            ]
 
             for col_idx, col in enumerate(numeric_cols):
                 data_series = experiment_df[col]
-                min_val, max_val, mean_val, std_val, count_val = data_series.min(), data_series.max(), data_series.mean(), data_series.std(), data_series.nunique()
-                
+                min_val, max_val, mean_val, std_val, count_val = (
+                    data_series.min(),
+                    data_series.max(),
+                    data_series.mean(),
+                    data_series.std(),
+                    data_series.nunique(),
+                )
+
                 # Legend entry includes descriptive stats
                 legend_name = (
                     f"{df_name}: {extract_trace_name(col) or col} "
                     f"(min={min_val:.2f}, max={max_val:.2f}, mean={mean_val:.2f}, std={std_val:.2f}, unique count={count_val})"
                 )
-                
+
                 color = colors[col_idx % len(colors)]
                 fig.add_trace(
                     go.Scatter(
@@ -138,12 +163,14 @@ class DataVisulizer:
                 bgcolor="rgba(0,0,0,0)",
                 tracegroupgap=5,
             ),
-            margin=dict(r=200)
+            margin=dict(r=200),
         )
 
         if save_fig:
             os.makedirs(base_path, exist_ok=True)
-            saving_path = f"{base_path}/{part_name}_experiment_plot_{experiment_id}.html"
+            saving_path = (
+                f"{base_path}/{part_name}_experiment_plot_{experiment_id}.html"
+            )
             fig.write_html(saving_path)
             print(f"Interactive plot with {len(dfs)} subplots saved to {saving_path}")
 
@@ -162,11 +189,18 @@ class DataVisulizer:
         """
         import streamlit as st
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
         # Dataset names and default x_axes
-        df_names = ["df_arc", "df_machine_and_movement", "df_sensor", "df_machine", "df_movements"]
+        df_names = [
+            "df_arc",
+            "df_machine_and_movement",
+            "df_sensor",
+            "df_machine",
+            "df_movements",
+        ]
         x_axes = ["Angle[degree]ORDistance[mm]", "index", "index", "index", "index"]
 
         st.title("Tube Geometry Sensors")
@@ -185,17 +219,13 @@ class DataVisulizer:
             st.session_state.show_matplotlib = False
 
         selected_df_names = st.multiselect(
-            "Select Datasets",
-            options=df_names,
-            default=df_names
+            "Select Datasets", options=df_names, default=df_names
         )
 
         # Load data
         loaded_dfs = self.loader.load_data_by_experiment(experiment_id)
         dfs = [loaded_dfs[name] for name in selected_df_names if name in loaded_dfs]
         df_bending_setup = loaded_dfs.get("df_bending", None)
-        
-        
 
         # Show setup info
         if df_bending_setup is not None and not df_bending_setup.empty:
@@ -208,17 +238,16 @@ class DataVisulizer:
                 dfs=dfs,
                 experiment_id=int(experiment_id),
                 df_names=selected_df_names,
-                x_axes=x_axes[:len(selected_df_names)],
-                save_fig=False
+                x_axes=x_axes[: len(selected_df_names)],
+                save_fig=False,
             )
             st.plotly_chart(fig, use_container_width=True)
-             # --- Show raw DataFrames for selected datasets ---
+            # --- Show raw DataFrames for selected datasets ---
             if st.checkbox("Show Selected Tables"):
                 for df_name in selected_df_names:
                     if df_name in loaded_dfs:
                         st.subheader(f"Table: {df_name}")
                         st.dataframe(loaded_dfs[df_name])
-    
 
             # Folder for saved plots
             save_folder = "results/saved_plots"
@@ -229,15 +258,118 @@ class DataVisulizer:
                 st.session_state.show_matplotlib = True
 
             if st.session_state.show_matplotlib:
-                st.write("### Matplotlib Plots with Zoom Slider")
-                # --- Matplotlib plotting per dataset ---
-                ...
-                # (rest of your code unchanged, keep logic for zoom, sliders, sns styling, etc.)
+                for df, x_axis_choice, df_name in zip(
+                    dfs, x_axes[: len(dfs)], selected_df_names
+                ):
+                    experiment_df = df[df["Experiment_ID"] == int(experiment_id)]
+                    if experiment_df.empty:
+                        st.write(f"No data available for {df_name}")
+                        continue
+                    # --- Settings per dataset ---
+                    st.markdown(f"### Settings for {df_name}")
+                    col1, col2, col3 = st.columns([2, 2, 2])
+                    with col1:
+                        x_label = st.text_input(
+                            f"X-axis label",
+                            value=x_axis_choice,
+                            key=f"{df_name}_xlabel",
+                        )
+                    with col2:
+                        y_label = st.text_input(
+                            f"Y-axis label", value="Values", key=f"{df_name}_ylabel"
+                        )
+                    with col3:
+                        title = st.text_input(
+                            f"Title for {df_name}",
+                            value=f"{df_name} - Experiment {experiment_id}",
+                        )
+                    # --- Sensor selection ---
+                    numeric_cols = [
+                        col
+                        for col in experiment_df.columns
+                        if col not in ["Experiment_ID", x_axis_choice]
+                    ]
+                    selected_sensors = st.multiselect(
+                        f"Select sensors to plot",
+                        options=numeric_cols,
+                        default=numeric_cols,
+                        key=f"{df_name}_sensors",
+                    )
+                    # --- X-axis zoom slider ---
+                    x_axis = (
+                        experiment_df.index
+                        if x_axis_choice == "index"
+                        else experiment_df[x_axis_choice]
+                    )
+                    x_min = int(x_axis.min())
+                    x_max = int(x_axis.max())
+                    x_start, x_end = st.slider(
+                        f"Select X-axis range for {df_name}",
+                        min_value=x_min,
+                        max_value=x_max,
+                        value=(x_min, x_max),
+                        step=1,
+                        key=f"{df_name}_xarea",
+                    )
+                    # Filter dataframe for selected x-axis area
+                    mask = (x_axis >= x_start) & (x_axis <= x_end)
+                    filtered_df = experiment_df.loc[mask]
+                    filtered_x = x_axis[mask]
+                    # --- Plotting --- # Use a clean, professional
+                    # style
+                    sns.set_style("white")
+                    # no grid clutter, clean background
+                    plt.rcParams.update(
+                        {
+                            "figure.figsize": (12, 5),
+                            "axes.titlesize": 16,
+                            "axes.labelsize": 10,
+                            "xtick.labelsize": 10,
+                            "ytick.labelsize": 10,
+                            "legend.fontsize": 6,
+                            "lines.linewidth": 2,
+                            "lines.markersize": 6,
+                            "font.family": "serif",  # better for publications
+                        }
+                    )
+                    palette = sns.color_palette("tab10", n_colors=len(selected_sensors))
+                    # Create figure
+                    fig, ax = plt.subplots()
+                    # Plot each sensor with distinct colors and clear line style
+                    for i, col in enumerate(selected_sensors):
+                        ax.plot(
+                            filtered_x,
+                            filtered_df[col],
+                            label=col,
+                            color=palette[i],
+                            linestyle="-",
+                            marker=None,
+                        )
+                    # Labels and title
+                    ax.set_xlabel(x_label, fontsize=14)
+                    ax.set_ylabel(y_label, fontsize=14)
+                    ax.set_title(title, fontsize=16, fontweight="bold")
+                    # Gridlines (subtle)
+                    ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+                    # Legend outside the plot (optional, looks cleaner in papers)
+                    ax.legend(loc="upper left", bbox_to_anchor=(1, 1), frameon=False)
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    # --- Save plot button ---
+                    if st.button(f"Save Plot: {df_name}"):
+                        filename = (
+                            f"{df_name}_Experiment{experiment_id}_{x_start}_{x_end}.png"
+                        )
+                        filepath = os.path.join(save_folder, filename)
+                        fig.savefig(filepath, dpi=300)
+                        st.success(f"Plot saved as {filepath}")
         else:
             st.warning("No data available for selected Experiment ID and datasets.")
 
     @log_function
-    def interactive_plot_jupyter(self, df_names: list, x_axes: list, min_id=2, max_id=318):
+    def interactive_plot_jupyter(
+        self, df_names: list, x_axes: list, min_id=2, max_id=318
+    ):
         """
         Create an interactive widget for Jupyter to visualize experiment data.
 
@@ -255,25 +387,27 @@ class DataVisulizer:
             min=min_id,
             max=max_id,
             step=1,
-            description='Experiment ID:',
-            continuous_update=False
+            description="Experiment ID:",
+            continuous_update=False,
         )
-        
+
         output = widgets.Output()
 
         def update_plot(change):
             with output:
                 clear_output(wait=True)
-                loaded_dfs = self.loader.load_data_by_experiment(experiment_selector.value)
+                loaded_dfs = self.loader.load_data_by_experiment(
+                    experiment_selector.value
+                )
                 dfs = [loaded_dfs[name] for name in df_names if name in loaded_dfs]
                 self.multi_sensor_experiment(
                     dfs=dfs,
                     experiment_id=experiment_selector.value,
                     df_names=df_names,
                     x_axes=x_axes,
-                    save_fig=False
+                    save_fig=False,
                 )
-        
-        experiment_selector.observe(update_plot, names='value')
+
+        experiment_selector.observe(update_plot, names="value")
         display(experiment_selector, output)
         update_plot(None)
