@@ -97,12 +97,12 @@ class DataVisulizer:
 
             for col_idx, col in enumerate(numeric_cols):
                 data_series = experiment_df[col]
-                min_val, max_val, mean_val, std_val = data_series.min(), data_series.max(), data_series.mean(), data_series.std()
+                min_val, max_val, mean_val, std_val, count_val = data_series.min(), data_series.max(), data_series.mean(), data_series.std(), data_series.nunique()
                 
                 # Legend entry includes descriptive stats
                 legend_name = (
                     f"{df_name}: {extract_trace_name(col) or col} "
-                    f"(min={min_val:.2f}, max={max_val:.2f}, mean={mean_val:.2f}, std={std_val:.2f})"
+                    f"(min={min_val:.2f}, max={max_val:.2f}, mean={mean_val:.2f}, std={std_val:.2f}, unique count={count_val})"
                 )
                 
                 color = colors[col_idx % len(colors)]
@@ -194,6 +194,8 @@ class DataVisulizer:
         loaded_dfs = self.loader.load_data_by_experiment(experiment_id)
         dfs = [loaded_dfs[name] for name in selected_df_names if name in loaded_dfs]
         df_bending_setup = loaded_dfs.get("df_bending", None)
+        
+        
 
         # Show setup info
         if df_bending_setup is not None and not df_bending_setup.empty:
@@ -210,6 +212,13 @@ class DataVisulizer:
                 save_fig=False
             )
             st.plotly_chart(fig, use_container_width=True)
+             # --- Show raw DataFrames for selected datasets ---
+            if st.checkbox("Show Selected Tables"):
+                for df_name in selected_df_names:
+                    if df_name in loaded_dfs:
+                        st.subheader(f"Table: {df_name}")
+                        st.dataframe(loaded_dfs[df_name])
+    
 
             # Folder for saved plots
             save_folder = "results/saved_plots"
