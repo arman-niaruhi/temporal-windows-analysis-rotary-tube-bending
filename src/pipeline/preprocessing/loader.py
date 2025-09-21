@@ -58,7 +58,12 @@ class DataLoader:
         conn.close()
 
     @log_function
-    def load_all_data(self, store_index_tables: list) -> Dict[str, pd.DataFrame]:
+    def load_all_data(self, store_index_tables=[
+            "df_machine",
+            "df_sensor",
+            "df_machine_and_movement",
+            "df_movements",
+        ]) -> Dict[str, pd.DataFrame]:
         """
         Load all tables from the SQLite database into a dictionary of DataFrames.
 
