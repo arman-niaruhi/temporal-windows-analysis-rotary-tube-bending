@@ -14,12 +14,13 @@ def main():
     loaded_dfs = loader.load_data_by_experiment(EXPERIMENT_ID)
     df_arc = loaded_dfs["df_arc"]
     df_machine_and_movement = loaded_dfs["df_machine_and_movement"]
+    all_data = loader.load_all_data()
 
     # -----------------------------
     # 2. Context Extraction
     # -----------------------------
-    context_extractor = ContextExtractor(input_df=df_machine_and_movement, target_df=df_arc)
-    context_extractor.extract_important_window(target_column="Collapse [mm]", num_top_windows=50, )
+    # context_extractor = ContextExtractor(input_df=df_machine_and_movement, target_df=df_arc)
+    # context_extractor.extract_important_window(target_column="Collapse [mm]", num_top_windows=50, )
 
     # -----------------------------
     # 3. Visualize
