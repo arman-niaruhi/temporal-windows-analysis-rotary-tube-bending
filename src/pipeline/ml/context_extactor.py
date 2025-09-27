@@ -9,10 +9,7 @@ from sklearn.neural_network import MLPRegressor
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
-
-
 import matplotlib
-matplotlib.use('TkAgg')  # or 'Qt5Agg', depending on your system
 
 
 class ContextExtractor():

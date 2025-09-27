@@ -1,3 +1,8 @@
+import streamlit as st
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 from src.logging.log_utils import log_function
 from plotly.subplots import make_subplots
 import plotly.graph_objs as go
@@ -187,11 +192,6 @@ class DataVisulizer:
         Returns:
             None: Displays interactive UI and plots in Streamlit.
         """
-        import streamlit as st
-        import matplotlib
-
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
 
         # Dataset names and default x_axes
         df_names = [

@@ -18,6 +18,9 @@ __pycache__/
 *.so
 *.db
 
+# Ignore virtual environment
+*venv/
+
 # Distribution / packaging
 .Python
 build/
