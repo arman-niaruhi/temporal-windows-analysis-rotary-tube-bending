@@ -136,7 +136,7 @@ class LSTMAttentionModel(nn.Module):
 # Training function with enhanced stability and tqdm progress tracking
 def train_model(model, X, y, epochs=500, lr=0.0001, batch_size=16, print_every=50):
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     
     dataset_size = X.shape[0]
     
