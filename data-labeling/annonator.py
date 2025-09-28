@@ -66,29 +66,7 @@ class ExperimentAnnotator:
         self.exp_selector['values'] = list(self.df['Experiment_ID'].unique())
         messagebox.showinfo("Loaded", f"CSV loaded with {len(self.df['Experiment_ID'].unique())} experiments.")
 
-    def load_json(self):
-        file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
-        if not file_path:
-            return
-        try:
-            with open(file_path, "r") as f:
-                loaded = json.load(f)
-                if isinstance(loaded, dict):
-                    if "labels" in loaded and isinstance(loaded["labels"], list):
-                        self.labels = loaded["labels"]
-                    else:
-                        messagebox.showerror("Error", "JSON format invalid: expected a list of labels")
-                        return
-                elif isinstance(loaded, list):
-                    self.labels = loaded
-                else:
-                    messagebox.showerror("Error", "JSON format invalid: expected list or dict")
-                    return
-            messagebox.showinfo("Loaded", f"Loaded {len(self.labels)} annotations from JSON.")
-            self.plot_experiment()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load JSON: {e}")
-
+  
     def plot_experiment(self, event=None):
         exp_id = self.exp_selector.get()
         if not exp_id or self.df is None:
@@ -156,7 +134,7 @@ class ExperimentAnnotator:
         labels = sensor_labels + annotation_labels
 
         # Draw the legend outside the plot
-        leg = self.ax.legend(handles, labels, bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=8, frameon=True)
+        leg = self.ax.legend(handles, labels, bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=5, frameon=True)
 
         # -- Prepare interactive mapping for sensor legend lines only --
         # Clear any previous mapping and disconnect previous pick handler to avoid duplicates
@@ -257,9 +235,45 @@ class ExperimentAnnotator:
             return
         file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
         if file_path:
+            # Group labels by Experiment_ID
+            grouped = {}
+            for lbl in self.labels:
+                exp_id = str(lbl["Experiment_ID"])
+                grouped.setdefault(exp_id, []).append({
+                    "label": lbl["label"],
+                    "start": lbl["start"],
+                    "end": lbl["end"]
+                })
             with open(file_path, "w") as f:
-                json.dump(self.labels, f, indent=4)
+                json.dump(grouped, f, indent=4)
             messagebox.showinfo("Saved", f"Labels saved to {file_path}")
+
+    def load_json(self):
+        file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+        if not file_path:
+            return
+        try:
+            with open(file_path, "r") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    self.labels = []
+                    # flatten grouped structure into self.labels
+                    for exp_id, lbl_list in loaded.items():
+                        for lbl in lbl_list:
+                            self.labels.append({
+                                "Experiment_ID": int(exp_id),
+                                "label": lbl["label"],
+                                "start": lbl["start"],
+                                "end": lbl["end"]
+                            })
+                else:
+                    messagebox.showerror("Error", "JSON format invalid: expected dict of experiments")
+                    return
+            messagebox.showinfo("Loaded", f"Loaded {len(self.labels)} annotations from JSON.")
+            self.plot_experiment()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load JSON: {e}")
+
 
 if __name__ == "__main__":
     root = tk.Tk()
