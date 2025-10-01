@@ -244,7 +244,7 @@ class DataTransformer:
             None: The method modifies the DataFrame attributes of the class directly.
         """
         for attr_name in [
-            "df_arc",
+            # "df_arc",
             "df_lin1",
             "df_lin2",
             "df_stl_arc",
