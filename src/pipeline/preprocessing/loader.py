@@ -58,7 +58,7 @@ class DataLoader:
         conn.close()
 
     @log_function
-    def load_all_data(self, store_index_tables=[
+    def load_all_data_from_sqlite(self, store_index_tables=[
             "df_machine",
             "df_sensor",
             "df_machine_and_movement",
@@ -94,7 +94,7 @@ class DataLoader:
         return dataframes
 
     @log_function
-    def load_data_by_experiment(
+    def load_data_by_experiment_from_sqlite(
         self,
         experiment_id,
         store_index_tables=[
@@ -136,3 +136,50 @@ class DataLoader:
 
         conn.close()
         return dataframes
+
+    @log_function
+    def store_to_csv(self, 
+                    cols_to_match: list[str],
+                    load_setup: pd.DataFrame | None,
+                    selected_dfs_features: list[pd.DataFrame],
+                    selected_dfs_target: list[pd.DataFrame],
+                    feature_file: str="features.csv", 
+                    target_file: str="targets.csv"):
+        """
+        Store filtered machine and arc data to CSV files.
+
+        Args:
+            load_setup (pd.DataFrame): Setup DataFrame containing experiment information.
+            loaded_dfs (dict): Dictionary of DataFrames including 'df_machine_and_movement'.
+            df_arc (pd.DataFrame): Arc DataFrame containing experiment information.
+            feature_file (str): Path to save the features CSV.
+            target_file (str): Path to save the targets CSV.
+
+        Returns:
+            tuple[pd.DataFrame, pd.DataFrame]:
+                (df_machine_filtered, df_arc_filtered) – the filtered DataFrames.
+        """
+        # Check if load_setup is None or empty
+        if load_setup is None or load_setup.empty:
+            return
+
+        # Group by these columns and collect Experiment_IDs
+        grouped = load_setup.groupby(cols_to_match)['Experiment_ID'].apply(list)
+
+        # Filter only groups with more than 1 experiment (i.e., duplicates)
+        duplicates_list = [exp_list for exp_list in grouped if len(exp_list) > 1]
+        print("Duplicate experiment groups:", duplicates_list)
+
+        # Take only the first experiment ID from each group
+        first_experiments = [exp_list[0] for exp_list in grouped]
+
+        # Filter the DataFrames
+        for df in selected_dfs_features:
+            df_filtered = df[df['Experiment_ID'].isin(first_experiments)]
+            df_filtered.to_csv(feature_file, index=False)
+        
+        for df in selected_dfs_target:
+            df_filtered = df[df['Experiment_ID'].isin(first_experiments)]
+            df_filtered.to_csv(target_file, index=False)
+
+        

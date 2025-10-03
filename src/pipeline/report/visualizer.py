@@ -29,7 +29,7 @@ class DataVisulizer:
         Attributes:
             loader (DataLoader): Instance of DataLoader connected to tube geometry database.
         """
-        self.loader = DataLoader("data/tube_geometry.db")
+        self.loader = DataLoader("data/processed/tube_geometry.db")
 
     @log_function
     def multi_sensor_experiment(
@@ -195,13 +195,13 @@ class DataVisulizer:
 
         # Dataset names and default x_axes
         df_names = [
-            "df_arc",
-            "df_machine_and_movement",
-            "df_sensor",
-            "df_machine",
-            "df_movements",
+            "arc",
+            "machine_and_movement",
+            "sensor",
+            "machine",
+            "movements",
         ]
-        x_axes = ["Angle[degree]ORDistance[mm]", "index", "index", "index", "index"]
+        x_axes = ["Angle[degree]ORDistance[mm]", "Time_[s]", "Time_[s]", "Time_[s]", "Time_[s]"]
 
         st.title("Tube Geometry Sensors")
 
@@ -218,14 +218,18 @@ class DataVisulizer:
         if "show_matplotlib" not in st.session_state:
             st.session_state.show_matplotlib = False
 
+        # Dataset selection
         selected_df_names = st.multiselect(
             "Select Datasets", options=df_names, default=df_names
         )
 
+        # Make order irrelevant by sorting alphabetically (or by your original df_names order)
+        selected_df_names = sorted(selected_df_names, key=lambda x: df_names.index(x))
+
         # Load data
-        loaded_dfs = self.loader.load_data_by_experiment(experiment_id)
+        loaded_dfs = self.loader.load_data_by_experiment_from_sqlite(experiment_id)
         dfs = [loaded_dfs[name] for name in selected_df_names if name in loaded_dfs]
-        df_bending_setup = loaded_dfs.get("df_bending", None)
+        df_bending_setup = loaded_dfs.get("bending", None)
 
         # Show setup info
         if df_bending_setup is not None and not df_bending_setup.empty:
@@ -233,14 +237,24 @@ class DataVisulizer:
             st.dataframe(df_bending_setup)
 
         if dfs:
-            # Plotly plot
+            # Determine x-axis dynamically per dataset
+            x_axes_selected = []
+            for df in dfs:
+                if "Angle[degree]ORDistance[mm]" in df.columns:
+                    x_axes_selected.append("Angle[degree]ORDistance[mm]")
+                elif "Time_[s]" in df.columns:
+                    x_axes_selected.append("Time_[s]")
+                else:
+                    x_axes_selected.append("index")
+
             fig = self.multi_sensor_experiment(
                 dfs=dfs,
                 experiment_id=int(experiment_id),
                 df_names=selected_df_names,
-                x_axes=x_axes[: len(selected_df_names)],
+                x_axes=x_axes_selected,
                 save_fig=False,
             )
+
             st.plotly_chart(fig, use_container_width=True)
             # --- Show raw DataFrames for selected datasets ---
             if st.checkbox("Show Selected Tables"):
@@ -258,13 +272,22 @@ class DataVisulizer:
                 st.session_state.show_matplotlib = True
 
             if st.session_state.show_matplotlib:
-                for df, x_axis_choice, df_name in zip(
-                    dfs, x_axes[: len(dfs)], selected_df_names
-                ):
+                # Dynamically determine x-axis per dataset
+                x_axes_selected = []
+                for df in dfs:
+                    if "Angle[degree]ORDistance[mm]" in df.columns:
+                        x_axes_selected.append("Angle[degree]ORDistance[mm]")
+                    elif "Time_[s]" in df.columns:
+                        x_axes_selected.append("Time_[s]")
+                    else:
+                        x_axes_selected.append("index")
+
+                for df, x_axis_choice, df_name in zip(dfs, x_axes_selected, selected_df_names):
                     experiment_df = df[df["Experiment_ID"] == int(experiment_id)]
                     if experiment_df.empty:
                         st.write(f"No data available for {df_name}")
                         continue
+
                     # --- Settings per dataset ---
                     st.markdown(f"### Settings for {df_name}")
                     col1, col2, col3 = st.columns([2, 2, 2])
@@ -283,6 +306,7 @@ class DataVisulizer:
                             f"Title for {df_name}",
                             value=f"{df_name} - Experiment {experiment_id}",
                         )
+
                     # --- Sensor selection ---
                     numeric_cols = [
                         col
@@ -295,14 +319,10 @@ class DataVisulizer:
                         default=numeric_cols,
                         key=f"{df_name}_sensors",
                     )
+
                     # --- X-axis zoom slider ---
-                    x_axis = (
-                        experiment_df.index
-                        if x_axis_choice == "index"
-                        else experiment_df[x_axis_choice]
-                    )
-                    x_min = int(x_axis.min())
-                    x_max = int(x_axis.max())
+                    x_axis = experiment_df.index if x_axis_choice == "index" else experiment_df[x_axis_choice]
+                    x_min, x_max = int(x_axis.min()), int(x_axis.max())
                     x_start, x_end = st.slider(
                         f"Select X-axis range for {df_name}",
                         min_value=x_min,
@@ -311,58 +331,46 @@ class DataVisulizer:
                         step=1,
                         key=f"{df_name}_xarea",
                     )
+
                     # Filter dataframe for selected x-axis area
                     mask = (x_axis >= x_start) & (x_axis <= x_end)
                     filtered_df = experiment_df.loc[mask]
                     filtered_x = x_axis[mask]
-                    # --- Plotting --- # Use a clean, professional
-                    # style
+
+                    # --- Plotting ---
                     sns.set_style("white")
-                    # no grid clutter, clean background
-                    plt.rcParams.update(
-                        {
-                            "figure.figsize": (12, 5),
-                            "axes.titlesize": 16,
-                            "axes.labelsize": 10,
-                            "xtick.labelsize": 10,
-                            "ytick.labelsize": 10,
-                            "legend.fontsize": 6,
-                            "lines.linewidth": 2,
-                            "lines.markersize": 6,
-                            "font.family": "serif",  # better for publications
-                        }
-                    )
+                    plt.rcParams.update({
+                        "figure.figsize": (12, 5),
+                        "axes.titlesize": 16,
+                        "axes.labelsize": 10,
+                        "xtick.labelsize": 10,
+                        "ytick.labelsize": 10,
+                        "legend.fontsize": 6,
+                        "lines.linewidth": 2,
+                        "lines.markersize": 6,
+                        "font.family": "serif",
+                    })
+
                     palette = sns.color_palette("tab10", n_colors=len(selected_sensors))
-                    # Create figure
                     fig, ax = plt.subplots()
-                    # Plot each sensor with distinct colors and clear line style
                     for i, col in enumerate(selected_sensors):
-                        ax.plot(
-                            filtered_x,
-                            filtered_df[col],
-                            label=col,
-                            color=palette[i],
-                            linestyle="-",
-                            marker=None,
-                        )
-                    # Labels and title
+                        ax.plot(filtered_x, filtered_df[col], label=col, color=palette[i], linestyle="-", marker=None)
+
                     ax.set_xlabel(x_label, fontsize=14)
                     ax.set_ylabel(y_label, fontsize=14)
                     ax.set_title(title, fontsize=16, fontweight="bold")
-                    # Gridlines (subtle)
                     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
-                    # Legend outside the plot (optional, looks cleaner in papers)
                     ax.legend(loc="upper left", bbox_to_anchor=(1, 1), frameon=False)
                     plt.tight_layout()
                     st.pyplot(fig)
+
                     # --- Save plot button ---
                     if st.button(f"Save Plot: {df_name}"):
-                        filename = (
-                            f"{df_name}_Experiment{experiment_id}_{x_start}_{x_end}.png"
-                        )
+                        filename = f"{df_name}_Experiment{experiment_id}_{x_start}_{x_end}.png"
                         filepath = os.path.join(save_folder, filename)
                         fig.savefig(filepath, dpi=300)
                         st.success(f"Plot saved as {filepath}")
+
         else:
             st.warning("No data available for selected Experiment ID and datasets.")
 
@@ -396,7 +404,7 @@ class DataVisulizer:
         def update_plot(change):
             with output:
                 clear_output(wait=True)
-                loaded_dfs = self.loader.load_data_by_experiment(
+                loaded_dfs = self.loader.load_data_by_experiment_from_sqlite(
                     experiment_selector.value
                 )
                 dfs = [loaded_dfs[name] for name in df_names if name in loaded_dfs]
