@@ -14,7 +14,7 @@ class DataExtractor:
 
     def __init__(self) -> None:
         """Load the experiments dictionary from the pickle file into self.loaded_dict."""
-        with open("data/experiments_process_and_results.pkl", "rb") as f:
+        with open("data/raw/experiments_process_and_results.pkl", "rb") as f:
             self.loaded_dict = pickle.load(f)
 
     def _take_bending_setups(
