@@ -133,7 +133,7 @@ class DataTransformer:
         """
         if not failed_experiment:
             return
-        
+
         for attr in [
             "df_arc",
             "df_lin1",
@@ -231,7 +231,7 @@ class DataTransformer:
             setattr(self, df_name, df)
 
     @log_function
-    def normalize_data(self):
+    def normalize_data(self, normalized_table: list[str]):
         """
         Normalize numeric columns in all relevant DataFrames to the range [0, 1].
 
@@ -245,18 +245,7 @@ class DataTransformer:
         Returns:
             None: The method modifies the DataFrame attributes of the class directly.
         """
-        for attr_name in [
-            # "df_arc",
-            "df_lin1",
-            "df_lin2",
-            "df_stl_arc",
-            "df_stl_lin1",
-            "df_stl_lin2",
-            "df_machine",
-            "df_sensor",
-            "df_movements",
-            "df_bending",
-        ]:
+        for attr_name in normalized_table:
             df = getattr(self, attr_name)
 
             # Select numeric columns excluding 'Experiment_ID' and 'Angle[degree]ORDistance[mm]'
@@ -364,7 +353,9 @@ class DataTransformer:
             )
 
             if len(numeric_cols) == 0:
-                logger.info(f"No numeric columns to compute correlation in '{attr_name}'.")
+                logger.info(
+                    f"No numeric columns to compute correlation in '{attr_name}'."
+                )
                 continue
 
             corr_matrix = df[numeric_cols].corr()
@@ -377,16 +368,20 @@ class DataTransformer:
             # Compute average absolute correlation per column
             abs_corr = corr_matrix.abs()
             # Ignore self-correlation
-            abs_corr.values[[range(len(abs_corr))]*2] = 0
+            abs_corr.values[[range(len(abs_corr))] * 2] = 0
             avg_corr = abs_corr.mean().sort_values()
 
             # Save least correlated columns to CSV
-            least_corr_path = os.path.join(output_dir, f"{attr_name}_least_correlated.csv")
+            least_corr_path = os.path.join(
+                output_dir, f"{attr_name}_least_correlated.csv"
+            )
             avg_corr.to_csv(least_corr_path, header=["avg_abs_correlation"])
             logger.info(
                 f"Saved least correlated columns for '{attr_name}' to '{least_corr_path}'."
             )
-            logger.info(f"Top 5 least correlated columns in '{attr_name}':\n{avg_corr.head()}")
+            logger.info(
+                f"Top 5 least correlated columns in '{attr_name}':\n{avg_corr.head()}"
+            )
 
             # Save heatmap plot
             plt.figure(figsize=(10, 8))
@@ -399,4 +394,6 @@ class DataTransformer:
             plot_path = os.path.join(output_dir, f"{attr_name}_correlation.png")
             plt.savefig(plot_path, dpi=300)
             plt.close()
-            logger.info(f"Saved correlation heatmap for '{attr_name}' to '{plot_path}'.")
+            logger.info(
+                f"Saved correlation heatmap for '{attr_name}' to '{plot_path}'."
+            )
