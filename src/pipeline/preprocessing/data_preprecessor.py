@@ -4,6 +4,7 @@ from src.pipeline.preprocessing.loader import DataLoader
 
 from src.logging.log_utils import log_function
 
+
 class DataPreprocessPipeline:
     """
     Pipeline for extracting, transforming, and loading bending setup and process data.
@@ -16,7 +17,14 @@ class DataPreprocessPipeline:
 
     @classmethod
     @log_function
-    def run(cls):
+    def run(
+        cls,
+        failed_experiment: list[int] | None,
+        eliminated_columns: dict[str, list[str]] | None,
+        normalized_tables: list[str] | None,
+        correlation_matrices: list[str] | None,
+        nan_handler: bool = True,
+    ):
         """
         Execute the full preprocessing pipeline: extraction, transformation, and loading.
 
@@ -54,35 +62,59 @@ class DataPreprocessPipeline:
         # -----------------------------
         transformer = DataTransformer(**dfs)
         transformer.check_quality()
-        transformer.delete_failed_experiment(failed_experiment=[1, 48, 166])
-        transformer.normalize_data()
-        transformer.nan_handler()
-        transformer.save_correlation_matrices(tables=["df_machine", "df_sensor","df_movements"])
-        transformer.eliminate_column(df_name="df_movements", column_name="PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]")
-        transformer.eliminate_column(df_name="df_movements", column_name="COLLET_ROTATING_Movement_[mm]")
-        
-        df_machine_and_movement, df_sensor, df_machine, df_movements = transformer.get_process_data()
-        df_arc, df_lin1, df_lin2, linear_df, all_geometry_data = transformer.get_geometry_data()
+        if failed_experiment:
+            transformer.delete_failed_experiment(failed_experiment=failed_experiment)
+
+        if eliminated_columns:
+            pairs = [
+                (key, item)
+                for key, values in eliminated_columns.items()
+                for item in values
+            ]
+            for tabel_name, column_name in pairs:
+                transformer.eliminate_column(
+                    df_name=tabel_name, column_name=column_name
+                )
+
+        if normalized_tables:  # shorthand for len(normalized_tables) > 0
+            transformer.normalize_data(normalized_table=normalized_tables)
+
+        if nan_handler:
+            transformer.nan_handler()
+
+        if correlation_matrices:
+            transformer.save_correlation_matrices(tables=correlation_matrices)
+
+        df_machine_and_movement, df_sensor, df_machine, df_movements = (
+            transformer.get_process_data()
+        )
+        df_arc, df_lin1, df_lin2, linear_df, all_geometry_data = (
+            transformer.get_geometry_data()
+        )
         df_bending = transformer.get_bending_setup()
-        
+
         # -----------------------------
         # 3. Loading
         # -----------------------------
+        loader = DataLoader("data/processed/tube_geometry.db")
         dataframes = {
-            "df_machine_and_movement": df_machine_and_movement,
-            #"df_lin1": df_lin1,
-            #"df_lin2": df_lin2,
-            "df_arc": df_arc,
-            #"all_geometry_data": all_geometry_data,
-            #"linear_df": linear_df,
-            "df_machine": df_machine,
-            "df_sensor": df_sensor,
-            "df_movements": df_movements,
-            "df_bending": df_bending
+            "machine_and_movement": df_machine_and_movement,
+            # "lin1": df_lin1,
+            # "lin2": df_lin2,
+            "arc": df_arc,
+            # "all_geometry_data": all_geometry_data,
+            # "linear_df": linear_df,
+            "machine": df_machine,
+            "sensor": df_sensor,
+            "movements": df_movements,
+            "bending": df_bending,
         }
-
-        loader = DataLoader("data/tube_geometry.db")
         loader.store_to_sqlite(
             dataframes,
-            store_index_tables=["df_machine", "df_sensor", "df_machine_and_movement", "df_movements"]
+            store_index_tables=[
+                "machine",
+                "sensor",
+                "machine_and_movement",
+                "movements",
+            ],
         )

@@ -3,89 +3,94 @@ from src.pipeline.preprocessing.loader import DataLoader
 from src.pipeline.report.visualizer import DataVisulizer
 from src.pipeline.ml.context_extactor import ContextExtractor
 import streamlit as st
+import json
 
 
-def main():
-    # -----------------------------
-    # 1. Load Data From SQLite or update the SQLite
-    # -----------------------------
-    eliminated_columns = {
-            "df_movements":[
-                "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
-                "COLLET_ROTATING_Movement_[mm]"
-            ]
-        }
-    failed_experiment = [1, 48, 166]
-    
-    normalized_tables = [
-            "df_arc",
-            "df_lin1",
-            "df_lin2",
-            "df_stl_arc",
-            "df_stl_lin1",
-            "df_stl_lin2",
-            "df_machine",
-            "df_sensor",
-            "df_movements",
-            "df_bending",
-        ]
+def preprocess_data(
+    failed_experiment, eliminated_columns, normalized_tables, correlation_matrices
+):
+    DataPreprocessPipeline.run(
+        failed_experiment=failed_experiment,
+        eliminated_columns=eliminated_columns,
+        normalized_tables=normalized_tables,
+        nan_handler=True,
+        correlation_matrices=correlation_matrices,
+    )
 
-    correlation_matrices = ["df_machine", "df_sensor","df_movements"]
-    DataPreprocessPipeline.run(failed_experiment=failed_experiment, 
-                               eliminated_columns = eliminated_columns,
-                               normalized_tables= normalized_tables, 
-                               nan_handler= True,
-                               correlation_matrices=correlation_matrices)
-    @st.cache_data
-    def load_data():
-        loader = DataLoader("data/processed/tube_geometry.db")
-        return loader.load_all_data()
 
-    loaded_dfs = load_data()
-    df_arc = loaded_dfs["df_arc"]
-    load_setup = loaded_dfs.get("df_bending", None)
+@st.cache_data
+def load_data():
+    loader = DataLoader("data/processed/tube_geometry.db")
+    return loader.load_all_data_from_sqlite()
 
-    # # Columns to match
-    # cols_to_match = [
-    #     'Pressure-die lateral position', 
-    #     'Pressure-die distance', 
-    #     'Pressure-die boost', 
-    #     'Mandrel position', 
-    #     'Mandrel retraction timing', 
-    #     'Collet boost', 
-    #     'Clamp-die lateral position'
-    # ]
 
-    # # Group by these columns and collect Experiment_IDs
-    # grouped = load_setup.groupby(cols_to_match)['Experiment_ID'].apply(list)
+def export_csv(loaded_dfs):
+    df_arc = loaded_dfs["arc"]
+    df_machine_and_movement = loaded_dfs["machine_and_movement"]
+    load_setup = loaded_dfs.get("bending", None)
 
-    # # Filter only groups with more than 1 experiment (i.e., duplicates)
-    # duplicates_list = [exp_list for exp_list in grouped if len(exp_list) > 1]
+    cols_to_match = [
+        "Pressure-die lateral position",
+        "Pressure-die distance",
+        "Pressure-die boost",
+        "Mandrel position",
+        "Mandrel retraction timing",
+        "Collet boost",
+        "Clamp-die lateral position",
+    ]
 
-    # # Show the result
-    # print(duplicates_list)
-    
-    # # Take only the first experiment ID from each group
-    # first_experiments = [exp_list[0] for exp_list in grouped]
+    loader = DataLoader("data/processed/tube_geometry.db")
+    loader.store_to_csv(
+        cols_to_match=cols_to_match,
+        load_setup=load_setup,
+        selected_dfs_features=[df_machine_and_movement],
+        selected_dfs_target=[df_arc],
+        feature_file="data/ml/features.csv",
+        target_file="data/ml/targets.csv",
+    )
 
-    # # Filter the machine and movement DataFrame
-    # df_machine_and_movement = loaded_dfs["df_machine_and_movement"]
-    # df_machine_filtered = df_machine_and_movement[df_machine_and_movement['Experiment_ID'].isin(first_experiments)]
-    # df_arc_filtered = df_arc[df_arc['Experiment_ID'].isin(first_experiments)]
-    # df_machine_filtered.to_csv("features.csv")
-    # df_arc_filtered.to_csv("targets.csv")
-    
-    # -----------------------------
-    # 2. Context Extraction
-    # -----------------------------
 
-    # -----------------------------
-    # 3. Visualize
-    # -----------------------------
+def extract_context():
+    # Implement your context extraction here
+    pass
+
+
+def visualize_data():
     vizualiser = DataVisulizer()
     vizualiser.interactive_plot_streamlit()
 
 
+def main():
+    # -----------------------------
+    # 1. Preprocessing
+    # -----------------------------
+    # Load the configuration
+    # with open("config/config.json", "r") as f:
+    #     config = json.load(f)
+
+    # eliminated_columns = config["eliminated_columns"]
+    # failed_experiment = config["failed_experiment"]
+    # normalized_tables = config["normalized_tables"]
+    # correlation_matrices = config["correlation_matrices"]
+    # preprocess_data(failed_experiment, eliminated_columns, normalized_tables, correlation_matrices)
+
+    # -----------------------------
+    # 2. CSV Export
+    # -----------------------------
+    # loaded_dfs = load_data()
+    # export_csv(loaded_dfs)
+
+    # -----------------------------
+    # 3. Context Extraction
+    # -----------------------------
+    # extract_context()
+
+    # -----------------------------
+    # 4. Visualization
+    # -----------------------------
+    visualize_data()
+
+
 if __name__ == "__main__":
     main()
-    # streamlit run main.py 
+    # streamlit run main.py
