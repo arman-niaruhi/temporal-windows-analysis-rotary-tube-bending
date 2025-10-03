@@ -121,7 +121,7 @@ class DataTransformer:
         return df_machine_and_movement, df_sensor, df_machine, df_movements
 
     @log_function
-    def delete_failed_experiment(self, failed_experiment: list[int]) -> None:
+    def delete_failed_experiment(self, failed_experiment: list[int] | None) -> None:
         """
         Remove rows corresponding to failed experiments from all relevant DataFrames.
 
@@ -131,7 +131,9 @@ class DataTransformer:
         Returns:
             None: The method updates the DataFrame attributes in place and does not return anything.
         """
-
+        if not failed_experiment:
+            return
+        
         for attr in [
             "df_arc",
             "df_lin1",

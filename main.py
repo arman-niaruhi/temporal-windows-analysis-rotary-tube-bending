@@ -9,10 +9,36 @@ def main():
     # -----------------------------
     # 1. Load Data From SQLite or update the SQLite
     # -----------------------------
-    # DataPreprocessPipeline.run()
+    eliminated_columns = {
+            "df_movements":[
+                "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
+                "COLLET_ROTATING_Movement_[mm]"
+            ]
+        }
+    failed_experiment = [1, 48, 166]
+    
+    normalized_tables = [
+            "df_arc",
+            "df_lin1",
+            "df_lin2",
+            "df_stl_arc",
+            "df_stl_lin1",
+            "df_stl_lin2",
+            "df_machine",
+            "df_sensor",
+            "df_movements",
+            "df_bending",
+        ]
+
+    correlation_matrices = ["df_machine", "df_sensor","df_movements"]
+    DataPreprocessPipeline.run(failed_experiment=failed_experiment, 
+                               eliminated_columns = eliminated_columns,
+                               normalized_tables= normalized_tables, 
+                               nan_handler= True,
+                               correlation_matrices=correlation_matrices)
     @st.cache_data
     def load_data():
-        loader = DataLoader("data/tube_geometry.db")
+        loader = DataLoader("data/processed/tube_geometry.db")
         return loader.load_all_data()
 
     loaded_dfs = load_data()
