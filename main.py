@@ -1,7 +1,7 @@
+import argparse
 from src.pipeline.preprocessing.data_preprecessor import DataPreprocessPipeline
 from src.pipeline.preprocessing.loader import DataLoader
 from src.pipeline.report.visualizer import DataVisulizer
-from src.pipeline.ml.context_extactor import ContextExtractor
 import streamlit as st
 import json
 
@@ -51,7 +51,7 @@ def export_csv(loaded_dfs):
 
 
 def extract_context():
-    # Implement your context extraction here
+    # Placeholder for context extraction
     pass
 
 
@@ -61,36 +61,39 @@ def visualize_data():
 
 
 def main():
-    # -----------------------------
-    # 1. Preprocessing
-    # -----------------------------
-    # Load the configuration
-    # with open("config/config.json", "r") as f:
-    #     config = json.load(f)
+    parser = argparse.ArgumentParser(description="Run different pipeline steps.")
+    parser.add_argument(
+        "step",
+        choices=["preprocess", "export", "context", "visualize"],
+        help="Choose which pipeline step to run",
+    )
+    args = parser.parse_args()
 
-    # eliminated_columns = config["eliminated_columns"]
-    # failed_experiment = config["failed_experiment"]
-    # normalized_tables = config["normalized_tables"]
-    # correlation_matrices = config["correlation_matrices"]
-    # preprocess_data(failed_experiment, eliminated_columns, normalized_tables, correlation_matrices)
+    if args.step == "preprocess":
+        with open("config/config.json", "r") as f:
+            config = json.load(f)
+        preprocess_data(
+            config["failed_experiment"],
+            config["eliminated_columns"],
+            config["normalized_tables"],
+            config["correlation_matrices"],
+        )
 
-    # -----------------------------
-    # 2. CSV Export
-    # -----------------------------
-    # loaded_dfs = load_data()
-    # export_csv(loaded_dfs)
+    elif args.step == "export":
+        loaded_dfs = load_data()
+        export_csv(loaded_dfs)
 
-    # -----------------------------
-    # 3. Context Extraction
-    # -----------------------------
-    # extract_context()
+    elif args.step == "context":
+        extract_context()
 
-    # -----------------------------
-    # 4. Visualization
-    # -----------------------------
-    visualize_data()
+    elif args.step == "visualize":
+        visualize_data()
 
 
 if __name__ == "__main__":
     main()
-    # streamlit run main.py
+    # Example usage:
+    # python main.py preprocess
+    # python main.py export
+    # python main.py context
+    # streamlit run main.py visualize
