@@ -72,7 +72,8 @@ class DataTransformer:
             df_lin2 = self.df_lin2[self.df_lin2["Experiment_ID"].isin(experiment_ids)]
 
         # Combine lin1 and lin2
-        linear_df = pd.concat([df_lin1, df_lin2], axis=1)
+        # TODO
+        linear_df = pd.concat([df_lin1, df_lin2], axis=0)
 
         # Combine arc, lin1, and lin2
         all_geometry_data = pd.concat([df_arc, df_lin1, df_lin2], axis=1)
