@@ -1,21 +1,36 @@
 import pickle
 import pandas as pd
-import sqlite3
 
 from src.logging.log_utils import log_function
 
 
 class DataExtractor:
+    """
+    Class to load and extract experiment data from a pickled dictionary.
+
+    Attributes:
+        loaded_dict (dict): Dictionary loaded from 'experiments_process_and_results.pkl' containing all experiment data.
+    """
+
     def __init__(self) -> None:
-        with open("data/experiments_process_and_results.pkl", "rb") as f:
+        """Load the experiments dictionary from the pickle file into self.loaded_dict."""
+        with open("data/raw/experiments_process_and_results.pkl", "rb") as f:
             self.loaded_dict = pickle.load(f)
 
     def _take_bending_setups(
         self, experiments_process_and_results, machine_part
     ) -> pd.DataFrame:
         """
-        Extracts all bending setups to a Pandas DataFrame and adds an 'Experiment_ID' column
-        if not already present.
+        Extract all bending setups for a specific machine part as a DataFrame.
+
+        Adds an 'Experiment_ID' column if not already present and ensures it is the first column.
+
+        Args:
+            experiments_process_and_results (dict): The loaded experiments dictionary.
+            machine_part (str): Key for the machine part or bending setup to extract.
+
+        Returns:
+            pd.DataFrame: Concatenated DataFrame containing all setups for the specified machine part.
         """
         if machine_part != "bending_setups":
             df_list = []
@@ -31,7 +46,6 @@ class DataExtractor:
                     ]
                     df = df[cols]
                 else:
-                    # Insert new column at position 0
                     df.insert(0, "Experiment_ID", experiment_name)
 
                 df_list.append(df)
@@ -51,62 +65,85 @@ class DataExtractor:
         return result
 
     def load_dict_getter(self):
-        """Getter for self.load_dict
-        obj.load_dict_getter"""
+        """
+        Getter for the loaded experiments dictionary.
+
+        Returns:
+            dict: The loaded experiments dictionary stored in self.loaded_dict.
+        """
         return self.loaded_dict
 
     @log_function
     def get_part_bending_setups(self, machine_part):
-        """Return all bending setups from the loaded dictionary."""
+        """
+        Return bending setups for a specific machine part from the loaded dictionary.
+
+        Args:
+            machine_part (str): Key for the machine part or bending setup to extract.
+
+        Returns:
+            pd.DataFrame: DataFrame containing all setups for the specified machine part.
+        """
         return self._take_bending_setups(self.loaded_dict, machine_part)
 
     @log_function
     def get_all_bending_setups(self):
-        """Return all bending setups from the loaded dictionary."""
+        """
+        Return all bending setups from the loaded dictionary as a dictionary of DataFrames.
+
+        Returns:
+            dict[str, pd.DataFrame]: Dictionary where keys are DataFrame names (e.g., 'df_arc', 'df_lin1')
+                                     and values are the corresponding bending setup DataFrames.
+        """
         return {
-        "df_arc": self._take_bending_setups(self.loaded_dict, "geometry_data_key_characteristics_arc"),
-        "df_lin1": self._take_bending_setups(self.loaded_dict, "geometry_data_key_characteristics_linear_1"),
-        "df_lin2": self._take_bending_setups(self.loaded_dict, "geometry_data_key_characteristics_linear_2"),
-        "df_stl_arc": self._take_bending_setups(self.loaded_dict, "geometry_data_stl_suitable_arc"),
-        "df_stl_lin1": self._take_bending_setups(self.loaded_dict, "geometry_data_stl_suitable_linear_1"),
-        "df_stl_lin2": self._take_bending_setups(self.loaded_dict, "geometry_data_stl_suitable_linear_2"),
-        "df_machine": self._take_bending_setups(self.loaded_dict, "process_parameters_loads_machine"),
-        "df_sensor": self._take_bending_setups(self.loaded_dict, "process_parameters_loads_sensor"),
-        "df_movements": self._take_bending_setups(self.loaded_dict, "process_parameters_movements"),
-        "df_bending": self._take_bending_setups(self.loaded_dict, "bending_setups"),
-    }
+            "df_arc": self._take_bending_setups(
+                self.loaded_dict, "geometry_data_key_characteristics_arc"
+            ),
+            "df_lin1": self._take_bending_setups(
+                self.loaded_dict, "geometry_data_key_characteristics_linear_1"
+            ),
+            "df_lin2": self._take_bending_setups(
+                self.loaded_dict, "geometry_data_key_characteristics_linear_2"
+            ),
+            "df_stl_arc": self._take_bending_setups(
+                self.loaded_dict, "geometry_data_stl_suitable_arc"
+            ),
+            "df_stl_lin1": self._take_bending_setups(
+                self.loaded_dict, "geometry_data_stl_suitable_linear_1"
+            ),
+            "df_stl_lin2": self._take_bending_setups(
+                self.loaded_dict, "geometry_data_stl_suitable_linear_2"
+            ),
+            "df_machine": self._take_bending_setups(
+                self.loaded_dict, "process_parameters_loads_machine"
+            ),
+            "df_sensor": self._take_bending_setups(
+                self.loaded_dict, "process_parameters_loads_sensor"
+            ),
+            "df_movements": self._take_bending_setups(
+                self.loaded_dict, "process_parameters_movements"
+            ),
+            "df_bending": self._take_bending_setups(self.loaded_dict, "bending_setups"),
+        }
 
     @log_function
     def get_experiment_by_number(self, experiment_number):
-        """Return a specific experiment as a dictionary given its number."""
+        """
+        Retrieve a specific experiment from the loaded dictionary by its number.
+
+        Args:
+            experiment_number (int): Number of the experiment to retrieve.
+
+        Returns:
+            dict: Dictionary containing data for the specified experiment, or None if not found.
+        """
         return self.loaded_dict.get(f"Exp_{experiment_number}")
 
     @log_function
     def get_experiment_keys(self):
-        """Print keys of an experiment dictionary with numbering."""
+        """
+        Print the keys of a sample experiment (hardcoded experiment number 2)
+        to inspect the structure of the dictionary.
+        """
         for key in list(self.loaded_dict.get(f"Exp_{2}")):
             print(key)
-            
-    @log_function
-    def save_to_sqlite(self, db_path="data/experiments.db"):
-        """
-        Stores all bending setups and machine part data into an SQLite database.
-        Each machine part gets its own table.
-        """
-        all_data = self.get_all_bending_setups()  # get dictionary of DataFrames
-        
-        # Connect to SQLite database (creates it if it doesn't exist)
-        conn = sqlite3.connect(db_path)
-        
-        try:
-            for table_name, df in all_data.items():
-                # Ensure column names are valid for SQLite
-                df.columns = [col.replace(" ", "_") for col in df.columns]
-                
-                # Store each DataFrame as a table, replace if table exists
-                df.to_sql(table_name, conn, if_exists="replace", index=False)
-                print(f"Stored '{table_name}' in SQLite database.")
-        finally:
-            conn.close()
-            print(f"All data saved to {db_path}.")
-            
