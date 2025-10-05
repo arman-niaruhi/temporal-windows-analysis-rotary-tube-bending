@@ -99,11 +99,11 @@ class DataPreprocessPipeline:
         loader = DataLoader("data/processed/tube_geometry.db")
         dataframes = {
             "machine_and_movement": df_machine_and_movement,
-            # "lin1": df_lin1,
-            # "lin2": df_lin2,
+            "lin1": df_lin1,
+            "lin2": df_lin2,
             "arc": df_arc,
             # "all_geometry_data": all_geometry_data,
-            # "linear_df": linear_df,
+            "linear": linear_df,
             "machine": df_machine,
             "sensor": df_sensor,
             "movements": df_movements,
