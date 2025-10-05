@@ -26,7 +26,11 @@ def load_data():
 
 def export_csv(loaded_dfs):
     df_arc = loaded_dfs["arc"]
+    df_linear = loaded_dfs["linear"]
+    df_linear1 = loaded_dfs["lin1"]
+    df_linear2 = loaded_dfs["lin2"]
     df_machine_and_movement = loaded_dfs["machine_and_movement"]
+    df_sensor = loaded_dfs["sensor"]
     load_setup = loaded_dfs.get("bending", None)
 
     cols_to_match = [
@@ -44,7 +48,7 @@ def export_csv(loaded_dfs):
         cols_to_match=cols_to_match,
         load_setup=load_setup,
         selected_dfs_features=[df_machine_and_movement],
-        selected_dfs_target=[df_arc],
+        selected_dfs_target=[df_linear1],
         feature_file="data/ml/features.csv",
         target_file="data/ml/targets.csv",
     )
