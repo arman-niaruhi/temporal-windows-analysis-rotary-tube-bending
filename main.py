@@ -1,7 +1,7 @@
 import argparse
 from src.pipeline.preprocessing.data_preprecessor import DataPreprocessPipeline
 from src.pipeline.preprocessing.loader import DataLoader
-from src.pipeline.report.visualizer import DataVisulizer
+from src.pipeline.dashboard.visualizer import DataVisulizer
 import streamlit as st
 import json
 
