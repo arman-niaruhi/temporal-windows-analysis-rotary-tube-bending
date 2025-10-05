@@ -19,6 +19,7 @@ __pycache__/
 *.so
 *.db
 
+*models*
 *data*
 
 # Ignore virtual environment
