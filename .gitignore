@@ -9,11 +9,14 @@
 *.pkl
 *.pth
 *.json
+*.joblib
 *.gif
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
+*time_series_explainability-master*
+*winit*
 
 # C extensions
 *.so
