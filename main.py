@@ -48,7 +48,7 @@ def export_csv(loaded_dfs):
         cols_to_match=cols_to_match,
         load_setup=load_setup,
         selected_dfs_features=[df_machine_and_movement],
-        selected_dfs_target=[df_linear1],
+        selected_dfs_target=[df_arc],
         feature_file="data/ml/features.csv",
         target_file="data/ml/targets.csv",
     )
