@@ -22,7 +22,7 @@ __pycache__/
 *.so
 *.db
 
-*models*
+*models/*
 *data*
 
 # Ignore virtual environment
