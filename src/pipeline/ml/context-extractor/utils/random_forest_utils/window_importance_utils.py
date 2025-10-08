@@ -421,7 +421,6 @@ class WindowImportance:
     def interactive_window_plot(self, df_sensors, df_targets):
         importance_methods = {
             "Permutation": self.window_permutation_error,
-            "WinIT": self.window_importance_winit,
             "Occlusion": self.window_occlusion_importance,
             "SHAP": self.window_shap_importance,
             "Noise": self.window_noise_importance,
