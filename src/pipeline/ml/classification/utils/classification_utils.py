@@ -41,12 +41,24 @@ class ClassifierPreprocessor:
 
         def get_label(row):
             exp_id = row["Experiment_ID"]
-            if exp_id in self.annotation_dict:
-                for interval in self.annotation_dict[exp_id]:
-                    start, end = float(interval["start"]), float(interval["end"])
-                    if start <= row.name <= end:
-                        return interval.get("label", "No Label")
-            return "No Label"
+            if exp_id not in self.annotation_dict:
+                return ["No Label"]
+
+            # Find all labels at this timestamp
+            active_labels = [
+                interval.get("label", "No Label")
+                for interval in self.annotation_dict[exp_id]
+                if float(interval["start"]) <= row.name <= float(interval["end"])
+            ]
+
+            # Only keep row if both 'bending' and 'mandrel_extraction' are present
+            if "Bending" in active_labels and "Mandrel Extraction" in active_labels:
+                return "Mandrel Extraction"
+            elif active_labels:
+                return active_labels[0]
+            else:
+                return "No Label"
+
 
         self.sensor_df["Label"] = self.sensor_df.apply(get_label, axis=1)
         return self.sensor_df

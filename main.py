@@ -30,26 +30,27 @@ def export_csv(loaded_dfs):
     df_linear1 = loaded_dfs["lin1"]
     df_linear2 = loaded_dfs["lin2"]
     df_machine_and_movement = loaded_dfs["machine_and_movement"]
+    df_movement = loaded_dfs["movements"]
     df_sensor = loaded_dfs["sensor"]
     load_setup = loaded_dfs.get("bending", None)
 
     cols_to_match = [
-        "Pressure-die lateral position",
-        "Pressure-die distance",
-        "Pressure-die boost",
-        "Mandrel position",
-        "Mandrel retraction timing",
-        "Collet boost",
-        "Clamp-die lateral position",
+        # "Pressure-die lateral position",
+        # "Pressure-die distance",
+        # "Pressure-die boost",
+        # "Mandrel position",
+        # "Mandrel retraction timing",
+        # "Collet boost",
+        # "Clamp-die lateral position",
     ]
 
     loader = DataLoader("data/processed/tube_geometry.db")
     loader.store_to_csv(
         cols_to_match=cols_to_match,
         load_setup=load_setup,
-        selected_dfs_features=[df_machine_and_movement],
+        selected_dfs_features=[df_movement],
         selected_dfs_target=[df_arc],
-        feature_file="data/ml/features.csv",
+        feature_file="data/ml/features_movement_complete.csv",
         target_file="data/ml/targets.csv",
     )
 
@@ -96,7 +97,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # Example usage:
     # python main.py preprocess
     # python main.py export
     # python main.py context

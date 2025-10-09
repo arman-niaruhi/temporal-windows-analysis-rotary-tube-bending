@@ -137,49 +137,62 @@ class DataLoader:
         conn.close()
         return dataframes
 
-    @log_function
-    def store_to_csv(self, 
-                    cols_to_match: list[str],
-                    load_setup: pd.DataFrame | None,
-                    selected_dfs_features: list[pd.DataFrame],
-                    selected_dfs_target: list[pd.DataFrame],
-                    feature_file: str="features.csv", 
-                    target_file: str="targets.csv"):
+    def store_to_csv(self,
+        cols_to_match: list[str],
+        load_setup: pd.DataFrame | None,
+        selected_dfs_features: list[pd.DataFrame],
+        selected_dfs_target: list[pd.DataFrame],
+        feature_file: str = "features.csv", 
+        target_file: str = "targets.csv"
+    ):
         """
         Store filtered machine and arc data to CSV files.
 
         Args:
-            load_setup (pd.DataFrame): Setup DataFrame containing experiment information.
-            loaded_dfs (dict): Dictionary of DataFrames including 'df_machine_and_movement'.
-            df_arc (pd.DataFrame): Arc DataFrame containing experiment information.
+            cols_to_match (list[str]): Columns to group by for duplicate detection.
+            load_setup (pd.DataFrame | None): Setup DataFrame containing experiment information.
+            selected_dfs_features (list[pd.DataFrame]): List of feature DataFrames to filter.
+            selected_dfs_target (list[pd.DataFrame]): List of target DataFrames to filter.
             feature_file (str): Path to save the features CSV.
             target_file (str): Path to save the targets CSV.
 
         Returns:
-            tuple[pd.DataFrame, pd.DataFrame]:
-                (df_machine_filtered, df_arc_filtered) – the filtered DataFrames.
+            tuple[pd.DataFrame, pd.DataFrame] | None:
+                (df_machine_filtered, df_arc_filtered) – the filtered DataFrames, or None if no filtering is done.
         """
-        # Check if load_setup is None or empty
+
+        # If no setup data is provided, return immediately
         if load_setup is None or load_setup.empty:
+            print("load_setup is None or empty — skipping filtering.")
             return
 
-        # Group by these columns and collect Experiment_IDs
+        # If no matching columns provided, skip filtering and save as-is
+        if len(cols_to_match) == 0:
+            print("cols_to_match is empty — saving DataFrames without filtering.")
+            for df in selected_dfs_features:
+                df.to_csv(feature_file, index=False)
+            for df in selected_dfs_target:
+                df.to_csv(target_file, index=False)
+            return
+
+        # Group by specified columns and collect Experiment_IDs
         grouped = load_setup.groupby(cols_to_match)['Experiment_ID'].apply(list)
 
-        # Filter only groups with more than 1 experiment (i.e., duplicates)
+        # Find duplicate experiment groups
         duplicates_list = [exp_list for exp_list in grouped if len(exp_list) > 1]
         print("Duplicate experiment groups:", duplicates_list)
 
         # Take only the first experiment ID from each group
         first_experiments = [exp_list[0] for exp_list in grouped]
 
-        # Filter the DataFrames
+        # Filter and save
         for df in selected_dfs_features:
             df_filtered = df[df['Experiment_ID'].isin(first_experiments)]
             df_filtered.to_csv(feature_file, index=False)
-        
+
         for df in selected_dfs_target:
             df_filtered = df[df['Experiment_ID'].isin(first_experiments)]
             df_filtered.to_csv(target_file, index=False)
+
 
         
