@@ -9,7 +9,7 @@ from torchviz import make_dot
 import os
 
 class LSTMClassifier(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, num_classes, dropout=0.2):
+    def __init__(self, input_size, hidden_size, num_layers, num_classes, bidirectonal = False, dropout=0.2):
         super(LSTMClassifier, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -19,14 +19,22 @@ class LSTMClassifier(nn.Module):
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
+            bidirectional=bidirectonal,
             dropout=dropout if num_layers > 1 else 0
         )
-        self.fc = nn.Linear(hidden_size, num_classes)
+        if bidirectonal:
+            self.fc = nn.Linear(hidden_size*2, num_classes)
+        else:
+            self.fc = nn.Linear(hidden_size, num_classes)
+            
 
     def forward(self, x):
         batch_size = x.size(0)
-        h0 = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(x.device)
-        c0 = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(x.device)
+        num_directions = 2 if self.lstm.bidirectional else 1
+
+        h0 = torch.zeros(self.num_layers * num_directions, batch_size, self.hidden_size).to(x.device)
+        c0 = torch.zeros(self.num_layers * num_directions, batch_size, self.hidden_size).to(x.device)
+
         out, _ = self.lstm(x, (h0, c0))
         out = self.fc(out)
         return out
