@@ -99,4 +99,99 @@ class RandomForestTrainer:
         plt.legend()
         plt.show()
 
-    
+
+
+import os
+import joblib
+import numpy as np
+import matplotlib.pyplot as plt
+
+try:
+    import xgboost as xgb
+except ImportError:
+    raise ImportError("XGBoost is not installed. Install via `pip install xgboost`")
+
+class XGBoostTrainer:
+    """
+    Trainer class for XGBoost regressor.
+    """
+
+    def __init__(
+        self,
+        n_estimators=100,
+        max_depth=6,
+        learning_rate=0.1,
+        subsample=1.0,
+        colsample_bytree=1.0,
+        random_state=42,
+        verbosity=1,
+        model_path="xgb_model.joblib"
+    ):
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.learning_rate = learning_rate
+        self.subsample = subsample
+        self.colsample_bytree = colsample_bytree
+        self.random_state = random_state
+        self.verbosity = verbosity
+        self.model_path = model_path
+        self.model = None
+
+    def train(self, X, Y):
+        """Train the XGBoost regressor on the provided data."""
+        self.model = xgb.XGBRegressor(
+            n_estimators=self.n_estimators,
+            max_depth=self.max_depth,
+            learning_rate=self.learning_rate,
+            subsample=self.subsample,
+            colsample_bytree=self.colsample_bytree,
+            random_state=self.random_state,
+            verbosity=self.verbosity,
+            objective="reg:squarederror"
+        )
+        self.model.fit(X, Y)
+        print("XGBoost training complete.")
+        return self.model
+
+    def save_model(self, path=None):
+        """Save the trained model to disk."""
+        path = path or self.model_path
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        joblib.dump(self.model, path)
+        print(f"XGBoost model saved to {path}")
+
+    def load_model(self, path=None):
+        """Load a saved XGBoost model from disk."""
+        path = path or self.model_path
+        self.model = joblib.load(path)
+        print(f"XGBoost model loaded from {path}")
+        return self.model
+
+    def predict_by_experiment_angle(self, sample_idx, X, Y):
+        """
+        Predict all angles for a given sample index and compare to true values.
+        """
+        y_true = Y[sample_idx]  # shape: (num_angles, output_dims)
+        y_pred = []
+        num_angles = Y.shape[1]
+        output_size = Y.shape[2]
+
+        for angle_idx in range(num_angles):
+            x_seq = X[sample_idx].flatten()
+            degree = angle_idx / (num_angles - 1)
+            x_with_angle = np.append(x_seq, degree)
+            y_hat = self.model.predict(x_with_angle.reshape(1, -1))
+            y_pred.append(y_hat.flatten())
+
+        y_pred = np.array(y_pred)
+
+        # Plot comparison
+        plt.figure(figsize=(12, 5))
+        for dim in range(output_size):
+            plt.plot(range(num_angles), y_true[:, dim], label=f'True dim {dim}')
+            plt.plot(range(num_angles), y_pred[:, dim], '--', label=f'Pred dim {dim}')
+        plt.xlabel('Angle index')
+        plt.ylabel('Y value')
+        plt.title(f'XGBoost Predictions vs True for sample {sample_idx}')
+        plt.legend()
+        plt.show()
