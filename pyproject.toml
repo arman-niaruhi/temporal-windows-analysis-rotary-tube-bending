@@ -1,0 +1,25 @@
+[project]
+name = "tube-geometry-prediction"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "captum>=0.8.0",
+    "ipykernel>=6.29.5",
+    "ipywidgets>=8.1.7",
+    "jupyter>=1.1.1",
+    "matplotlib>=3.10.7",
+    "notebook>=7.4.7",
+    "pandas>=2.0.3",
+    "plotly>=6.3.1",
+    "pyqt5>=5.15.11",
+    "pyside6>=6.10.0",
+    "requests>=2.32.4",
+    "scikit-learn>=1.5.0",
+    "seaborn>=0.13.2",
+    "sqlalchemy>=2.0.44",
+    "streamlit>=1.50.0",
+    "torch>=2.9.0",
+    "tqdm>=4.67.1",
+]

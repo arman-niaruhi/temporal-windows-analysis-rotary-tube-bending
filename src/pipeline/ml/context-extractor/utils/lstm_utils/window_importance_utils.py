@@ -44,34 +44,28 @@ def compute_ig_importance(model, X_flat, num_angles, sample_idx=None, local_idx=
     importance = attr_tuple[0].detach().numpy().squeeze()
     return np.mean(np.abs(importance), axis=1)
 
-def compute_grad_input_importance(model, X_flat, num_angles, sample_idx=None, local_idx=None, angle_idx=None, target_feature_idx=0):
+def compute_saliency(model, X_flat, num_angles, sample_idx=None, local_idx=None, angle_idx=None, target_feature_idx=0, device='cpu'):
     model.eval()
     X_seq, angle_value, _ = get_sample_by_index(X_flat, num_angles, sample_idx, local_idx, angle_idx)
-    X_seq = X_seq.unsqueeze(0).requires_grad_(True)
-    angle_tensor = torch.tensor([[angle_value]], dtype=torch.float32)
+    X_seq = X_seq.clone().unsqueeze(0).to(device).requires_grad_(True)
+    angle_tensor = torch.tensor([[angle_value]], dtype=torch.float32, device=device)
     output = model(X_seq, angle_tensor)
     loss = output[0, target_feature_idx]
+    model.zero_grad()
     loss.backward()
-    grad = X_seq.grad.detach().numpy().squeeze()
-    importance = X_seq.detach().numpy().squeeze() * grad
-    return np.mean(np.abs(importance), axis=1)
-
-def compute_saliency(model, X_flat, num_angles, sample_idx=None, local_idx=None, angle_idx=None, target_feature_idx=0):
-    model.eval()
-    X_seq, angle_value, _ = get_sample_by_index(X_flat, num_angles, sample_idx, local_idx, angle_idx)
-    X_seq = X_seq.unsqueeze(0).requires_grad_(True)
-    angle_tensor = torch.tensor([[angle_value]], dtype=torch.float32)
-    output = model(X_seq, angle_tensor)
-    loss = output[0, target_feature_idx]
-    loss.backward()
-    saliency = X_seq.grad.detach().numpy().squeeze()
+    if X_seq.grad is None:
+        raise RuntimeError("Saliency: gradient is None. Model may not propagate gradient to input.")
+    saliency = X_seq.grad.detach().cpu().numpy().squeeze()
     return np.max(np.abs(saliency), axis=1)
 
-def compute_occlusion_importance(model, X_flat, num_angles, sample_idx=None, local_idx=None, angle_idx=None, target_feature_idx=0, window=1):
+def compute_occlusion_importance(model, X_flat, num_angles, sample_idx=None, local_idx=None, angle_idx=None, target_feature_idx=0, window=1, device='cpu'):
     model.eval()
     X_seq, angle_value, _ = get_sample_by_index(X_flat, num_angles, sample_idx, local_idx, angle_idx)
+    X_seq = X_seq.clone().to(device)
     baseline = X_seq.clone()
-    original_output = model(X_seq.unsqueeze(0), torch.tensor([[angle_value]])).detach()[0, target_feature_idx]
+    angle_tensor = torch.tensor([[angle_value]], dtype=torch.float32, device=device)
+    with torch.no_grad():
+        original_output = model(X_seq.unsqueeze(0), angle_tensor)[0, target_feature_idx].item()
     seq_len = X_seq.shape[0]
     importance = np.zeros(seq_len)
     for t in range(seq_len):
@@ -79,16 +73,19 @@ def compute_occlusion_importance(model, X_flat, num_angles, sample_idx=None, loc
         start = max(0, t - window // 2)
         end = min(seq_len, t + window // 2 + 1)
         X_perturbed[start:end] = 0
-        pert_output = model(X_perturbed.unsqueeze(0), torch.tensor([[angle_value]])).detach()[0, target_feature_idx]
+        with torch.no_grad():
+            pert_output = model(X_perturbed.unsqueeze(0), angle_tensor)[0, target_feature_idx].item()
         importance[t] = abs(original_output - pert_output)
     return importance
 
-def compute_attention_importance_from_seq(model, X_seq, angle_value):
+def compute_attention_importance_from_seq(model, X_seq, angle_value, device='cpu'):
     model.eval()
+    if not hasattr(model.forward, '__code__') or 'return_attention' not in model.forward.__code__.co_varnames:
+        raise RuntimeError("Attention: model does not support `return_attention=True`")
     with torch.no_grad():
-        angle_tensor = torch.tensor([[angle_value]], dtype=torch.float32)
-        _, attn_weights = model(X_seq.unsqueeze(0), angle_tensor, return_attention=True)
-        return attn_weights.squeeze(0).detach().numpy()
+        angle_tensor = torch.tensor([[angle_value]], dtype=torch.float32, device=device)
+        _, attn_weights = model(X_seq.unsqueeze(0).to(device), angle_tensor, return_attention=True)
+        return attn_weights.squeeze(0).detach().cpu().numpy()
 
 # -----------------------------
 # Plotting Function
@@ -98,7 +95,7 @@ def plot_all_importances_for_sample_safe(model, sample_idx_local, angle_indices,
     Plot feature importances for a specific local sample and specific angles.
     Uses global indices internally.
     """
-    methods = ['Integrated Gradients', 'Grad × Input', 'Saliency', 'Occlusion', 'Attention']
+    methods = ['Integrated Gradients', 'Saliency', 'Occlusion', 'Attention']
     all_importances = {m: [] for m in methods}
     experiment_idx = sensors_df['Experiment_ID'].unique()[sample_idx_local]
     sensors_df_selected = sensors_df[sensors_df['Experiment_ID'] == experiment_idx].copy()
@@ -123,9 +120,6 @@ def plot_all_importances_for_sample_safe(model, sample_idx_local, angle_indices,
             all_importances['Integrated Gradients'].append(
                 compute_ig_importance(model, X_flat, num_angles, sample_idx=flat_idx, target_feature_idx=target_feature_idx)
             )
-            all_importances['Grad x Input'].append(
-                compute_grad_input_importance(model, X_flat, num_angles, sample_idx=flat_idx, target_feature_idx=target_feature_idx)
-            )
             all_importances['Saliency'].append(
                 compute_saliency(model, X_flat, num_angles, sample_idx=flat_idx, target_feature_idx=target_feature_idx)
             )
@@ -145,11 +139,8 @@ def plot_all_importances_for_sample_safe(model, sample_idx_local, angle_indices,
         if len(data_list) == 0:
             print(f"No importance data computed for {method}, skipping plot.")
             continue
-        fig, axs = plt.subplots(2, 1, figsize=(12, 6), gridspec_kw={'height_ratios': [1, 2]})
-        axs[0].plot(x_axis, sensors_df_selected.values)
-        axs[0].set_title("Raw Sensor Data")
-        axs[0].set_xlabel("Time step")
-        axs[0].set_ylabel("Sensor values")
+
+        num_angles_plot = len(data_list)
         data = np.array(data_list)
         data = np.abs(data)
         data = np.squeeze(data)
@@ -157,11 +148,35 @@ def plot_all_importances_for_sample_safe(model, sample_idx_local, angle_indices,
             data = data[None, :]
         elif data.ndim > 2:
             data = np.mean(data, axis=tuple(range(2, data.ndim)))
-        axs[1].imshow(data, aspect='auto', origin='lower', cmap='viridis',
-                      extent=[x_axis[0], x_axis[-1], 0, len(data) - 1])
-        axs[1].set_title(f"{method} Importance Across Angles (Local idx: {sample_idx_local})")
-        axs[1].set_xlabel("Time step")
-        axs[1].set_ylabel("Angle index")
-        fig.colorbar(axs[1].images[0], ax=axs[1], label='Importance')
-        plt.tight_layout()
+
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 5), gridspec_kw={'height_ratios': [1, 2]}, sharex=True, constrained_layout=True)
+
+        # Plot raw sensor data
+        ax1.plot(x_axis, sensors_df_selected.values)
+        ax1.set_title("Raw Sensor Data")
+        ax1.set_ylabel("Sensor values")
+
+        # Plot heatmap
+        im = ax2.imshow(
+            data,
+            aspect='auto',
+            origin='lower',
+            cmap='viridis',
+            extent=[x_axis[0], x_axis[-1], 0, data.shape[0]]
+        )
+        ax2.set_title(f"{method} Importance Across Angles (Local idx: {sample_idx_local})")
+        ax2.set_xlabel("Time step")
+        ax2.set_ylabel("Angle index")
+
+        # Label Y-axis with angle indices
+        y_ticks = np.arange(0.5, data.shape[0] + 0.5, 1)
+        ax2.set_yticks(np.arange(data.shape[0]))
+        ax2.set_yticklabels(angle_indices[:data.shape[0]])
+
+        # Add colorbar inside the same subplot
+        cbar = fig.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
+        cbar.set_label('Importance')
+
         plt.show()
+
+
