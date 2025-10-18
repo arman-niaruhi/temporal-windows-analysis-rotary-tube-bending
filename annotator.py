@@ -1,11 +1,14 @@
+import sys
 import json
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
-import tkinter.font as tkFont
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QComboBox,
+    QFileDialog, QFrame, QListWidget, QMessageBox, QLineEdit, QGridLayout, QGroupBox
+)
+from PyQt5.QtCore import Qt
 
 # Constants
 LABELS = ["Clamping", "Bending", "Mandrel Extraction", "De-Clamping"]
@@ -16,164 +19,142 @@ LABEL_COLORS = {
     "De-Clamping": "#d62728"
 }
 
-class Annotator:
-    def __init__(self, root:tk.Tk) -> None:
-        # Window setup and style
-        self.root = root 
-        self.root.title("MAR Annotator")
-        self.root.geometry("1200x800")
-        style = ttk.Style()
-        style.theme_use("clam")
-
-        default_font = tkFont.nametofont("TkDefaultFont")
-        default_font.configure(family="Segoe UI", size=11)
-        root.option_add("*Font", default_font)
-
-        root.configure(bg="#2b2b2b")  # dark gray background
-        style.configure("TFrame", background="#2b2b2b")
-        style.configure("TLabel", background="#2b2b2b", foreground="white")
-        style.configure("TCombobox", 
-                        fieldbackground="#3c3c3c", 
-                        background="#3c3c3c", 
-                        foreground="white")
-        style.configure("TButton", 
-                        background="#4a4a4a", 
-                        foreground="white", 
-                        font=("Segoe UI", 11, "bold"), 
-                        padding=6)
-        style.map("TButton",
-                background=[("active", "#5c5c5c")])
-
-        self.root.option_add("*TButton*foreground", "white")
-        self.root.option_add("*TButton*background", "#4a4a4a")
-        self.root.option_add("*TLabel*foreground", "white")
-        self.root.option_add("*TLabel*background", "#2b2b2b")
-        self.root.option_add("*Entry*background", "#3c3c3c")
-        self.root.option_add("*Entry*foreground", "white")
-        self.root.option_add("*Listbox*background", "#3c3c3c")
-        self.root.option_add("*Listbox*foreground", "white")
-            
-        # Define useful variables for funtions    
+class Annotator(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("MAR Annotator")
+        self.setGeometry(100, 100, 1200, 800)
+        self.setStyleSheet("background-color: #2b2b2b; color: white;")
+        
+        # Variables
         self.df = None
         self.labels = []
         self.current_exp = None
         self.click_stage = "start"
         self.temp_label = {"start": None, "end": None, "label": None}
-        
-        self.legend_map = {} # Legend mapping for interactive toggling
+        self.legend_map = {}
         self.pick_cid = None
         
-        # Update GUI and status-bar
         self._setup_gui()
-        self._set_status("Ready")
     
     def _setup_gui(self):
-        # Main frame
-        main_frame = tk.Frame(self.root)
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Right frame
-        right_frame = tk.Frame(main_frame, width=250)
-        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
-        tk.Button(right_frame, text="Load CSV", command=self._load_csv).pack(fill=tk.X, pady=2)
-        self.exp_selector = ttk.Combobox(right_frame, state="readonly")
-        self.exp_selector.pack(fill=tk.X, pady=2)
-        self.exp_selector.bind("<<ComboboxSelected>>", self._plot_experiment)
-        self.label_var = tk.StringVar(value=LABELS[0])
-        tk.OptionMenu(right_frame, self.label_var, *LABELS).pack(fill=tk.X, pady=2)
-        tk.Button(right_frame, text="Delete Annotation", command=self._delete_annotation).pack(fill=tk.X, pady=2)
-        tk.Button(right_frame, text="Save JSON", command=self._save_json).pack(fill=tk.X, pady=2)
-        tk.Button(right_frame, text="Load JSON", command=self._load_json).pack(fill=tk.X, pady=2)
-        
-        instruction_frame = tk.LabelFrame(right_frame, text="Keyboard Shortcuts", padx=10, pady=10)
-        instruction_frame.pack(fill=tk.X, pady=10)
-        instructions = (
-            "Keyboard Controls:\n"
-            "Spacebar:\nNext experiment\n"
-            "Left Alt:\nNext label type\n"
-        )
-        tk.Label(instruction_frame, text=instructions, justify="left", wraplength=220).pack()
+        main_layout = QVBoxLayout(self)  # Main vertical layout
 
-        # Left frame
-        left_frame = tk.Frame(main_frame)
-        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
+        # Top part: horizontal split (plot left, controls right)
+        top_layout = QHBoxLayout()
+        
+        # Left: plot area
+        plot_frame = QVBoxLayout()
         self.figure = plt.Figure(figsize=(8, 6))
         self.ax = self.figure.add_subplot(111)
-        self.canvas = FigureCanvasTkAgg(self.figure, master=left_frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.canvas = FigureCanvas(self.figure)
         self.canvas.mpl_connect("button_press_event", self.on_click)
+        plot_frame.addWidget(self.canvas)
+        self.hide_btn = QPushButton("Hide All Lines")
+        self.hide_btn.clicked.connect(self._toggle_all_lines)
+        plot_frame.addWidget(self.hide_btn)
+        top_layout.addLayout(plot_frame, 4)
+        
+        # Right: control panel
+        control_frame = QVBoxLayout()
+        self.load_csv_btn = QPushButton("Load CSV")
+        self.load_csv_btn.clicked.connect(self._load_csv)
+        control_frame.addWidget(self.load_csv_btn)
 
-        self.root.bind("<space>", self._next_experiment)
-        self.root.bind("<Alt_L>", self._next_label)
+        self.exp_selector = QComboBox()
+        self.exp_selector.currentIndexChanged.connect(self._plot_experiment)
+        control_frame.addWidget(self.exp_selector)
 
-        # Status bar
-        self.status_var = tk.StringVar()
-        status_frame = tk.Frame(self.root, relief=tk.SUNKEN, bd=1)
-        status_frame.pack(side=tk.BOTTOM, fill=tk.X)
-        self.status_label = tk.Label(
-            status_frame, textvariable=self.status_var, anchor="w", padx=10
+        self.label_selector = QComboBox()
+        self.label_selector.addItems(LABELS)
+        control_frame.addWidget(self.label_selector)
+
+        self.delete_btn = QPushButton("Delete Annotation")
+        self.delete_btn.clicked.connect(self._delete_annotation)
+        control_frame.addWidget(self.delete_btn)
+
+        self.save_json_btn = QPushButton("Save JSON")
+        self.save_json_btn.clicked.connect(self._save_json)
+        control_frame.addWidget(self.save_json_btn)
+
+        self.load_json_btn = QPushButton("Load JSON")
+        self.load_json_btn.clicked.connect(self._load_json)
+        control_frame.addWidget(self.load_json_btn)
+
+        # Instructions
+        instr_group = QGroupBox("Keyboard Shortcuts")
+        instr_layout = QVBoxLayout()
+        instr_label = QLabel(
+            "Keyboard Controls:\n"
+            "Spacebar: Next experiment\n"
+            "Left Alt: Next label type"
         )
-        self.status_label.pack(fill=tk.X)
+        instr_label.setWordWrap(True)
+        instr_layout.addWidget(instr_label)
+        instr_group.setLayout(instr_layout)
+        control_frame.addWidget(instr_group)
+        control_frame.addStretch()
+        
+        top_layout.addLayout(control_frame, 1)
+        
+        # Add top layout to main vertical layout
+        main_layout.addLayout(top_layout)
+        
+        # Status bar at the bottom
+        self.status_label = QLabel("Ready")
+        self.status_label.setStyleSheet("background-color: #1f1f1f; padding: 4px;")
+        main_layout.addWidget(self.status_label)
 
-
-        tk.Button(left_frame, text="Hide All Lines", command=self._toggle_all_lines).pack(side=tk.TOP, pady=5)
-
-    def _set_status(self, message: str):
-        """Update status bar text."""
-        self.status_var.set(message)
-        self.root.update_idletasks()
-   
-    def _plot_experiment(self, event= None):
-        """Update the experiment plot"""
-        exp_id = self.exp_selector.get()
-        try:
-            self.current_exp = int(exp_id)
-        except ValueError:
-            self.current_exp = exp_id
-
+    
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Space:
+            self._next_experiment()
+        elif event.key() == Qt.Key_Alt:
+            self._next_label()
+    
+    def _set_status(self, message):
+        self.status_label.setText(message)
+    
+    def _load_csv(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Select CSV", filter="CSV Files (*.csv)")
+        if not path:
+            return
+        self.df = pd.read_csv(path, index_col=0)
+        all_experiments = list(self.df['Experiment_ID'].unique())
+        self.exp_selector.clear()
+        self.exp_selector.addItems([str(e) for e in all_experiments])
+        self.exp_selector.setCurrentIndex(0)
+        self._plot_experiment()
+        self._set_status(f"CSV loaded with {len(all_experiments)} experiments.")
+    
+    def _plot_experiment(self):
+        if self.df is None or self.exp_selector.currentText() == "":
+            return
+        self.current_exp = int(self.exp_selector.currentText())
+        exp_df = self.df[self.df['Experiment_ID'] == self.current_exp]
         self.click_stage = "start"
         self.temp_label = {"start": None, "end": None, "label": None}
-
-        exp_df = self.df[self.df['Experiment_ID'] == self.current_exp]
-        self._set_status(f"{self.current_exp} Experiment is selected")
-        if exp_df.empty:
-            return
-
-        # Preserve old visibility
-        old_vis = getattr(self, "lines_by_col", {})
-
         self.ax.clear()
         self.lines_by_col = {}
-
-        # Plot all signals
         lines = []
         for col in exp_df.columns:
             if col != 'Experiment_ID':
                 line, = self.ax.plot(exp_df[col], label=col)
-                line.set_visible(old_vis.get(col, line).get_visible() if col in old_vis else True)
                 self.lines_by_col[col] = line
                 lines.append(line)
-
-        # Draw existing annotations
+        # Draw annotations
         for lbl in self.labels:
             if lbl["Experiment_ID"] == self.current_exp:
                 start, end = lbl["start"], lbl["end"]
                 color = LABEL_COLORS.get(lbl["label"], "#888888")
                 self.ax.axvspan(start, end, color=color, alpha=0.3, zorder=0)
                 y_pos = exp_df.max().max() * 1.05
-                self.ax.text((start + end) / 2, y_pos, f"{lbl['label']}\n({lbl['duration']:.2f})", color=color,
-                             ha='center', va='bottom')
-
-        # Axes
+                self.ax.text((start + end)/2, y_pos, f"{lbl['label']}\n({lbl['duration']:.2f})",
+                             color=color, ha='center', va='bottom')
         self.ax.set_title(f"Experiment {self.current_exp}")
         self.ax.set_xlabel("Time Step / Index")
         self.ax.set_ylabel("Values")
-
-        # Legends
         self._draw_legends(lines)
-
-        # Redraw
         self.canvas.draw_idle()
     
     def _draw_legends(self, lines):
@@ -220,13 +201,13 @@ class Annotator:
         event.artist.set_alpha(1.0 if visible else 0.2)
         self.canvas.draw_idle()
 
+    
     def on_click(self, event):
         if self.current_exp is None or event.xdata is None:
             return
-
         if self.click_stage == "start":
             self.temp_label["start"] = event.xdata
-            self.temp_label["label"] = self.label_var.get()
+            self.temp_label["label"] = self.label_selector.currentText()
             self.click_stage = "end"
             self._set_status(f"Start {self.temp_label['label']} at {event.xdata:.2f}")
         else:
@@ -244,77 +225,55 @@ class Annotator:
             self.temp_label = {"start": None, "end": None, "label": None}
             self._set_status(f"End label at {event.xdata:.2f} (duration: {duration:.2f})")
             self._plot_experiment()
-  
+    
     def _toggle_all_lines(self):
-        """Toggle visibility of all plotted lines."""
         if not hasattr(self, 'lines_by_col'):
             return
-        # Check if at least one line is visible
         any_visible = any(line.get_visible() for line in self.lines_by_col.values())
         for line in self.lines_by_col.values():
-            line.set_visible(not any_visible)  # hide if any visible, else show all
-        # Update legend alpha accordingly
-        for legline, origline in self.legend_map.items():
-            legline.set_alpha(1.0 if origline.get_visible() else 0.2)
+            line.set_visible(not any_visible)
         self.canvas.draw_idle()
-
-    def _delete_annotation(self):
-        if self.current_exp is None:
-            messagebox.showwarning("No Experiment", "Select an experiment first!")
+    
+    def _next_experiment(self):
+        if self.df is None:
             return
-
-        exp_labels = [lbl for lbl in self.labels if lbl["Experiment_ID"] == self.current_exp]
-        if not exp_labels:
-            messagebox.showinfo("No Annotations", "No annotations to delete for this experiment.")
-            return
-
-        dlg = tk.Toplevel(self.root)
-        dlg.title("Delete Annotation")
-        tk.Label(dlg, text="Select annotation to delete:").pack(pady=5)
-
-        listbox = tk.Listbox(dlg, width=80)
-        listbox.pack(padx=5, pady=5)
-        for i, lbl in enumerate(exp_labels):
-            duration = lbl.get("duration", lbl["end"] - lbl["start"])
-            listbox.insert(tk.END, f"{i}: {lbl['label']} [{lbl['start']:.2f}, {lbl['end']:.2f}] (duration: {duration:.2f})")
-
-        def delete_selected():
-            sel = listbox.curselection()
-            if sel:
-                self.labels.remove(exp_labels[sel[0]])
-                dlg.destroy()
-                self._plot_experiment()
-
-        tk.Button(dlg, text="Delete", command=delete_selected).pack(side=tk.LEFT, padx=10, pady=5)
-        tk.Button(dlg, text="Cancel", command=dlg.destroy).pack(side=tk.RIGHT, padx=10, pady=5)
+        idx = self.exp_selector.currentIndex()
+        next_idx = (idx + 1) % self.exp_selector.count()
+        self.exp_selector.setCurrentIndex(next_idx)
+        self._plot_experiment()
+    
+    def _next_label(self):
+        idx = self.label_selector.currentIndex()
+        next_idx = (idx + 1) % self.label_selector.count()
+        self.label_selector.setCurrentIndex(next_idx)
+        self._set_status(f"Current Label: {self.label_selector.currentText()}")
     
     def _save_json(self):
         if not self.labels:
-            messagebox.showwarning("No Labels", "No labels to save!")
+            QMessageBox.warning(self, "No Labels", "No labels to save!")
             return
-
-        file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
-        if file_path:
-            grouped = {}
-            for lbl in self.labels:
-                exp_id = str(lbl["Experiment_ID"])
-                grouped.setdefault(exp_id, []).append({
-                    "label": lbl["label"],
-                    "start": lbl["start"],
-                    "end": lbl["end"],
-                    "duration": lbl.get("duration", lbl["end"] - lbl["start"])
-                })
-            with open(file_path, "w") as f:
-                json.dump(grouped, f, indent=4)
-            self._set_status(f"Labels saved to {file_path}")
+        path, _ = QFileDialog.getSaveFileName(self, "Save JSON", filter="JSON Files (*.json)")
+        if not path:
+            return
+        grouped = {}
+        for lbl in self.labels:
+            exp_id = str(lbl["Experiment_ID"])
+            grouped.setdefault(exp_id, []).append({
+                "label": lbl["label"],
+                "start": lbl["start"],
+                "end": lbl["end"],
+                "duration": lbl.get("duration", lbl["end"] - lbl["start"])
+            })
+        with open(path, "w") as f:
+            json.dump(grouped, f, indent=4)
+        self._set_status(f"Labels saved to {path}")
     
     def _load_json(self):
-        file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
-        if not file_path:
+        path, _ = QFileDialog.getOpenFileName(self, "Load JSON", filter="JSON Files (*.json)")
+        if not path:
             return
-
         try:
-            with open(file_path, "r") as f:
+            with open(path, "r") as f:
                 loaded = json.load(f)
             if isinstance(loaded, dict):
                 self.labels = []
@@ -332,45 +291,36 @@ class Annotator:
                 self._set_status(f"Loaded {len(self.labels)} annotations from JSON.")
                 self._plot_experiment()
             else:
-                messagebox.showerror("Error", "JSON format invalid: expected dict of experiments")
+                QMessageBox.critical(self, "Error", "Invalid JSON format!")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to load JSON: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to load JSON: {e}")
     
-    def _load_csv(self):
-        file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
-        if not file_path:
+    def _delete_annotation(self):
+        if self.current_exp is None:
+            QMessageBox.warning(self, "No Experiment", "Select an experiment first!")
             return
-
-        self.df = pd.read_csv(file_path, index_col=0)
-        all_experiment_ids = list(self.df['Experiment_ID'].unique())
-        self.exp_selector['values'] = all_experiment_ids
-        self.exp_selector.set(all_experiment_ids[0])
+        exp_labels = [lbl for lbl in self.labels if lbl["Experiment_ID"] == self.current_exp]
+        if not exp_labels:
+            QMessageBox.information(self, "No Annotations", "No annotations to delete for this experiment.")
+            return
+        dlg = QListWidget()
+        for i, lbl in enumerate(exp_labels):
+            duration = lbl.get("duration", lbl["end"] - lbl["start"])
+            dlg.addItem(f"{i}: {lbl['label']} [{lbl['start']:.2f}, {lbl['end']:.2f}] (duration: {duration:.2f})")
+        dlg.setWindowTitle("Delete Annotation")
+        dlg.show()
+        # User can select an item to delete
+        dlg.itemDoubleClicked.connect(lambda item: self._remove_selected(item, dlg, exp_labels))
+    
+    def _remove_selected(self, item, dlg, exp_labels):
+        idx = dlg.row(item)
+        self.labels.remove(exp_labels[idx])
+        dlg.close()
         self._plot_experiment()
-        message = f"CSV loaded with {len(self.df['Experiment_ID'].unique())} experiments."
-        self._set_status(message=message)
 
-    def _next_experiment(self, event=None):
-        """Go to the next experiment using spacebar."""
-        if not self.df is None and len(self.exp_selector['values']) > 0:
-            current = self.exp_selector.get()
-            values = list(self.exp_selector['values'])
-            if current in values:
-                idx = values.index(current)
-                next_idx = (idx + 1) % len(values)
-            else:
-                next_idx = 0
-            self.exp_selector.set(values[next_idx])
-            self._plot_experiment()
-    
-    def _next_label(self, event=None):
-        """Cycle to the next label type using Left Alt."""
-        current_label = self.label_var.get()
-        idx = LABELS.index(current_label)
-        next_idx = (idx + 1) % len(LABELS)
-        self.label_var.set(LABELS[next_idx])
-        self._set_status(f"Current Label: {LABELS[next_idx]}")
-    
+
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = Annotator(root)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    window = Annotator()
+    window.show()
+    sys.exit(app.exec_())
