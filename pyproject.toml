@@ -21,5 +21,6 @@ dependencies = [
     "sqlalchemy>=2.0.44",
     "streamlit>=1.50.0",
     "torch>=2.9.0",
+    "torchviz>=0.0.3",
     "tqdm>=4.67.1",
 ]
