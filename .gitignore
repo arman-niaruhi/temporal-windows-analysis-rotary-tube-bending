@@ -25,6 +25,7 @@ __pycache__/
 # Folders
 *models/*
 *data*
+*mlruns*
 
 # Ignore virtual environment
 *venv/
