@@ -136,6 +136,23 @@ class DataLoader:
 
         conn.close()
         return dataframes
+    
+    @log_function
+    def load_experiment_ids_from_sqlite(
+        self):
+        """
+        Load Experiment_ID from the SQLite database.
+
+        Returns:
+            pd.DataFrame: panda dataframe of experiment ids.
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        df = pd.read_sql_query(f"SELECT * FROM machine_and_movement", conn)
+        conn.close()
+        experiment_ids = df["Experiment_ID"].unique()
+        return experiment_ids
 
     def store_to_csv(self,
         cols_to_match: list[str],
