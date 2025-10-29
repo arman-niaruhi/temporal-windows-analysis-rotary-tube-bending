@@ -49,9 +49,9 @@ def export_csv(loaded_dfs):
     loader.store_to_csv(
         cols_to_match=cols_to_match,
         load_setup=load_setup,
-        selected_dfs_features=[df_machine],
+        selected_dfs_features=[df_movement],
         selected_dfs_target=[df_arc],
-        feature_file="data/ml/features_machine_complete.csv",
+        feature_file="data/ml/features_movement_complete.csv",
         target_file="data/ml/targets.csv",
     )
 
