@@ -241,15 +241,14 @@ class DataTransformer:
         in place and logs the number of columns normalized for each DataFrame.
 
         Args:
-            None
+            normalized_table (list[str]): List of attribute names of DataFrames to normalize.
 
         Returns:
             None: The method modifies the DataFrame attributes of the class directly.
         """
         for attr_name in normalized_table:
-            df = getattr(self, attr_name)
+            df = getattr(self, attr_name).copy()  # Make a copy to avoid SettingWithCopyWarning
 
-            # Select numeric columns excluding 'Experiment_ID' and 'Angle[degree]ORDistance[mm]'
             numeric_cols = df.select_dtypes(include="number").columns.difference(
                 ["Experiment_ID", "Angle[degree]ORDistance[mm]"]
             )
@@ -258,14 +257,16 @@ class DataTransformer:
                 logger.info(f"No numeric columns to normalize in '{attr_name}'.")
                 continue
 
-            df.loc[:, numeric_cols] = (df[numeric_cols] - df[numeric_cols].min()) / (
-                df[numeric_cols].max() - df[numeric_cols].min()
+            # Normalize per Experiment_ID
+            df.loc[:, numeric_cols] = df.groupby("Experiment_ID")[numeric_cols].transform(
+                lambda x: (x - x.min()) / (x.max() - x.min()) if x.max() != x.min() else 0
             )
 
             setattr(self, attr_name, df)
             logger.info(
-                f"Normalized {len(numeric_cols)} numeric columns in '{attr_name}' (excluding 'Experiment_ID')."
+                f"Normalized {len(numeric_cols)} numeric columns per Experiment_ID in '{attr_name}'."
             )
+
 
     @log_function
     def nan_handler(self):
