@@ -220,6 +220,7 @@ class DataVisualizer:
             st.warning(f"No data for {df_name} / Experiment {experiment_id}")
             return
         experiment_df = experiment_df.iloc[:, 1:]
+        print(experiment_df)
         numeric_cols = list(experiment_df.columns)
         selected_sensors = st.multiselect(
             f"Select sensors for {df_name}",
@@ -418,19 +419,27 @@ class StreamlitApp:
         elif page == "MAR":
             st.title("MAR: Machine Activity Recognition")
 
-            mar_options = ["machine_and_movement", "movements", "machine"]
+            mar_options = [
+                           "machine_and_movement", 
+                           "movements", 
+                           "machine", 
+                           "Single Machine and Movement",
+                           "Single Movement",
+                           "Single Machine"
+                           ]
             mar_dataset_name = st.selectbox("Select dataset for MAR", mar_options)
+            if mar_dataset_name == "Single Machine and Movement":
+                dataset_name = "machine_and_movement"
+                experiment_df = loaded_dfs[dataset_name]
+                experiment_df = experiment_df[
+                    experiment_df["Experiment_ID"] == int(experiment_id)
+                ]
+                experiment_df.drop(columns=['MACHINE_PRESSURE-DIE_AXIAL_Max_Torque_[%]'], inplace=True)
+                if "Time_[s]" in experiment_df.columns:
+                    experiment_df = experiment_df.set_index("Time_[s]")
 
-            experiment_df = loaded_dfs[mar_dataset_name]
-            experiment_df = experiment_df[
-                experiment_df["Experiment_ID"] == int(experiment_id)
-            ]
-            if "Time_[s]" in experiment_df.columns:
-                experiment_df = experiment_df.set_index("Time_[s]")
-
-            model_path = f"models/classifier/{mar_dataset_name}"
-            labels = predict_activity(sensors_df=experiment_df, model_path=model_path)
-
-            self.visualizer.matplotlib_mar_plot(
-                experiment_df, labels, mar_dataset_name, int(experiment_id)
-            )
+                model_path_declamping = f"models/classifier/{dataset_name}/De-Clamping"
+                declamping_labels = predict_activity(sensors_df=experiment_df, model_path=model_path_declamping, num_classes=2)
+                self.visualizer.matplotlib_mar_plot(
+                    experiment_df, declamping_labels, mar_dataset_name, int(experiment_id)
+                )
