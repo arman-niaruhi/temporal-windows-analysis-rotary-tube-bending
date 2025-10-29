@@ -5,12 +5,13 @@ import numpy as np
 from scipy.ndimage import binary_opening, binary_closing
 
 
-def predict_activity(sensors_df, model_path):
+def predict_activity(sensors_df, model_path, num_classes):
     feature_cols = sensors_df.columns.difference(["Experiment_ID", "Label"])
+    # Model setup
     input_size = len(feature_cols)
     hidden_size = 64
     num_layers = 2
-    num_classes = 5
+    num_classes = num_classes
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = LSTMClassifier(
         input_size, hidden_size, num_layers, num_classes, bidirectonal=True
@@ -27,6 +28,7 @@ def predict_activity(sensors_df, model_path):
     # --- Model predictions ---
     with torch.no_grad():
         outputs = model(X)
+        print(outputs)
         y_pred = torch.argmax(outputs, dim=-1).squeeze(0).cpu().numpy()
 
     label_mapping = {
@@ -51,5 +53,6 @@ def predict_activity(sensors_df, model_path):
         smoothed[mask] = label
    
     # y_pred = smoothed
+    print(y_pred)
     Y_pred_label = [label_mapping.get(label_idx) for label_idx in y_pred]
     return Y_pred_label

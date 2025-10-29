@@ -16,7 +16,7 @@ def plot_predictions_vs_true_annot(model, dataset, sensor_df, feature_cols, test
     model.eval()
 
     # --- Select a random experiment ---
-    exp_id = random.choice(test_exps)
+    exp_id = str(random.choice(test_exps))
     exp_data = sensor_df[sensor_df["Experiment_ID"] == exp_id]
 
     # --- Features ---
@@ -44,7 +44,7 @@ def plot_predictions_vs_true_annot(model, dataset, sensor_df, feature_cols, test
         mask = binary_opening(mask, structure=np.ones(kernel_size))
         smoothed[mask] = label
         
-    y_pred = smoothed
+    # y_pred = smoothed
     
     # --- Map indices to label names ---
     idx_to_label = {v: k for k, v in dataset.label_to_idx.items()}
