@@ -1,0 +1,5211 @@
+==========================================================================================
+Timestamp: 2025-10-24 08:55:12
+Event: clamping
+Angle index: 0
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 15 -> 6.31% importance
+2. Timestep 9 -> 5.43% importance
+3. Timestep 45 -> 4.84% importance
+4. Timestep 40 -> 4.55% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0284, R²=0.8403
+Component 1: MAE=0.0269, R²=0.8654
+Component 2: MAE=0.0429, R²=0.8692
+Component 3: MAE=0.0269, R²=0.8654
+
+Mean MAE: 0.0313
+Mean R²: 0.8601
+
+Plot saved to: ../../../../results/rf_angles/angle_0/clamping_angle_0.png
+==========================================================================================
+Timestamp: 2025-10-24 08:55:27
+Event: bending
+Angle index: 0
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 30 -> 13.49% importance
+2. Timestep 26 -> 10.43% importance
+3. Timestep 27 -> 9.91% importance
+4. Timestep 28 -> 8.23% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0209, R²=0.8884
+Component 1: MAE=0.0043, R²=0.9880
+Component 2: MAE=0.0114, R²=0.9810
+Component 3: MAE=0.0043, R²=0.9880
+
+Mean MAE: 0.0102
+Mean R²: 0.9614
+
+Plot saved to: ../../../../results/rf_angles/angle_0/bending_angle_0.png
+==========================================================================================
+Timestamp: 2025-10-24 08:55:41
+Event: declamping
+Angle index: 0
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 45.86% importance
+2. Timestep 11 -> 5.94% importance
+3. Timestep 7 -> 5.15% importance
+4. Timestep 5 -> 4.45% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0214, R²=0.8721
+Component 1: MAE=0.0097, R²=0.9628
+Component 2: MAE=0.0203, R²=0.9479
+Component 3: MAE=0.0097, R²=0.9628
+
+Mean MAE: 0.0153
+Mean R²: 0.9364
+
+Plot saved to: ../../../../results/rf_angles/angle_0/declamping_angle_0.png
+==========================================================================================
+Timestamp: 2025-10-24 08:55:50
+Event: clamping
+Angle index: 1
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 4.37% importance
+2. Timestep 15 -> 4.26% importance
+3. Timestep 0 -> 4.22% importance
+4. Timestep 40 -> 3.35% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0298, R²=0.8437
+Component 1: MAE=0.0427, R²=0.8720
+Component 2: MAE=0.0575, R²=0.8702
+Component 3: MAE=0.0427, R²=0.8720
+
+Mean MAE: 0.0432
+Mean R²: 0.8645
+
+Plot saved to: ../../../../results/rf_angles/angle_1/clamping_angle_1.png
+==========================================================================================
+Timestamp: 2025-10-24 08:56:18
+Event: bending
+Angle index: 1
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 30 -> 14.03% importance
+2. Timestep 28 -> 13.84% importance
+3. Timestep 27 -> 11.90% importance
+4. Timestep 29 -> 11.19% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0266, R²=0.8743
+Component 1: MAE=0.0103, R²=0.9885
+Component 2: MAE=0.0153, R²=0.9853
+Component 3: MAE=0.0103, R²=0.9885
+
+Mean MAE: 0.0157
+Mean R²: 0.9592
+
+Plot saved to: ../../../../results/rf_angles/angle_1/bending_angle_1.png
+==========================================================================================
+Timestamp: 2025-10-24 08:56:26
+Event: declamping
+Angle index: 1
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 32.05% importance
+2. Timestep 8 -> 11.90% importance
+3. Timestep 7 -> 7.07% importance
+4. Timestep 5 -> 6.61% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0279, R²=0.8634
+Component 1: MAE=0.0149, R²=0.9733
+Component 2: MAE=0.0220, R²=0.9670
+Component 3: MAE=0.0149, R²=0.9733
+
+Mean MAE: 0.0199
+Mean R²: 0.9443
+
+Plot saved to: ../../../../results/rf_angles/angle_1/declamping_angle_1.png
+==========================================================================================
+Timestamp: 2025-10-24 08:56:33
+Event: clamping
+Angle index: 2
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 37 -> 3.70% importance
+2. Timestep 12 -> 3.66% importance
+3. Timestep 0 -> 3.63% importance
+4. Timestep 9 -> 3.38% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0356, R²=0.8636
+Component 1: MAE=0.0556, R²=0.8719
+Component 2: MAE=0.0682, R²=0.8727
+Component 3: MAE=0.0556, R²=0.8719
+
+Mean MAE: 0.0538
+Mean R²: 0.8700
+
+Plot saved to: ../../../../results/rf_angles/angle_2/clamping_angle_2.png
+==========================================================================================
+Timestamp: 2025-10-24 08:56:41
+Event: bending
+Angle index: 2
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 24.61% importance
+2. Timestep 28 -> 17.88% importance
+3. Timestep 35 -> 11.09% importance
+4. Timestep 29 -> 8.71% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0329, R²=0.8794
+Component 1: MAE=0.0135, R²=0.9884
+Component 2: MAE=0.0174, R²=0.9876
+Component 3: MAE=0.0135, R²=0.9884
+
+Mean MAE: 0.0193
+Mean R²: 0.9609
+
+Plot saved to: ../../../../results/rf_angles/angle_2/bending_angle_2.png
+==========================================================================================
+Timestamp: 2025-10-24 08:56:48
+Event: declamping
+Angle index: 2
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 8 -> 19.14% importance
+2. Timestep 7 -> 15.37% importance
+3. Timestep 6 -> 14.02% importance
+4. Timestep 5 -> 7.97% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0339, R²=0.8672
+Component 1: MAE=0.0230, R²=0.9716
+Component 2: MAE=0.0289, R²=0.9692
+Component 3: MAE=0.0230, R²=0.9716
+
+Mean MAE: 0.0272
+Mean R²: 0.9449
+
+Plot saved to: ../../../../results/rf_angles/angle_2/declamping_angle_2.png
+==========================================================================================
+Timestamp: 2025-10-24 08:56:55
+Event: clamping
+Angle index: 3
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 12 -> 3.96% importance
+2. Timestep 0 -> 3.53% importance
+3. Timestep 32 -> 3.43% importance
+4. Timestep 37 -> 3.22% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0404, R²=0.8639
+Component 1: MAE=0.0636, R²=0.8814
+Component 2: MAE=0.0749, R²=0.8802
+Component 3: MAE=0.0636, R²=0.8814
+
+Mean MAE: 0.0606
+Mean R²: 0.8767
+
+Plot saved to: ../../../../results/rf_angles/angle_3/clamping_angle_3.png
+==========================================================================================
+Timestamp: 2025-10-24 08:57:22
+Event: bending
+Angle index: 3
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 38.89% importance
+2. Timestep 35 -> 7.76% importance
+3. Timestep 29 -> 5.89% importance
+4. Timestep 27 -> 4.52% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0398, R²=0.8704
+Component 1: MAE=0.0178, R²=0.9864
+Component 2: MAE=0.0220, R²=0.9857
+Component 3: MAE=0.0178, R²=0.9864
+
+Mean MAE: 0.0243
+Mean R²: 0.9572
+
+Plot saved to: ../../../../results/rf_angles/angle_3/bending_angle_3.png
+==========================================================================================
+Timestamp: 2025-10-24 08:57:30
+Event: declamping
+Angle index: 3
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 25.60% importance
+2. Timestep 8 -> 22.46% importance
+3. Timestep 6 -> 7.62% importance
+4. Timestep 11 -> 6.43% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0394, R²=0.8678
+Component 1: MAE=0.0269, R²=0.9703
+Component 2: MAE=0.0327, R²=0.9696
+Component 3: MAE=0.0269, R²=0.9703
+
+Mean MAE: 0.0315
+Mean R²: 0.9445
+
+Plot saved to: ../../../../results/rf_angles/angle_3/declamping_angle_3.png
+==========================================================================================
+Timestamp: 2025-10-24 08:57:36
+Event: clamping
+Angle index: 4
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 0 -> 3.63% importance
+2. Timestep 12 -> 3.55% importance
+3. Timestep 32 -> 3.44% importance
+4. Timestep 6 -> 2.97% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0458, R²=0.8654
+Component 1: MAE=0.0722, R²=0.8758
+Component 2: MAE=0.0827, R²=0.8753
+Component 3: MAE=0.0722, R²=0.8758
+
+Mean MAE: 0.0682
+Mean R²: 0.8731
+
+Plot saved to: ../../../../results/rf_angles/angle_4/clamping_angle_4.png
+==========================================================================================
+Timestamp: 2025-10-24 08:57:44
+Event: bending
+Angle index: 4
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 56.04% importance
+2. Timestep 34 -> 9.29% importance
+3. Timestep 37 -> 3.37% importance
+4. Timestep 30 -> 2.26% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0440, R²=0.8745
+Component 1: MAE=0.0199, R²=0.9842
+Component 2: MAE=0.0248, R²=0.9823
+Component 3: MAE=0.0199, R²=0.9842
+
+Mean MAE: 0.0271
+Mean R²: 0.9563
+
+Plot saved to: ../../../../results/rf_angles/angle_4/bending_angle_4.png
+==========================================================================================
+Timestamp: 2025-10-24 08:57:52
+Event: declamping
+Angle index: 4
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 8 -> 23.92% importance
+2. Timestep 7 -> 21.45% importance
+3. Timestep 11 -> 7.37% importance
+4. Timestep 6 -> 6.08% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0437, R²=0.8636
+Component 1: MAE=0.0321, R²=0.9638
+Component 2: MAE=0.0376, R²=0.9633
+Component 3: MAE=0.0321, R²=0.9638
+
+Mean MAE: 0.0364
+Mean R²: 0.9386
+
+Plot saved to: ../../../../results/rf_angles/angle_4/declamping_angle_4.png
+==========================================================================================
+Timestamp: 2025-10-24 08:57:59
+Event: clamping
+Angle index: 5
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 32 -> 3.13% importance
+2. Timestep 45 -> 2.85% importance
+3. Timestep 34 -> 2.80% importance
+4. Timestep 36 -> 2.80% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0526, R²=0.8629
+Component 1: MAE=0.0743, R²=0.8770
+Component 2: MAE=0.0831, R²=0.8771
+Component 3: MAE=0.0743, R²=0.8770
+
+Mean MAE: 0.0711
+Mean R²: 0.8735
+
+Plot saved to: ../../../../results/rf_angles/angle_5/clamping_angle_5.png
+==========================================================================================
+Timestamp: 2025-10-24 08:58:07
+Event: bending
+Angle index: 5
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 61.52% importance
+2. Timestep 33 -> 4.90% importance
+3. Timestep 38 -> 3.49% importance
+4. Timestep 34 -> 2.98% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0487, R²=0.8716
+Component 1: MAE=0.0192, R²=0.9850
+Component 2: MAE=0.0250, R²=0.9821
+Component 3: MAE=0.0192, R²=0.9850
+
+Mean MAE: 0.0280
+Mean R²: 0.9559
+
+Plot saved to: ../../../../results/rf_angles/angle_5/bending_angle_5.png
+==========================================================================================
+Timestamp: 2025-10-24 08:58:14
+Event: declamping
+Angle index: 5
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 8 -> 21.61% importance
+2. Timestep 9 -> 13.16% importance
+3. Timestep 11 -> 8.38% importance
+4. Timestep 5 -> 6.44% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0480, R²=0.8687
+Component 1: MAE=0.0327, R²=0.9615
+Component 2: MAE=0.0382, R²=0.9616
+Component 3: MAE=0.0327, R²=0.9615
+
+Mean MAE: 0.0379
+Mean R²: 0.9383
+
+Plot saved to: ../../../../results/rf_angles/angle_5/declamping_angle_5.png
+==========================================================================================
+Timestamp: 2025-10-24 08:58:21
+Event: clamping
+Angle index: 6
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 22 -> 3.41% importance
+2. Timestep 32 -> 3.13% importance
+3. Timestep 36 -> 3.11% importance
+4. Timestep 34 -> 2.89% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0558, R²=0.8638
+Component 1: MAE=0.0693, R²=0.8880
+Component 2: MAE=0.0772, R²=0.8893
+Component 3: MAE=0.0693, R²=0.8880
+
+Mean MAE: 0.0679
+Mean R²: 0.8823
+
+Plot saved to: ../../../../results/rf_angles/angle_6/clamping_angle_6.png
+==========================================================================================
+Timestamp: 2025-10-24 08:58:29
+Event: bending
+Angle index: 6
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 42.73% importance
+2. Timestep 27 -> 14.39% importance
+3. Timestep 4 -> 6.78% importance
+4. Timestep 33 -> 5.82% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0542, R²=0.8711
+Component 1: MAE=0.0197, R²=0.9835
+Component 2: MAE=0.0258, R²=0.9806
+Component 3: MAE=0.0197, R²=0.9835
+
+Mean MAE: 0.0299
+Mean R²: 0.9547
+
+Plot saved to: ../../../../results/rf_angles/angle_6/bending_angle_6.png
+==========================================================================================
+Timestamp: 2025-10-24 08:58:37
+Event: declamping
+Angle index: 6
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 17.63% importance
+2. Timestep 8 -> 14.91% importance
+3. Timestep 5 -> 7.91% importance
+4. Timestep 11 -> 7.15% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0539, R²=0.8686
+Component 1: MAE=0.0356, R²=0.9498
+Component 2: MAE=0.0411, R²=0.9523
+Component 3: MAE=0.0356, R²=0.9498
+
+Mean MAE: 0.0416
+Mean R²: 0.9301
+
+Plot saved to: ../../../../results/rf_angles/angle_6/declamping_angle_6.png
+==========================================================================================
+Timestamp: 2025-10-24 08:58:45
+Event: clamping
+Angle index: 7
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 3.82% importance
+2. Timestep 22 -> 3.71% importance
+3. Timestep 45 -> 2.75% importance
+4. Timestep 33 -> 2.71% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0576, R²=0.8701
+Component 1: MAE=0.0650, R²=0.8860
+Component 2: MAE=0.0715, R²=0.8917
+Component 3: MAE=0.0650, R²=0.8860
+
+Mean MAE: 0.0648
+Mean R²: 0.8835
+
+Plot saved to: ../../../../results/rf_angles/angle_7/clamping_angle_7.png
+==========================================================================================
+Timestamp: 2025-10-24 08:59:12
+Event: bending
+Angle index: 7
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 36.75% importance
+2. Timestep 34 -> 8.92% importance
+3. Timestep 4 -> 7.39% importance
+4. Timestep 28 -> 5.82% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0555, R²=0.8784
+Component 1: MAE=0.0190, R²=0.9807
+Component 2: MAE=0.0265, R²=0.9754
+Component 3: MAE=0.0190, R²=0.9807
+
+Mean MAE: 0.0300
+Mean R²: 0.9538
+
+Plot saved to: ../../../../results/rf_angles/angle_7/bending_angle_7.png
+==========================================================================================
+Timestamp: 2025-10-24 08:59:19
+Event: declamping
+Angle index: 7
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 14.62% importance
+2. Timestep 13 -> 10.82% importance
+3. Timestep 8 -> 10.78% importance
+4. Timestep 5 -> 7.81% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0557, R²=0.8762
+Component 1: MAE=0.0335, R²=0.9499
+Component 2: MAE=0.0380, R²=0.9532
+Component 3: MAE=0.0335, R²=0.9499
+
+Mean MAE: 0.0402
+Mean R²: 0.9323
+
+Plot saved to: ../../../../results/rf_angles/angle_7/declamping_angle_7.png
+==========================================================================================
+Timestamp: 2025-10-24 08:59:26
+Event: clamping
+Angle index: 8
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 4.12% importance
+2. Timestep 22 -> 3.12% importance
+3. Timestep 2 -> 3.01% importance
+4. Timestep 45 -> 2.63% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0597, R²=0.8754
+Component 1: MAE=0.0569, R²=0.8912
+Component 2: MAE=0.0621, R²=0.8960
+Component 3: MAE=0.0569, R²=0.8912
+
+Mean MAE: 0.0589
+Mean R²: 0.8885
+
+Plot saved to: ../../../../results/rf_angles/angle_8/clamping_angle_8.png
+==========================================================================================
+Timestamp: 2025-10-24 08:59:34
+Event: bending
+Angle index: 8
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 34 -> 30.65% importance
+2. Timestep 3 -> 10.70% importance
+3. Timestep 27 -> 10.17% importance
+4. Timestep 30 -> 2.55% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0589, R²=0.8735
+Component 1: MAE=0.0201, R²=0.9778
+Component 2: MAE=0.0269, R²=0.9719
+Component 3: MAE=0.0201, R²=0.9778
+
+Mean MAE: 0.0315
+Mean R²: 0.9502
+
+Plot saved to: ../../../../results/rf_angles/angle_8/bending_angle_8.png
+==========================================================================================
+Timestamp: 2025-10-24 08:59:42
+Event: declamping
+Angle index: 8
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 13 -> 20.71% importance
+2. Timestep 8 -> 9.38% importance
+3. Timestep 5 -> 7.37% importance
+4. Timestep 9 -> 6.44% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0546, R²=0.8941
+Component 1: MAE=0.0304, R²=0.9505
+Component 2: MAE=0.0354, R²=0.9497
+Component 3: MAE=0.0304, R²=0.9505
+
+Mean MAE: 0.0377
+Mean R²: 0.9362
+
+Plot saved to: ../../../../results/rf_angles/angle_8/declamping_angle_8.png
+==========================================================================================
+Timestamp: 2025-10-24 08:59:49
+Event: clamping
+Angle index: 9
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 4.26% importance
+2. Timestep 37 -> 3.45% importance
+3. Timestep 7 -> 2.74% importance
+4. Timestep 31 -> 2.67% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0617, R²=0.8796
+Component 1: MAE=0.0478, R²=0.8937
+Component 2: MAE=0.0543, R²=0.8926
+Component 3: MAE=0.0478, R²=0.8937
+
+Mean MAE: 0.0529
+Mean R²: 0.8899
+
+Plot saved to: ../../../../results/rf_angles/angle_9/clamping_angle_9.png
+==========================================================================================
+Timestamp: 2025-10-24 08:59:57
+Event: bending
+Angle index: 9
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 34 -> 35.60% importance
+2. Timestep 3 -> 8.25% importance
+3. Timestep 36 -> 2.20% importance
+4. Timestep 26 -> 2.05% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0600, R²=0.8774
+Component 1: MAE=0.0197, R²=0.9706
+Component 2: MAE=0.0272, R²=0.9634
+Component 3: MAE=0.0197, R²=0.9706
+
+Mean MAE: 0.0316
+Mean R²: 0.9455
+
+Plot saved to: ../../../../results/rf_angles/angle_9/bending_angle_9.png
+==========================================================================================
+Timestamp: 2025-10-24 09:00:23
+Event: declamping
+Angle index: 9
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 13 -> 25.74% importance
+2. Timestep 8 -> 7.77% importance
+3. Timestep 5 -> 4.64% importance
+4. Timestep 4 -> 3.93% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0565, R²=0.8941
+Component 1: MAE=0.0259, R²=0.9512
+Component 2: MAE=0.0321, R²=0.9469
+Component 3: MAE=0.0259, R²=0.9512
+
+Mean MAE: 0.0351
+Mean R²: 0.9358
+
+Plot saved to: ../../../../results/rf_angles/angle_9/declamping_angle_9.png
+==========================================================================================
+Timestamp: 2025-10-24 09:00:30
+Event: clamping
+Angle index: 10
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 3.54% importance
+2. Timestep 28 -> 2.85% importance
+3. Timestep 34 -> 2.78% importance
+4. Timestep 11 -> 2.77% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0617, R²=0.8840
+Component 1: MAE=0.0400, R²=0.8971
+Component 2: MAE=0.0471, R²=0.8872
+Component 3: MAE=0.0400, R²=0.8971
+
+Mean MAE: 0.0472
+Mean R²: 0.8914
+
+Plot saved to: ../../../../results/rf_angles/angle_10/clamping_angle_10.png
+==========================================================================================
+Timestamp: 2025-10-24 09:00:38
+Event: bending
+Angle index: 10
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 34 -> 28.70% importance
+2. Timestep 3 -> 3.99% importance
+3. Timestep 1 -> 3.16% importance
+4. Timestep 4 -> 2.57% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0592, R²=0.8849
+Component 1: MAE=0.0174, R²=0.9677
+Component 2: MAE=0.0258, R²=0.9573
+Component 3: MAE=0.0174, R²=0.9677
+
+Mean MAE: 0.0299
+Mean R²: 0.9444
+
+Plot saved to: ../../../../results/rf_angles/angle_10/bending_angle_10.png
+==========================================================================================
+Timestamp: 2025-10-24 09:00:46
+Event: declamping
+Angle index: 10
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 13 -> 16.90% importance
+2. Timestep 12 -> 9.75% importance
+3. Timestep 8 -> 7.48% importance
+4. Timestep 7 -> 3.95% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0562, R²=0.8949
+Component 1: MAE=0.0216, R²=0.9552
+Component 2: MAE=0.0280, R²=0.9479
+Component 3: MAE=0.0216, R²=0.9552
+
+Mean MAE: 0.0318
+Mean R²: 0.9383
+
+Plot saved to: ../../../../results/rf_angles/angle_10/declamping_angle_10.png
+==========================================================================================
+Timestamp: 2025-10-24 09:00:53
+Event: clamping
+Angle index: 11
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 3.92% importance
+2. Timestep 9 -> 3.85% importance
+3. Timestep 34 -> 2.90% importance
+4. Timestep 3 -> 2.75% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0674, R²=0.8721
+Component 1: MAE=0.0360, R²=0.8910
+Component 2: MAE=0.0459, R²=0.8654
+Component 3: MAE=0.0360, R²=0.8910
+
+Mean MAE: 0.0464
+Mean R²: 0.8799
+
+Plot saved to: ../../../../results/rf_angles/angle_11/clamping_angle_11.png
+==========================================================================================
+Timestamp: 2025-10-24 09:01:00
+Event: bending
+Angle index: 11
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 11 -> 9.37% importance
+2. Timestep 27 -> 5.62% importance
+3. Timestep 8 -> 4.44% importance
+4. Timestep 1 -> 4.41% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0598, R²=0.8867
+Component 1: MAE=0.0178, R²=0.9550
+Component 2: MAE=0.0251, R²=0.9500
+Component 3: MAE=0.0178, R²=0.9550
+
+Mean MAE: 0.0301
+Mean R²: 0.9367
+
+Plot saved to: ../../../../results/rf_angles/angle_11/bending_angle_11.png
+==========================================================================================
+Timestamp: 2025-10-24 09:01:08
+Event: declamping
+Angle index: 11
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 9.70% importance
+2. Timestep 10 -> 9.65% importance
+3. Timestep 13 -> 5.86% importance
+4. Timestep 8 -> 5.28% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0557, R²=0.8999
+Component 1: MAE=0.0209, R²=0.9497
+Component 2: MAE=0.0270, R²=0.9432
+Component 3: MAE=0.0209, R²=0.9497
+
+Mean MAE: 0.0311
+Mean R²: 0.9356
+
+Plot saved to: ../../../../results/rf_angles/angle_11/declamping_angle_11.png
+==========================================================================================
+Timestamp: 2025-10-24 09:01:14
+Event: clamping
+Angle index: 12
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 4.65% importance
+2. Timestep 10 -> 3.01% importance
+3. Timestep 11 -> 2.99% importance
+4. Timestep 40 -> 2.88% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0622, R²=0.8837
+Component 1: MAE=0.0332, R²=0.8888
+Component 2: MAE=0.0413, R²=0.8762
+Component 3: MAE=0.0332, R²=0.8888
+
+Mean MAE: 0.0425
+Mean R²: 0.8844
+
+Plot saved to: ../../../../results/rf_angles/angle_12/clamping_angle_12.png
+==========================================================================================
+Timestamp: 2025-10-24 09:01:22
+Event: bending
+Angle index: 12
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 41 -> 18.48% importance
+2. Timestep 1 -> 5.42% importance
+3. Timestep 27 -> 4.35% importance
+4. Timestep 34 -> 4.32% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0572, R²=0.8946
+Component 1: MAE=0.0167, R²=0.9598
+Component 2: MAE=0.0232, R²=0.9549
+Component 3: MAE=0.0167, R²=0.9598
+
+Mean MAE: 0.0284
+Mean R²: 0.9423
+
+Plot saved to: ../../../../results/rf_angles/angle_12/bending_angle_12.png
+==========================================================================================
+Timestamp: 2025-10-24 09:01:50
+Event: declamping
+Angle index: 12
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 22.44% importance
+2. Timestep 8 -> 6.86% importance
+3. Timestep 5 -> 4.34% importance
+4. Timestep 14 -> 3.51% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0564, R²=0.9010
+Component 1: MAE=0.0192, R²=0.9485
+Component 2: MAE=0.0255, R²=0.9441
+Component 3: MAE=0.0192, R²=0.9485
+
+Mean MAE: 0.0301
+Mean R²: 0.9355
+
+Plot saved to: ../../../../results/rf_angles/angle_12/declamping_angle_12.png
+==========================================================================================
+Timestamp: 2025-10-24 09:01:56
+Event: clamping
+Angle index: 13
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 5.13% importance
+2. Timestep 10 -> 3.14% importance
+3. Timestep 40 -> 3.09% importance
+4. Timestep 11 -> 2.89% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0631, R²=0.8859
+Component 1: MAE=0.0326, R²=0.8835
+Component 2: MAE=0.0412, R²=0.8726
+Component 3: MAE=0.0326, R²=0.8835
+
+Mean MAE: 0.0424
+Mean R²: 0.8814
+
+Plot saved to: ../../../../results/rf_angles/angle_13/clamping_angle_13.png
+==========================================================================================
+Timestamp: 2025-10-24 09:02:04
+Event: bending
+Angle index: 13
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 41 -> 24.50% importance
+2. Timestep 1 -> 7.69% importance
+3. Timestep 38 -> 4.09% importance
+4. Timestep 42 -> 3.30% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0579, R²=0.8955
+Component 1: MAE=0.0162, R²=0.9569
+Component 2: MAE=0.0235, R²=0.9495
+Component 3: MAE=0.0162, R²=0.9569
+
+Mean MAE: 0.0285
+Mean R²: 0.9397
+
+Plot saved to: ../../../../results/rf_angles/angle_13/bending_angle_13.png
+==========================================================================================
+Timestamp: 2025-10-24 09:02:12
+Event: declamping
+Angle index: 13
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 24.16% importance
+2. Timestep 8 -> 5.53% importance
+3. Timestep 5 -> 5.38% importance
+4. Timestep 14 -> 4.22% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0569, R²=0.9020
+Component 1: MAE=0.0175, R²=0.9513
+Component 2: MAE=0.0246, R²=0.9452
+Component 3: MAE=0.0175, R²=0.9513
+
+Mean MAE: 0.0291
+Mean R²: 0.9374
+
+Plot saved to: ../../../../results/rf_angles/angle_13/declamping_angle_13.png
+==========================================================================================
+Timestamp: 2025-10-24 09:02:19
+Event: clamping
+Angle index: 14
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 5.92% importance
+2. Timestep 10 -> 3.31% importance
+3. Timestep 32 -> 2.96% importance
+4. Timestep 0 -> 2.89% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0658, R²=0.8841
+Component 1: MAE=0.0317, R²=0.8740
+Component 2: MAE=0.0413, R²=0.8669
+Component 3: MAE=0.0317, R²=0.8740
+
+Mean MAE: 0.0426
+Mean R²: 0.8748
+
+Plot saved to: ../../../../results/rf_angles/angle_14/clamping_angle_14.png
+==========================================================================================
+Timestamp: 2025-10-24 09:02:27
+Event: bending
+Angle index: 14
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 41 -> 19.65% importance
+2. Timestep 1 -> 9.31% importance
+3. Timestep 42 -> 5.82% importance
+4. Timestep 40 -> 4.41% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0609, R²=0.8939
+Component 1: MAE=0.0157, R²=0.9544
+Component 2: MAE=0.0242, R²=0.9458
+Component 3: MAE=0.0157, R²=0.9544
+
+Mean MAE: 0.0291
+Mean R²: 0.9372
+
+Plot saved to: ../../../../results/rf_angles/angle_14/bending_angle_14.png
+==========================================================================================
+Timestamp: 2025-10-24 09:02:34
+Event: declamping
+Angle index: 14
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 21.90% importance
+2. Timestep 5 -> 5.63% importance
+3. Timestep 8 -> 4.63% importance
+4. Timestep 14 -> 4.49% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0592, R²=0.9037
+Component 1: MAE=0.0172, R²=0.9449
+Component 2: MAE=0.0247, R²=0.9413
+Component 3: MAE=0.0172, R²=0.9449
+
+Mean MAE: 0.0296
+Mean R²: 0.9337
+
+Plot saved to: ../../../../results/rf_angles/angle_14/declamping_angle_14.png
+==========================================================================================
+Timestamp: 2025-10-24 09:02:41
+Event: clamping
+Angle index: 15
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 5.75% importance
+2. Timestep 19 -> 3.24% importance
+3. Timestep 10 -> 3.21% importance
+4. Timestep 31 -> 3.07% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0679, R²=0.8824
+Component 1: MAE=0.0309, R²=0.8665
+Component 2: MAE=0.0412, R²=0.8623
+Component 3: MAE=0.0309, R²=0.8665
+
+Mean MAE: 0.0428
+Mean R²: 0.8694
+
+Plot saved to: ../../../../results/rf_angles/angle_15/clamping_angle_15.png
+==========================================================================================
+Timestamp: 2025-10-24 09:02:50
+Event: bending
+Angle index: 15
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 42 -> 10.86% importance
+2. Timestep 41 -> 9.91% importance
+3. Timestep 1 -> 9.13% importance
+4. Timestep 40 -> 6.56% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0612, R²=0.8974
+Component 1: MAE=0.0163, R²=0.9471
+Component 2: MAE=0.0246, R²=0.9436
+Component 3: MAE=0.0163, R²=0.9471
+
+Mean MAE: 0.0296
+Mean R²: 0.9338
+
+Plot saved to: ../../../../results/rf_angles/angle_15/bending_angle_15.png
+==========================================================================================
+Timestamp: 2025-10-24 09:03:17
+Event: declamping
+Angle index: 15
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 15.61% importance
+2. Timestep 5 -> 5.48% importance
+3. Timestep 8 -> 4.50% importance
+4. Timestep 13 -> 4.14% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0597, R²=0.9050
+Component 1: MAE=0.0173, R²=0.9388
+Component 2: MAE=0.0259, R²=0.9343
+Component 3: MAE=0.0173, R²=0.9388
+
+Mean MAE: 0.0300
+Mean R²: 0.9293
+
+Plot saved to: ../../../../results/rf_angles/angle_15/declamping_angle_15.png
+==========================================================================================
+Timestamp: 2025-10-24 09:03:23
+Event: clamping
+Angle index: 16
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 4.89% importance
+2. Timestep 19 -> 3.33% importance
+3. Timestep 3 -> 3.31% importance
+4. Timestep 31 -> 2.85% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0684, R²=0.8811
+Component 1: MAE=0.0285, R²=0.8655
+Component 2: MAE=0.0396, R²=0.8637
+Component 3: MAE=0.0285, R²=0.8655
+
+Mean MAE: 0.0412
+Mean R²: 0.8689
+
+Plot saved to: ../../../../results/rf_angles/angle_16/clamping_angle_16.png
+==========================================================================================
+Timestamp: 2025-10-24 09:03:31
+Event: bending
+Angle index: 16
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 42 -> 9.47% importance
+2. Timestep 1 -> 6.53% importance
+3. Timestep 40 -> 6.18% importance
+4. Timestep 37 -> 5.78% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0601, R²=0.9018
+Component 1: MAE=0.0156, R²=0.9454
+Component 2: MAE=0.0248, R²=0.9396
+Component 3: MAE=0.0156, R²=0.9454
+
+Mean MAE: 0.0290
+Mean R²: 0.9331
+
+Plot saved to: ../../../../results/rf_angles/angle_16/bending_angle_16.png
+==========================================================================================
+Timestamp: 2025-10-24 09:03:38
+Event: declamping
+Angle index: 16
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 0 -> 7.56% importance
+2. Timestep 6 -> 6.14% importance
+3. Timestep 12 -> 5.90% importance
+4. Timestep 13 -> 4.93% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0612, R²=0.9030
+Component 1: MAE=0.0178, R²=0.9296
+Component 2: MAE=0.0293, R²=0.9214
+Component 3: MAE=0.0178, R²=0.9296
+
+Mean MAE: 0.0315
+Mean R²: 0.9209
+
+Plot saved to: ../../../../results/rf_angles/angle_16/declamping_angle_16.png
+==========================================================================================
+Timestamp: 2025-10-24 09:03:45
+Event: clamping
+Angle index: 17
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 3.59% importance
+2. Timestep 3 -> 3.26% importance
+3. Timestep 32 -> 3.21% importance
+4. Timestep 36 -> 2.93% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0672, R²=0.8788
+Component 1: MAE=0.0259, R²=0.8649
+Component 2: MAE=0.0379, R²=0.8654
+Component 3: MAE=0.0259, R²=0.8649
+
+Mean MAE: 0.0392
+Mean R²: 0.8685
+
+Plot saved to: ../../../../results/rf_angles/angle_17/clamping_angle_17.png
+==========================================================================================
+Timestamp: 2025-10-24 09:03:53
+Event: bending
+Angle index: 17
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 37 -> 8.89% importance
+2. Timestep 45 -> 5.28% importance
+3. Timestep 39 -> 5.05% importance
+4. Timestep 42 -> 5.02% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0594, R²=0.9018
+Component 1: MAE=0.0144, R²=0.9476
+Component 2: MAE=0.0249, R²=0.9392
+Component 3: MAE=0.0144, R²=0.9476
+
+Mean MAE: 0.0283
+Mean R²: 0.9340
+
+Plot saved to: ../../../../results/rf_angles/angle_17/bending_angle_17.png
+==========================================================================================
+Timestamp: 2025-10-24 09:04:01
+Event: declamping
+Angle index: 17
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 0 -> 7.25% importance
+2. Timestep 5 -> 6.51% importance
+3. Timestep 12 -> 5.99% importance
+4. Timestep 1 -> 4.62% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0595, R²=0.9065
+Component 1: MAE=0.0172, R²=0.9221
+Component 2: MAE=0.0292, R²=0.9185
+Component 3: MAE=0.0172, R²=0.9221
+
+Mean MAE: 0.0308
+Mean R²: 0.9173
+
+Plot saved to: ../../../../results/rf_angles/angle_17/declamping_angle_17.png
+==========================================================================================
+Timestamp: 2025-10-24 09:04:08
+Event: clamping
+Angle index: 18
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 4.08% importance
+2. Timestep 24 -> 3.10% importance
+3. Timestep 32 -> 3.06% importance
+4. Timestep 31 -> 2.92% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0677, R²=0.8765
+Component 1: MAE=0.0247, R²=0.8627
+Component 2: MAE=0.0380, R²=0.8625
+Component 3: MAE=0.0247, R²=0.8627
+
+Mean MAE: 0.0388
+Mean R²: 0.8661
+
+Plot saved to: ../../../../results/rf_angles/angle_18/clamping_angle_18.png
+==========================================================================================
+Timestamp: 2025-10-24 09:04:17
+Event: bending
+Angle index: 18
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 45 -> 7.85% importance
+2. Timestep 37 -> 7.83% importance
+3. Timestep 29 -> 6.02% importance
+4. Timestep 39 -> 5.14% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0589, R²=0.8938
+Component 1: MAE=0.0170, R²=0.9121
+Component 2: MAE=0.0296, R²=0.9126
+Component 3: MAE=0.0170, R²=0.9121
+
+Mean MAE: 0.0306
+Mean R²: 0.9076
+
+Plot saved to: ../../../../results/rf_angles/angle_18/bending_angle_18.png
+==========================================================================================
+Timestamp: 2025-10-24 09:04:44
+Event: declamping
+Angle index: 18
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 5 -> 8.92% importance
+2. Timestep 10 -> 6.40% importance
+3. Timestep 0 -> 4.86% importance
+4. Timestep 7 -> 4.59% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0594, R²=0.8913
+Component 1: MAE=0.0175, R²=0.9140
+Component 2: MAE=0.0302, R²=0.9087
+Component 3: MAE=0.0175, R²=0.9140
+
+Mean MAE: 0.0312
+Mean R²: 0.9070
+
+Plot saved to: ../../../../results/rf_angles/angle_18/declamping_angle_18.png
+==========================================================================================
+Timestamp: 2025-10-24 09:04:50
+Event: clamping
+Angle index: 19
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 4.63% importance
+2. Timestep 32 -> 3.14% importance
+3. Timestep 5 -> 3.13% importance
+4. Timestep 0 -> 3.02% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0690, R²=0.8677
+Component 1: MAE=0.0232, R²=0.8664
+Component 2: MAE=0.0369, R²=0.8615
+Component 3: MAE=0.0232, R²=0.8664
+
+Mean MAE: 0.0381
+Mean R²: 0.8655
+
+Plot saved to: ../../../../results/rf_angles/angle_19/clamping_angle_19.png
+==========================================================================================
+Timestamp: 2025-10-24 09:04:58
+Event: bending
+Angle index: 19
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 45 -> 8.95% importance
+2. Timestep 29 -> 5.39% importance
+3. Timestep 37 -> 4.47% importance
+4. Timestep 39 -> 4.14% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0578, R²=0.8943
+Component 1: MAE=0.0177, R²=0.9062
+Component 2: MAE=0.0284, R²=0.9108
+Component 3: MAE=0.0177, R²=0.9062
+
+Mean MAE: 0.0304
+Mean R²: 0.9044
+
+Plot saved to: ../../../../results/rf_angles/angle_19/bending_angle_19.png
+==========================================================================================
+Timestamp: 2025-10-24 09:05:05
+Event: declamping
+Angle index: 19
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 10 -> 8.93% importance
+2. Timestep 5 -> 8.13% importance
+3. Timestep 8 -> 6.06% importance
+4. Timestep 7 -> 4.93% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0560, R²=0.8997
+Component 1: MAE=0.0157, R²=0.9314
+Component 2: MAE=0.0259, R²=0.9294
+Component 3: MAE=0.0157, R²=0.9314
+
+Mean MAE: 0.0284
+Mean R²: 0.9230
+
+Plot saved to: ../../../../results/rf_angles/angle_19/declamping_angle_19.png
+==========================================================================================
+Timestamp: 2025-10-24 09:05:12
+Event: clamping
+Angle index: 20
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 4.58% importance
+2. Timestep 2 -> 3.32% importance
+3. Timestep 4 -> 3.19% importance
+4. Timestep 0 -> 2.89% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0678, R²=0.8660
+Component 1: MAE=0.0230, R²=0.8688
+Component 2: MAE=0.0354, R²=0.8644
+Component 3: MAE=0.0230, R²=0.8688
+
+Mean MAE: 0.0373
+Mean R²: 0.8670
+
+Plot saved to: ../../../../results/rf_angles/angle_20/clamping_angle_20.png
+==========================================================================================
+Timestamp: 2025-10-24 09:05:20
+Event: bending
+Angle index: 20
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 45 -> 8.60% importance
+2. Timestep 29 -> 4.99% importance
+3. Timestep 31 -> 4.70% importance
+4. Timestep 27 -> 3.89% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0568, R²=0.8970
+Component 1: MAE=0.0172, R²=0.9077
+Component 2: MAE=0.0281, R²=0.9105
+Component 3: MAE=0.0172, R²=0.9077
+
+Mean MAE: 0.0298
+Mean R²: 0.9057
+
+Plot saved to: ../../../../results/rf_angles/angle_20/bending_angle_20.png
+==========================================================================================
+Timestamp: 2025-10-24 09:05:27
+Event: declamping
+Angle index: 20
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 10 -> 10.76% importance
+2. Timestep 5 -> 6.71% importance
+3. Timestep 8 -> 6.51% importance
+4. Timestep 7 -> 4.60% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0552, R²=0.9005
+Component 1: MAE=0.0157, R²=0.9295
+Component 2: MAE=0.0249, R²=0.9271
+Component 3: MAE=0.0157, R²=0.9295
+
+Mean MAE: 0.0278
+Mean R²: 0.9217
+
+Plot saved to: ../../../../results/rf_angles/angle_20/declamping_angle_20.png
+==========================================================================================
+Timestamp: 2025-10-24 09:05:34
+Event: clamping
+Angle index: 21
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 3.58% importance
+2. Timestep 0 -> 3.49% importance
+3. Timestep 2 -> 3.31% importance
+4. Timestep 5 -> 3.13% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0677, R²=0.8556
+Component 1: MAE=0.0227, R²=0.8776
+Component 2: MAE=0.0343, R²=0.8714
+Component 3: MAE=0.0227, R²=0.8776
+
+Mean MAE: 0.0368
+Mean R²: 0.8706
+
+Plot saved to: ../../../../results/rf_angles/angle_21/clamping_angle_21.png
+==========================================================================================
+Timestamp: 2025-10-24 09:06:03
+Event: bending
+Angle index: 21
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 45 -> 7.79% importance
+2. Timestep 37 -> 6.15% importance
+3. Timestep 27 -> 5.27% importance
+4. Timestep 34 -> 4.34% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0536, R²=0.9083
+Component 1: MAE=0.0167, R²=0.9175
+Component 2: MAE=0.0261, R²=0.9174
+Component 3: MAE=0.0167, R²=0.9175
+
+Mean MAE: 0.0283
+Mean R²: 0.9152
+
+Plot saved to: ../../../../results/rf_angles/angle_21/bending_angle_21.png
+==========================================================================================
+Timestamp: 2025-10-24 09:06:10
+Event: declamping
+Angle index: 21
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 10 -> 9.64% importance
+2. Timestep 12 -> 6.64% importance
+3. Timestep 5 -> 5.88% importance
+4. Timestep 8 -> 5.02% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0527, R²=0.9105
+Component 1: MAE=0.0158, R²=0.9337
+Component 2: MAE=0.0238, R²=0.9290
+Component 3: MAE=0.0158, R²=0.9337
+
+Mean MAE: 0.0270
+Mean R²: 0.9267
+
+Plot saved to: ../../../../results/rf_angles/angle_21/declamping_angle_21.png
+==========================================================================================
+Timestamp: 2025-10-24 09:06:17
+Event: clamping
+Angle index: 22
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 8 -> 3.72% importance
+2. Timestep 0 -> 3.48% importance
+3. Timestep 5 -> 3.23% importance
+4. Timestep 7 -> 3.02% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0699, R²=0.8592
+Component 1: MAE=0.0243, R²=0.8810
+Component 2: MAE=0.0320, R²=0.8858
+Component 3: MAE=0.0243, R²=0.8810
+
+Mean MAE: 0.0376
+Mean R²: 0.8767
+
+Plot saved to: ../../../../results/rf_angles/angle_22/clamping_angle_22.png
+==========================================================================================
+Timestamp: 2025-10-24 09:06:24
+Event: bending
+Angle index: 22
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 45 -> 7.66% importance
+2. Timestep 37 -> 5.70% importance
+3. Timestep 34 -> 4.71% importance
+4. Timestep 27 -> 4.62% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0537, R²=0.9110
+Component 1: MAE=0.0184, R²=0.9145
+Component 2: MAE=0.0266, R²=0.9139
+Component 3: MAE=0.0184, R²=0.9145
+
+Mean MAE: 0.0293
+Mean R²: 0.9135
+
+Plot saved to: ../../../../results/rf_angles/angle_22/bending_angle_22.png
+==========================================================================================
+Timestamp: 2025-10-24 09:06:31
+Event: declamping
+Angle index: 22
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 12 -> 7.42% importance
+2. Timestep 0 -> 6.91% importance
+3. Timestep 10 -> 6.39% importance
+4. Timestep 3 -> 5.16% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0532, R²=0.9108
+Component 1: MAE=0.0190, R²=0.9067
+Component 2: MAE=0.0273, R²=0.9039
+Component 3: MAE=0.0190, R²=0.9067
+
+Mean MAE: 0.0296
+Mean R²: 0.9070
+
+Plot saved to: ../../../../results/rf_angles/angle_22/declamping_angle_22.png
+==========================================================================================
+Timestamp: 2025-10-24 09:06:38
+Event: clamping
+Angle index: 23
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 8 -> 3.77% importance
+2. Timestep 10 -> 3.52% importance
+3. Timestep 45 -> 3.22% importance
+4. Timestep 5 -> 3.20% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0720, R²=0.8610
+Component 1: MAE=0.0282, R²=0.8761
+Component 2: MAE=0.0334, R²=0.8874
+Component 3: MAE=0.0282, R²=0.8761
+
+Mean MAE: 0.0404
+Mean R²: 0.8752
+
+Plot saved to: ../../../../results/rf_angles/angle_23/clamping_angle_23.png
+==========================================================================================
+Timestamp: 2025-10-24 09:06:46
+Event: bending
+Angle index: 23
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 33 -> 7.41% importance
+2. Timestep 32 -> 5.79% importance
+3. Timestep 45 -> 5.67% importance
+4. Timestep 31 -> 5.16% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0545, R²=0.9196
+Component 1: MAE=0.0115, R²=0.9745
+Component 2: MAE=0.0217, R²=0.9472
+Component 3: MAE=0.0115, R²=0.9745
+
+Mean MAE: 0.0248
+Mean R²: 0.9539
+
+Plot saved to: ../../../../results/rf_angles/angle_23/bending_angle_23.png
+==========================================================================================
+Timestamp: 2025-10-24 09:06:53
+Event: declamping
+Angle index: 23
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 7.93% importance
+2. Timestep 0 -> 7.43% importance
+3. Timestep 3 -> 6.43% importance
+4. Timestep 10 -> 5.09% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0559, R²=0.9129
+Component 1: MAE=0.0203, R²=0.9132
+Component 2: MAE=0.0270, R²=0.9112
+Component 3: MAE=0.0203, R²=0.9132
+
+Mean MAE: 0.0309
+Mean R²: 0.9126
+
+Plot saved to: ../../../../results/rf_angles/angle_23/declamping_angle_23.png
+==========================================================================================
+Timestamp: 2025-10-24 09:06:59
+Event: clamping
+Angle index: 24
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 3.87% importance
+2. Timestep 8 -> 3.59% importance
+3. Timestep 10 -> 3.37% importance
+4. Timestep 32 -> 3.18% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0752, R²=0.8525
+Component 1: MAE=0.0322, R²=0.8748
+Component 2: MAE=0.0353, R²=0.8837
+Component 3: MAE=0.0322, R²=0.8748
+
+Mean MAE: 0.0437
+Mean R²: 0.8715
+
+Plot saved to: ../../../../results/rf_angles/angle_24/clamping_angle_24.png
+==========================================================================================
+Timestamp: 2025-10-24 09:07:27
+Event: bending
+Angle index: 24
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 10.77% importance
+2. Timestep 33 -> 6.08% importance
+3. Timestep 27 -> 6.06% importance
+4. Timestep 31 -> 5.23% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0561, R²=0.9207
+Component 1: MAE=0.0111, R²=0.9807
+Component 2: MAE=0.0224, R²=0.9501
+Component 3: MAE=0.0111, R²=0.9807
+
+Mean MAE: 0.0252
+Mean R²: 0.9580
+
+Plot saved to: ../../../../results/rf_angles/angle_24/bending_angle_24.png
+==========================================================================================
+Timestamp: 2025-10-24 09:07:34
+Event: declamping
+Angle index: 24
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 14.70% importance
+2. Timestep 8 -> 6.06% importance
+3. Timestep 0 -> 5.76% importance
+4. Timestep 5 -> 5.75% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0571, R²=0.9118
+Component 1: MAE=0.0200, R²=0.9239
+Component 2: MAE=0.0274, R²=0.9165
+Component 3: MAE=0.0200, R²=0.9239
+
+Mean MAE: 0.0311
+Mean R²: 0.9191
+
+Plot saved to: ../../../../results/rf_angles/angle_24/declamping_angle_24.png
+==========================================================================================
+Timestamp: 2025-10-24 09:07:41
+Event: clamping
+Angle index: 25
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 3.87% importance
+2. Timestep 15 -> 3.69% importance
+3. Timestep 32 -> 3.36% importance
+4. Timestep 8 -> 2.95% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0746, R²=0.8561
+Component 1: MAE=0.0359, R²=0.8713
+Component 2: MAE=0.0379, R²=0.8764
+Component 3: MAE=0.0359, R²=0.8713
+
+Mean MAE: 0.0461
+Mean R²: 0.8688
+
+Plot saved to: ../../../../results/rf_angles/angle_25/clamping_angle_25.png
+==========================================================================================
+Timestamp: 2025-10-24 09:07:49
+Event: bending
+Angle index: 25
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 14.99% importance
+2. Timestep 27 -> 7.98% importance
+3. Timestep 33 -> 4.58% importance
+4. Timestep 37 -> 3.43% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0557, R²=0.9200
+Component 1: MAE=0.0102, R²=0.9859
+Component 2: MAE=0.0218, R²=0.9559
+Component 3: MAE=0.0102, R²=0.9859
+
+Mean MAE: 0.0245
+Mean R²: 0.9620
+
+Plot saved to: ../../../../results/rf_angles/angle_25/bending_angle_25.png
+==========================================================================================
+Timestamp: 2025-10-24 09:07:57
+Event: declamping
+Angle index: 25
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 15.51% importance
+2. Timestep 8 -> 8.78% importance
+3. Timestep 5 -> 5.89% importance
+4. Timestep 7 -> 5.83% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0571, R²=0.9100
+Component 1: MAE=0.0213, R²=0.9275
+Component 2: MAE=0.0286, R²=0.9166
+Component 3: MAE=0.0213, R²=0.9275
+
+Mean MAE: 0.0321
+Mean R²: 0.9204
+
+Plot saved to: ../../../../results/rf_angles/angle_25/declamping_angle_25.png
+==========================================================================================
+Timestamp: 2025-10-24 09:08:04
+Event: clamping
+Angle index: 26
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 15 -> 4.08% importance
+2. Timestep 7 -> 4.02% importance
+3. Timestep 32 -> 3.09% importance
+4. Timestep 29 -> 3.00% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0734, R²=0.8564
+Component 1: MAE=0.0369, R²=0.8822
+Component 2: MAE=0.0399, R²=0.8789
+Component 3: MAE=0.0369, R²=0.8822
+
+Mean MAE: 0.0468
+Mean R²: 0.8749
+
+Plot saved to: ../../../../results/rf_angles/angle_26/clamping_angle_26.png
+==========================================================================================
+Timestamp: 2025-10-24 09:08:12
+Event: bending
+Angle index: 26
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 12.20% importance
+2. Timestep 27 -> 9.21% importance
+3. Timestep 33 -> 5.31% importance
+4. Timestep 34 -> 3.13% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0546, R²=0.9157
+Component 1: MAE=0.0100, R²=0.9884
+Component 2: MAE=0.0211, R²=0.9636
+Component 3: MAE=0.0100, R²=0.9884
+
+Mean MAE: 0.0240
+Mean R²: 0.9640
+
+Plot saved to: ../../../../results/rf_angles/angle_26/bending_angle_26.png
+==========================================================================================
+Timestamp: 2025-10-24 09:08:20
+Event: declamping
+Angle index: 26
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 8 -> 10.75% importance
+2. Timestep 6 -> 9.26% importance
+3. Timestep 7 -> 7.05% importance
+4. Timestep 11 -> 6.60% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0559, R²=0.9126
+Component 1: MAE=0.0196, R²=0.9549
+Component 2: MAE=0.0276, R²=0.9391
+Component 3: MAE=0.0196, R²=0.9549
+
+Mean MAE: 0.0307
+Mean R²: 0.9404
+
+Plot saved to: ../../../../results/rf_angles/angle_26/declamping_angle_26.png
+==========================================================================================
+Timestamp: 2025-10-24 09:08:48
+Event: clamping
+Angle index: 27
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 3.98% importance
+2. Timestep 15 -> 3.80% importance
+3. Timestep 29 -> 3.32% importance
+4. Timestep 36 -> 2.80% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0715, R²=0.8602
+Component 1: MAE=0.0438, R²=0.8644
+Component 2: MAE=0.0436, R²=0.8705
+Component 3: MAE=0.0438, R²=0.8644
+
+Mean MAE: 0.0507
+Mean R²: 0.8649
+
+Plot saved to: ../../../../results/rf_angles/angle_27/clamping_angle_27.png
+==========================================================================================
+Timestamp: 2025-10-24 09:08:57
+Event: bending
+Angle index: 27
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 9.82% importance
+2. Timestep 28 -> 7.50% importance
+3. Timestep 33 -> 5.98% importance
+4. Timestep 32 -> 3.64% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0537, R²=0.9158
+Component 1: MAE=0.0092, R²=0.9916
+Component 2: MAE=0.0194, R²=0.9707
+Component 3: MAE=0.0092, R²=0.9916
+
+Mean MAE: 0.0229
+Mean R²: 0.9674
+
+Plot saved to: ../../../../results/rf_angles/angle_27/bending_angle_27.png
+==========================================================================================
+Timestamp: 2025-10-24 09:09:05
+Event: declamping
+Angle index: 27
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 8 -> 10.31% importance
+2. Timestep 11 -> 9.14% importance
+3. Timestep 0 -> 9.06% importance
+4. Timestep 10 -> 6.72% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0541, R²=0.9154
+Component 1: MAE=0.0206, R²=0.9548
+Component 2: MAE=0.0280, R²=0.9411
+Component 3: MAE=0.0206, R²=0.9548
+
+Mean MAE: 0.0308
+Mean R²: 0.9415
+
+Plot saved to: ../../../../results/rf_angles/angle_27/declamping_angle_27.png
+==========================================================================================
+Timestamp: 2025-10-24 09:09:13
+Event: clamping
+Angle index: 28
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 3.70% importance
+2. Timestep 29 -> 3.11% importance
+3. Timestep 15 -> 3.07% importance
+4. Timestep 36 -> 2.97% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0705, R²=0.8651
+Component 1: MAE=0.0475, R²=0.8575
+Component 2: MAE=0.0469, R²=0.8647
+Component 3: MAE=0.0475, R²=0.8575
+
+Mean MAE: 0.0531
+Mean R²: 0.8612
+
+Plot saved to: ../../../../results/rf_angles/angle_28/clamping_angle_28.png
+==========================================================================================
+Timestamp: 2025-10-24 09:09:22
+Event: bending
+Angle index: 28
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 8.08% importance
+2. Timestep 33 -> 5.71% importance
+3. Timestep 28 -> 5.25% importance
+4. Timestep 34 -> 3.85% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0539, R²=0.9142
+Component 1: MAE=0.0085, R²=0.9933
+Component 2: MAE=0.0185, R²=0.9738
+Component 3: MAE=0.0085, R²=0.9933
+
+Mean MAE: 0.0224
+Mean R²: 0.9687
+
+Plot saved to: ../../../../results/rf_angles/angle_28/bending_angle_28.png
+==========================================================================================
+Timestamp: 2025-10-24 09:09:30
+Event: declamping
+Angle index: 28
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 0 -> 11.59% importance
+2. Timestep 11 -> 10.28% importance
+3. Timestep 8 -> 8.80% importance
+4. Timestep 10 -> 7.62% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0519, R²=0.9170
+Component 1: MAE=0.0380, R²=0.8858
+Component 2: MAE=0.0398, R²=0.8948
+Component 3: MAE=0.0380, R²=0.8858
+
+Mean MAE: 0.0419
+Mean R²: 0.8958
+
+Plot saved to: ../../../../results/rf_angles/angle_28/declamping_angle_28.png
+==========================================================================================
+Timestamp: 2025-10-24 09:09:38
+Event: clamping
+Angle index: 29
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 3.64% importance
+2. Timestep 7 -> 3.43% importance
+3. Timestep 29 -> 3.32% importance
+4. Timestep 15 -> 3.09% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0713, R²=0.8571
+Component 1: MAE=0.0465, R²=0.8734
+Component 2: MAE=0.0468, R²=0.8749
+Component 3: MAE=0.0465, R²=0.8734
+
+Mean MAE: 0.0528
+Mean R²: 0.8697
+
+Plot saved to: ../../../../results/rf_angles/angle_29/clamping_angle_29.png
+==========================================================================================
+Timestamp: 2025-10-24 09:09:48
+Event: bending
+Angle index: 29
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 9.88% importance
+2. Timestep 28 -> 5.51% importance
+3. Timestep 33 -> 4.78% importance
+4. Timestep 4 -> 3.81% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0530, R²=0.9156
+Component 1: MAE=0.0082, R²=0.9945
+Component 2: MAE=0.0180, R²=0.9757
+Component 3: MAE=0.0082, R²=0.9945
+
+Mean MAE: 0.0218
+Mean R²: 0.9701
+
+Plot saved to: ../../../../results/rf_angles/angle_29/bending_angle_29.png
+==========================================================================================
+Timestamp: 2025-10-24 09:09:58
+Event: declamping
+Angle index: 29
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 11 -> 11.03% importance
+2. Timestep 0 -> 9.50% importance
+3. Timestep 8 -> 8.46% importance
+4. Timestep 12 -> 7.67% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0513, R²=0.9162
+Component 1: MAE=0.0256, R²=0.9395
+Component 2: MAE=0.0311, R²=0.9324
+Component 3: MAE=0.0256, R²=0.9395
+
+Mean MAE: 0.0334
+Mean R²: 0.9319
+
+Plot saved to: ../../../../results/rf_angles/angle_29/declamping_angle_29.png
+==========================================================================================
+Timestamp: 2025-10-24 09:10:06
+Event: clamping
+Angle index: 30
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 3.66% importance
+2. Timestep 36 -> 3.64% importance
+3. Timestep 9 -> 3.15% importance
+4. Timestep 15 -> 2.98% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0649, R²=0.8726
+Component 1: MAE=0.0512, R²=0.8621
+Component 2: MAE=0.0500, R²=0.8705
+Component 3: MAE=0.0512, R²=0.8621
+
+Mean MAE: 0.0543
+Mean R²: 0.8668
+
+Plot saved to: ../../../../results/rf_angles/angle_30/clamping_angle_30.png
+==========================================================================================
+Timestamp: 2025-10-24 09:10:15
+Event: bending
+Angle index: 30
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 6.87% importance
+2. Timestep 33 -> 4.72% importance
+3. Timestep 4 -> 4.27% importance
+4. Timestep 34 -> 3.42% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0522, R²=0.9095
+Component 1: MAE=0.0079, R²=0.9948
+Component 2: MAE=0.0176, R²=0.9777
+Component 3: MAE=0.0079, R²=0.9948
+
+Mean MAE: 0.0214
+Mean R²: 0.9692
+
+Plot saved to: ../../../../results/rf_angles/angle_30/bending_angle_30.png
+==========================================================================================
+Timestamp: 2025-10-24 09:10:24
+Event: declamping
+Angle index: 30
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 11 -> 11.75% importance
+2. Timestep 8 -> 8.49% importance
+3. Timestep 12 -> 7.95% importance
+4. Timestep 10 -> 7.04% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0525, R²=0.9092
+Component 1: MAE=0.0268, R²=0.9369
+Component 2: MAE=0.0312, R²=0.9322
+Component 3: MAE=0.0268, R²=0.9369
+
+Mean MAE: 0.0343
+Mean R²: 0.9288
+
+Plot saved to: ../../../../results/rf_angles/angle_30/declamping_angle_30.png
+==========================================================================================
+Timestamp: 2025-10-24 09:10:32
+Event: clamping
+Angle index: 31
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 3.70% importance
+2. Timestep 36 -> 3.56% importance
+3. Timestep 29 -> 3.03% importance
+4. Timestep 0 -> 2.86% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0629, R²=0.8727
+Component 1: MAE=0.0512, R²=0.8657
+Component 2: MAE=0.0503, R²=0.8715
+Component 3: MAE=0.0512, R²=0.8657
+
+Mean MAE: 0.0539
+Mean R²: 0.8689
+
+Plot saved to: ../../../../results/rf_angles/angle_31/clamping_angle_31.png
+==========================================================================================
+Timestamp: 2025-10-24 09:10:40
+Event: bending
+Angle index: 31
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 9.61% importance
+2. Timestep 28 -> 4.71% importance
+3. Timestep 29 -> 4.55% importance
+4. Timestep 12 -> 4.12% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0516, R²=0.9041
+Component 1: MAE=0.0085, R²=0.9947
+Component 2: MAE=0.0182, R²=0.9788
+Component 3: MAE=0.0085, R²=0.9947
+
+Mean MAE: 0.0217
+Mean R²: 0.9681
+
+Plot saved to: ../../../../results/rf_angles/angle_31/bending_angle_31.png
+==========================================================================================
+Timestamp: 2025-10-24 09:10:50
+Event: declamping
+Angle index: 31
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 11 -> 12.00% importance
+2. Timestep 8 -> 9.15% importance
+3. Timestep 12 -> 7.37% importance
+4. Timestep 10 -> 6.84% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0513, R²=0.9094
+Component 1: MAE=0.0266, R²=0.9399
+Component 2: MAE=0.0305, R²=0.9355
+Component 3: MAE=0.0266, R²=0.9399
+
+Mean MAE: 0.0338
+Mean R²: 0.9312
+
+Plot saved to: ../../../../results/rf_angles/angle_31/declamping_angle_31.png
+==========================================================================================
+Timestamp: 2025-10-24 09:10:58
+Event: clamping
+Angle index: 32
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 3.55% importance
+2. Timestep 7 -> 3.41% importance
+3. Timestep 29 -> 3.02% importance
+4. Timestep 31 -> 2.97% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0650, R²=0.8549
+Component 1: MAE=0.0498, R²=0.8711
+Component 2: MAE=0.0509, R²=0.8671
+Component 3: MAE=0.0498, R²=0.8711
+
+Mean MAE: 0.0539
+Mean R²: 0.8660
+
+Plot saved to: ../../../../results/rf_angles/angle_32/clamping_angle_32.png
+==========================================================================================
+Timestamp: 2025-10-24 09:11:27
+Event: bending
+Angle index: 32
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 11.28% importance
+2. Timestep 28 -> 4.60% importance
+3. Timestep 33 -> 3.46% importance
+4. Timestep 29 -> 3.23% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0513, R²=0.8992
+Component 1: MAE=0.0092, R²=0.9947
+Component 2: MAE=0.0199, R²=0.9770
+Component 3: MAE=0.0092, R²=0.9947
+
+Mean MAE: 0.0224
+Mean R²: 0.9664
+
+Plot saved to: ../../../../results/rf_angles/angle_32/bending_angle_32.png
+==========================================================================================
+Timestamp: 2025-10-24 09:11:36
+Event: declamping
+Angle index: 32
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 11 -> 13.10% importance
+2. Timestep 8 -> 9.84% importance
+3. Timestep 10 -> 6.90% importance
+4. Timestep 6 -> 6.61% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0516, R²=0.9038
+Component 1: MAE=0.0272, R²=0.9402
+Component 2: MAE=0.0311, R²=0.9361
+Component 3: MAE=0.0272, R²=0.9402
+
+Mean MAE: 0.0343
+Mean R²: 0.9301
+
+Plot saved to: ../../../../results/rf_angles/angle_32/declamping_angle_32.png
+==========================================================================================
+Timestamp: 2025-10-24 09:11:46
+Event: clamping
+Angle index: 33
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 3.51% importance
+2. Timestep 36 -> 3.38% importance
+3. Timestep 31 -> 3.21% importance
+4. Timestep 29 -> 3.09% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0603, R²=0.8696
+Component 1: MAE=0.0533, R²=0.8662
+Component 2: MAE=0.0528, R²=0.8713
+Component 3: MAE=0.0533, R²=0.8662
+
+Mean MAE: 0.0549
+Mean R²: 0.8684
+
+Plot saved to: ../../../../results/rf_angles/angle_33/clamping_angle_33.png
+==========================================================================================
+Timestamp: 2025-10-24 09:11:57
+Event: bending
+Angle index: 33
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 18.12% importance
+2. Timestep 28 -> 6.52% importance
+3. Timestep 29 -> 4.60% importance
+4. Timestep 30 -> 3.61% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0521, R²=0.8940
+Component 1: MAE=0.0101, R²=0.9940
+Component 2: MAE=0.0210, R²=0.9747
+Component 3: MAE=0.0101, R²=0.9940
+
+Mean MAE: 0.0233
+Mean R²: 0.9641
+
+Plot saved to: ../../../../results/rf_angles/angle_33/bending_angle_33.png
+==========================================================================================
+Timestamp: 2025-10-24 09:12:07
+Event: declamping
+Angle index: 33
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 11 -> 12.55% importance
+2. Timestep 8 -> 10.27% importance
+3. Timestep 6 -> 7.42% importance
+4. Timestep 10 -> 7.35% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0503, R²=0.9031
+Component 1: MAE=0.0268, R²=0.9450
+Component 2: MAE=0.0314, R²=0.9382
+Component 3: MAE=0.0268, R²=0.9450
+
+Mean MAE: 0.0338
+Mean R²: 0.9328
+
+Plot saved to: ../../../../results/rf_angles/angle_33/declamping_angle_33.png
+==========================================================================================
+Timestamp: 2025-10-24 09:12:15
+Event: clamping
+Angle index: 34
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 3.32% importance
+2. Timestep 31 -> 3.23% importance
+3. Timestep 36 -> 3.22% importance
+4. Timestep 32 -> 3.08% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0584, R²=0.8672
+Component 1: MAE=0.0550, R²=0.8674
+Component 2: MAE=0.0551, R²=0.8704
+Component 3: MAE=0.0550, R²=0.8674
+
+Mean MAE: 0.0559
+Mean R²: 0.8681
+
+Plot saved to: ../../../../results/rf_angles/angle_34/clamping_angle_34.png
+==========================================================================================
+Timestamp: 2025-10-24 09:12:24
+Event: bending
+Angle index: 34
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 9.74% importance
+2. Timestep 28 -> 4.89% importance
+3. Timestep 29 -> 4.03% importance
+4. Timestep 12 -> 3.85% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0508, R²=0.8927
+Component 1: MAE=0.0109, R²=0.9932
+Component 2: MAE=0.0216, R²=0.9755
+Component 3: MAE=0.0109, R²=0.9932
+
+Mean MAE: 0.0236
+Mean R²: 0.9637
+
+Plot saved to: ../../../../results/rf_angles/angle_34/bending_angle_34.png
+==========================================================================================
+Timestamp: 2025-10-24 09:12:33
+Event: declamping
+Angle index: 34
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 11 -> 13.35% importance
+2. Timestep 8 -> 11.10% importance
+3. Timestep 6 -> 7.38% importance
+4. Timestep 10 -> 7.07% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0492, R²=0.8992
+Component 1: MAE=0.0263, R²=0.9481
+Component 2: MAE=0.0312, R²=0.9434
+Component 3: MAE=0.0263, R²=0.9481
+
+Mean MAE: 0.0332
+Mean R²: 0.9347
+
+Plot saved to: ../../../../results/rf_angles/angle_34/declamping_angle_34.png
+==========================================================================================
+Timestamp: 2025-10-24 09:12:41
+Event: clamping
+Angle index: 35
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 3.44% importance
+2. Timestep 36 -> 3.41% importance
+3. Timestep 31 -> 3.02% importance
+4. Timestep 32 -> 2.99% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0568, R²=0.8733
+Component 1: MAE=0.0567, R²=0.8689
+Component 2: MAE=0.0576, R²=0.8732
+Component 3: MAE=0.0567, R²=0.8689
+
+Mean MAE: 0.0570
+Mean R²: 0.8711
+
+Plot saved to: ../../../../results/rf_angles/angle_35/clamping_angle_35.png
+==========================================================================================
+Timestamp: 2025-10-24 09:13:11
+Event: bending
+Angle index: 35
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 11.25% importance
+2. Timestep 28 -> 6.00% importance
+3. Timestep 15 -> 4.13% importance
+4. Timestep 14 -> 3.93% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0517, R²=0.8878
+Component 1: MAE=0.0111, R²=0.9933
+Component 2: MAE=0.0222, R²=0.9765
+Component 3: MAE=0.0111, R²=0.9933
+
+Mean MAE: 0.0240
+Mean R²: 0.9627
+
+Plot saved to: ../../../../results/rf_angles/angle_35/bending_angle_35.png
+==========================================================================================
+Timestamp: 2025-10-24 09:13:21
+Event: declamping
+Angle index: 35
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 11 -> 12.64% importance
+2. Timestep 8 -> 12.08% importance
+3. Timestep 10 -> 8.06% importance
+4. Timestep 6 -> 7.31% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0500, R²=0.8927
+Component 1: MAE=0.0258, R²=0.9535
+Component 2: MAE=0.0313, R²=0.9484
+Component 3: MAE=0.0258, R²=0.9535
+
+Mean MAE: 0.0332
+Mean R²: 0.9370
+
+Plot saved to: ../../../../results/rf_angles/angle_35/declamping_angle_35.png
+==========================================================================================
+Timestamp: 2025-10-24 09:13:29
+Event: clamping
+Angle index: 36
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 3.65% importance
+2. Timestep 36 -> 3.31% importance
+3. Timestep 10 -> 2.96% importance
+4. Timestep 32 -> 2.91% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0574, R²=0.8701
+Component 1: MAE=0.0592, R²=0.8714
+Component 2: MAE=0.0614, R²=0.8763
+Component 3: MAE=0.0592, R²=0.8714
+
+Mean MAE: 0.0593
+Mean R²: 0.8723
+
+Plot saved to: ../../../../results/rf_angles/angle_36/clamping_angle_36.png
+==========================================================================================
+Timestamp: 2025-10-24 09:13:37
+Event: bending
+Angle index: 36
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 30 -> 19.45% importance
+2. Timestep 27 -> 15.27% importance
+3. Timestep 26 -> 12.14% importance
+4. Timestep 28 -> 11.98% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0532, R²=0.8758
+Component 1: MAE=0.0111, R²=0.9940
+Component 2: MAE=0.0218, R²=0.9801
+Component 3: MAE=0.0111, R²=0.9940
+
+Mean MAE: 0.0243
+Mean R²: 0.9610
+
+Plot saved to: ../../../../results/rf_angles/angle_36/bending_angle_36.png
+==========================================================================================
+Timestamp: 2025-10-24 09:13:45
+Event: declamping
+Angle index: 36
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 11 -> 11.22% importance
+2. Timestep 8 -> 11.11% importance
+3. Timestep 6 -> 10.14% importance
+4. Timestep 10 -> 8.65% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0535, R²=0.8792
+Component 1: MAE=0.0271, R²=0.9548
+Component 2: MAE=0.0317, R²=0.9530
+Component 3: MAE=0.0271, R²=0.9548
+
+Mean MAE: 0.0349
+Mean R²: 0.9355
+
+Plot saved to: ../../../../results/rf_angles/angle_36/declamping_angle_36.png
+==========================================================================================
+Timestamp: 2025-10-24 09:13:52
+Event: clamping
+Angle index: 37
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 32 -> 3.29% importance
+2. Timestep 7 -> 3.23% importance
+3. Timestep 36 -> 3.19% importance
+4. Timestep 10 -> 2.99% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0559, R²=0.8684
+Component 1: MAE=0.0630, R²=0.8751
+Component 2: MAE=0.0662, R²=0.8745
+Component 3: MAE=0.0630, R²=0.8751
+
+Mean MAE: 0.0620
+Mean R²: 0.8733
+
+Plot saved to: ../../../../results/rf_angles/angle_37/clamping_angle_37.png
+==========================================================================================
+Timestamp: 2025-10-24 09:14:00
+Event: bending
+Angle index: 37
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 30 -> 27.77% importance
+2. Timestep 28 -> 10.76% importance
+3. Timestep 27 -> 9.17% importance
+4. Timestep 26 -> 7.69% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0547, R²=0.8687
+Component 1: MAE=0.0107, R²=0.9952
+Component 2: MAE=0.0203, R²=0.9848
+Component 3: MAE=0.0107, R²=0.9952
+
+Mean MAE: 0.0241
+Mean R²: 0.9610
+
+Plot saved to: ../../../../results/rf_angles/angle_37/bending_angle_37.png
+==========================================================================================
+Timestamp: 2025-10-24 09:14:07
+Event: declamping
+Angle index: 37
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 22.10% importance
+2. Timestep 10 -> 11.41% importance
+3. Timestep 11 -> 7.61% importance
+4. Timestep 8 -> 6.82% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0511, R²=0.8808
+Component 1: MAE=0.0309, R²=0.9471
+Component 2: MAE=0.0330, R²=0.9552
+Component 3: MAE=0.0309, R²=0.9471
+
+Mean MAE: 0.0365
+Mean R²: 0.9325
+
+Plot saved to: ../../../../results/rf_angles/angle_37/declamping_angle_37.png
+==========================================================================================
+Timestamp: 2025-10-24 09:14:15
+Event: clamping
+Angle index: 38
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 3.37% importance
+2. Timestep 31 -> 3.28% importance
+3. Timestep 36 -> 3.11% importance
+4. Timestep 3 -> 2.92% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0575, R²=0.8636
+Component 1: MAE=0.0679, R²=0.8722
+Component 2: MAE=0.0727, R²=0.8749
+Component 3: MAE=0.0679, R²=0.8722
+
+Mean MAE: 0.0665
+Mean R²: 0.8707
+
+Plot saved to: ../../../../results/rf_angles/angle_38/clamping_angle_38.png
+==========================================================================================
+Timestamp: 2025-10-24 09:14:25
+Event: bending
+Angle index: 38
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 33 -> 14.16% importance
+2. Timestep 28 -> 9.63% importance
+3. Timestep 26 -> 9.17% importance
+4. Timestep 30 -> 8.68% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0522, R²=0.8700
+Component 1: MAE=0.0105, R²=0.9956
+Component 2: MAE=0.0190, R²=0.9886
+Component 3: MAE=0.0105, R²=0.9956
+
+Mean MAE: 0.0231
+Mean R²: 0.9625
+
+Plot saved to: ../../../../results/rf_angles/angle_38/bending_angle_38.png
+==========================================================================================
+Timestamp: 2025-10-24 09:14:54
+Event: declamping
+Angle index: 38
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 31.21% importance
+2. Timestep 10 -> 13.81% importance
+3. Timestep 7 -> 6.32% importance
+4. Timestep 11 -> 5.47% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0521, R²=0.8778
+Component 1: MAE=0.0318, R²=0.9519
+Component 2: MAE=0.0337, R²=0.9610
+Component 3: MAE=0.0318, R²=0.9519
+
+Mean MAE: 0.0373
+Mean R²: 0.9357
+
+Plot saved to: ../../../../results/rf_angles/angle_38/declamping_angle_38.png
+==========================================================================================
+Timestamp: 2025-10-24 09:15:02
+Event: clamping
+Angle index: 39
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 31 -> 3.47% importance
+2. Timestep 1 -> 3.36% importance
+3. Timestep 36 -> 3.13% importance
+4. Timestep 3 -> 2.90% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0555, R²=0.8705
+Component 1: MAE=0.0750, R²=0.8677
+Component 2: MAE=0.0806, R²=0.8717
+Component 3: MAE=0.0750, R²=0.8677
+
+Mean MAE: 0.0715
+Mean R²: 0.8694
+
+Plot saved to: ../../../../results/rf_angles/angle_39/clamping_angle_39.png
+==========================================================================================
+Timestamp: 2025-10-24 09:15:11
+Event: bending
+Angle index: 39
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 33 -> 18.17% importance
+2. Timestep 28 -> 9.82% importance
+3. Timestep 26 -> 9.14% importance
+4. Timestep 32 -> 8.51% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0525, R²=0.8752
+Component 1: MAE=0.0100, R²=0.9968
+Component 2: MAE=0.0177, R²=0.9911
+Component 3: MAE=0.0100, R²=0.9968
+
+Mean MAE: 0.0225
+Mean R²: 0.9649
+
+Plot saved to: ../../../../results/rf_angles/angle_39/bending_angle_39.png
+==========================================================================================
+Timestamp: 2025-10-24 09:15:19
+Event: declamping
+Angle index: 39
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 34.76% importance
+2. Timestep 10 -> 16.74% importance
+3. Timestep 7 -> 5.39% importance
+4. Timestep 8 -> 4.06% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0529, R²=0.8736
+Component 1: MAE=0.0328, R²=0.9572
+Component 2: MAE=0.0343, R²=0.9662
+Component 3: MAE=0.0328, R²=0.9572
+
+Mean MAE: 0.0382
+Mean R²: 0.9385
+
+Plot saved to: ../../../../results/rf_angles/angle_39/declamping_angle_39.png
+==========================================================================================
+Timestamp: 2025-10-24 09:15:27
+Event: clamping
+Angle index: 40
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 1 -> 3.68% importance
+2. Timestep 31 -> 3.34% importance
+3. Timestep 36 -> 3.07% importance
+4. Timestep 7 -> 2.88% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0566, R²=0.8653
+Component 1: MAE=0.0871, R²=0.8601
+Component 2: MAE=0.0945, R²=0.8617
+Component 3: MAE=0.0871, R²=0.8601
+
+Mean MAE: 0.0814
+Mean R²: 0.8618
+
+Plot saved to: ../../../../results/rf_angles/angle_40/clamping_angle_40.png
+==========================================================================================
+Timestamp: 2025-10-24 09:15:35
+Event: bending
+Angle index: 40
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 33 -> 14.67% importance
+2. Timestep 30 -> 12.26% importance
+3. Timestep 28 -> 9.79% importance
+4. Timestep 32 -> 9.31% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0523, R²=0.8810
+Component 1: MAE=0.0101, R²=0.9972
+Component 2: MAE=0.0173, R²=0.9924
+Component 3: MAE=0.0101, R²=0.9972
+
+Mean MAE: 0.0224
+Mean R²: 0.9670
+
+Plot saved to: ../../../../results/rf_angles/angle_40/bending_angle_40.png
+==========================================================================================
+Timestamp: 2025-10-24 09:15:44
+Event: declamping
+Angle index: 40
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 36.09% importance
+2. Timestep 10 -> 18.04% importance
+3. Timestep 7 -> 5.46% importance
+4. Timestep 11 -> 3.74% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0530, R²=0.8742
+Component 1: MAE=0.0336, R²=0.9607
+Component 2: MAE=0.0347, R²=0.9700
+Component 3: MAE=0.0336, R²=0.9607
+
+Mean MAE: 0.0387
+Mean R²: 0.9414
+
+Plot saved to: ../../../../results/rf_angles/angle_40/declamping_angle_40.png
+==========================================================================================
+Timestamp: 2025-10-24 09:15:52
+Event: clamping
+Angle index: 41
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 31 -> 3.40% importance
+2. Timestep 1 -> 3.37% importance
+3. Timestep 36 -> 3.19% importance
+4. Timestep 2 -> 3.00% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0542, R²=0.8745
+Component 1: MAE=0.0878, R²=0.8711
+Component 2: MAE=0.0970, R²=0.8734
+Component 3: MAE=0.0878, R²=0.8711
+
+Mean MAE: 0.0817
+Mean R²: 0.8725
+
+Plot saved to: ../../../../results/rf_angles/angle_41/clamping_angle_41.png
+==========================================================================================
+Timestamp: 2025-10-24 09:16:01
+Event: bending
+Angle index: 41
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 30 -> 14.46% importance
+2. Timestep 28 -> 14.17% importance
+3. Timestep 29 -> 12.71% importance
+4. Timestep 27 -> 10.86% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0516, R²=0.8829
+Component 1: MAE=0.0097, R²=0.9976
+Component 2: MAE=0.0182, R²=0.9924
+Component 3: MAE=0.0097, R²=0.9976
+
+Mean MAE: 0.0223
+Mean R²: 0.9676
+
+Plot saved to: ../../../../results/rf_angles/angle_41/bending_angle_41.png
+==========================================================================================
+Timestamp: 2025-10-24 09:16:09
+Event: declamping
+Angle index: 41
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 37.72% importance
+2. Timestep 10 -> 19.04% importance
+3. Timestep 7 -> 5.15% importance
+4. Timestep 11 -> 3.94% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0530, R²=0.8778
+Component 1: MAE=0.0343, R²=0.9635
+Component 2: MAE=0.0352, R²=0.9738
+Component 3: MAE=0.0343, R²=0.9635
+
+Mean MAE: 0.0392
+Mean R²: 0.9447
+
+Plot saved to: ../../../../results/rf_angles/angle_41/declamping_angle_41.png
+==========================================================================================
+Timestamp: 2025-10-24 09:16:17
+Event: clamping
+Angle index: 42
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 31 -> 3.41% importance
+2. Timestep 36 -> 3.17% importance
+3. Timestep 28 -> 2.95% importance
+4. Timestep 2 -> 2.90% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0563, R²=0.8739
+Component 1: MAE=0.0946, R²=0.8722
+Component 2: MAE=0.1061, R²=0.8736
+Component 3: MAE=0.0946, R²=0.8722
+
+Mean MAE: 0.0879
+Mean R²: 0.8730
+
+Plot saved to: ../../../../results/rf_angles/angle_42/clamping_angle_42.png
+==========================================================================================
+Timestamp: 2025-10-24 09:16:29
+Event: bending
+Angle index: 42
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 18.35% importance
+2. Timestep 29 -> 17.68% importance
+3. Timestep 30 -> 17.52% importance
+4. Timestep 27 -> 15.95% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0527, R²=0.8892
+Component 1: MAE=0.0103, R²=0.9974
+Component 2: MAE=0.0176, R²=0.9933
+Component 3: MAE=0.0103, R²=0.9974
+
+Mean MAE: 0.0227
+Mean R²: 0.9693
+
+Plot saved to: ../../../../results/rf_angles/angle_42/bending_angle_42.png
+==========================================================================================
+Timestamp: 2025-10-24 09:16:39
+Event: declamping
+Angle index: 42
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 35.36% importance
+2. Timestep 10 -> 22.90% importance
+3. Timestep 11 -> 4.76% importance
+4. Timestep 7 -> 4.50% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0525, R²=0.8883
+Component 1: MAE=0.0359, R²=0.9648
+Component 2: MAE=0.0363, R²=0.9749
+Component 3: MAE=0.0359, R²=0.9648
+
+Mean MAE: 0.0402
+Mean R²: 0.9482
+
+Plot saved to: ../../../../results/rf_angles/angle_42/declamping_angle_42.png
+==========================================================================================
+Timestamp: 2025-10-24 09:16:48
+Event: clamping
+Angle index: 43
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 31 -> 3.25% importance
+2. Timestep 28 -> 3.06% importance
+3. Timestep 36 -> 3.00% importance
+4. Timestep 1 -> 2.90% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0598, R²=0.8788
+Component 1: MAE=0.1005, R²=0.8719
+Component 2: MAE=0.1142, R²=0.8731
+Component 3: MAE=0.1005, R²=0.8719
+
+Mean MAE: 0.0937
+Mean R²: 0.8739
+
+Plot saved to: ../../../../results/rf_angles/angle_43/clamping_angle_43.png
+==========================================================================================
+Timestamp: 2025-10-24 09:16:59
+Event: bending
+Angle index: 43
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 25.10% importance
+2. Timestep 30 -> 17.04% importance
+3. Timestep 27 -> 16.83% importance
+4. Timestep 29 -> 14.12% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0526, R²=0.9029
+Component 1: MAE=0.0104, R²=0.9975
+Component 2: MAE=0.0176, R²=0.9936
+Component 3: MAE=0.0104, R²=0.9975
+
+Mean MAE: 0.0228
+Mean R²: 0.9729
+
+Plot saved to: ../../../../results/rf_angles/angle_43/bending_angle_43.png
+==========================================================================================
+Timestamp: 2025-10-24 09:17:09
+Event: declamping
+Angle index: 43
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 32.12% importance
+2. Timestep 10 -> 24.97% importance
+3. Timestep 11 -> 7.17% importance
+4. Timestep 13 -> 4.14% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0531, R²=0.9019
+Component 1: MAE=0.0373, R²=0.9645
+Component 2: MAE=0.0374, R²=0.9761
+Component 3: MAE=0.0373, R²=0.9645
+
+Mean MAE: 0.0413
+Mean R²: 0.9517
+
+Plot saved to: ../../../../results/rf_angles/angle_43/declamping_angle_43.png
+==========================================================================================
+Timestamp: 2025-10-24 09:17:16
+Event: clamping
+Angle index: 44
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 31 -> 3.26% importance
+2. Timestep 3 -> 2.99% importance
+3. Timestep 36 -> 2.96% importance
+4. Timestep 34 -> 2.88% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0651, R²=0.8815
+Component 1: MAE=0.1061, R²=0.8704
+Component 2: MAE=0.1211, R²=0.8720
+Component 3: MAE=0.1061, R²=0.8704
+
+Mean MAE: 0.0996
+Mean R²: 0.8736
+
+Plot saved to: ../../../../results/rf_angles/angle_44/clamping_angle_44.png
+==========================================================================================
+Timestamp: 2025-10-24 09:17:25
+Event: bending
+Angle index: 44
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 24.63% importance
+2. Timestep 30 -> 18.75% importance
+3. Timestep 29 -> 16.78% importance
+4. Timestep 27 -> 15.50% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0518, R²=0.9155
+Component 1: MAE=0.0107, R²=0.9974
+Component 2: MAE=0.0169, R²=0.9948
+Component 3: MAE=0.0107, R²=0.9974
+
+Mean MAE: 0.0225
+Mean R²: 0.9763
+
+Plot saved to: ../../../../results/rf_angles/angle_44/bending_angle_44.png
+==========================================================================================
+Timestamp: 2025-10-24 09:17:33
+Event: declamping
+Angle index: 44
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 31.27% importance
+2. Timestep 10 -> 25.58% importance
+3. Timestep 11 -> 8.10% importance
+4. Timestep 8 -> 4.71% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0561, R²=0.9017
+Component 1: MAE=0.0385, R²=0.9656
+Component 2: MAE=0.0381, R²=0.9771
+Component 3: MAE=0.0385, R²=0.9656
+
+Mean MAE: 0.0428
+Mean R²: 0.9525
+
+Plot saved to: ../../../../results/rf_angles/angle_44/declamping_angle_44.png
+==========================================================================================
+Timestamp: 2025-10-29 10:44:06
+Event: clamping
+Angle index: 0
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 15 -> 6.31% importance
+2. Timestep 9 -> 5.43% importance
+3. Timestep 45 -> 4.84% importance
+4. Timestep 40 -> 4.55% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0284, R²=0.8403
+Component 1: MAE=0.0269, R²=0.8654
+Component 2: MAE=0.0429, R²=0.8692
+Component 3: MAE=0.0269, R²=0.8654
+
+Mean MAE: 0.0313
+Mean R²: 0.8601
+
+Plot saved to: ../../../../results/rf_angles/angle_0/clamping_angle_0.png
+==========================================================================================
+Timestamp: 2025-10-29 10:44:24
+Event: bending
+Angle index: 0
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 30 -> 13.49% importance
+2. Timestep 26 -> 10.43% importance
+3. Timestep 27 -> 9.91% importance
+4. Timestep 28 -> 8.23% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0209, R²=0.8884
+Component 1: MAE=0.0043, R²=0.9880
+Component 2: MAE=0.0114, R²=0.9810
+Component 3: MAE=0.0043, R²=0.9880
+
+Mean MAE: 0.0102
+Mean R²: 0.9614
+
+Plot saved to: ../../../../results/rf_angles/angle_0/bending_angle_0.png
+==========================================================================================
+Timestamp: 2025-10-29 10:44:44
+Event: declamping
+Angle index: 0
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 45.86% importance
+2. Timestep 11 -> 5.94% importance
+3. Timestep 7 -> 5.15% importance
+4. Timestep 5 -> 4.45% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0214, R²=0.8721
+Component 1: MAE=0.0097, R²=0.9628
+Component 2: MAE=0.0203, R²=0.9479
+Component 3: MAE=0.0097, R²=0.9628
+
+Mean MAE: 0.0153
+Mean R²: 0.9364
+
+Plot saved to: ../../../../results/rf_angles/angle_0/declamping_angle_0.png
+==========================================================================================
+Timestamp: 2025-10-29 10:44:55
+Event: clamping
+Angle index: 1
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 4.37% importance
+2. Timestep 15 -> 4.26% importance
+3. Timestep 0 -> 4.22% importance
+4. Timestep 40 -> 3.35% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0298, R²=0.8437
+Component 1: MAE=0.0427, R²=0.8720
+Component 2: MAE=0.0575, R²=0.8702
+Component 3: MAE=0.0427, R²=0.8720
+
+Mean MAE: 0.0432
+Mean R²: 0.8645
+
+Plot saved to: ../../../../results/rf_angles/angle_1/clamping_angle_1.png
+==========================================================================================
+Timestamp: 2025-10-29 10:45:07
+Event: bending
+Angle index: 1
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 30 -> 14.03% importance
+2. Timestep 28 -> 13.84% importance
+3. Timestep 27 -> 11.90% importance
+4. Timestep 29 -> 11.19% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0266, R²=0.8743
+Component 1: MAE=0.0103, R²=0.9885
+Component 2: MAE=0.0153, R²=0.9853
+Component 3: MAE=0.0103, R²=0.9885
+
+Mean MAE: 0.0157
+Mean R²: 0.9592
+
+Plot saved to: ../../../../results/rf_angles/angle_1/bending_angle_1.png
+==========================================================================================
+Timestamp: 2025-10-29 10:45:18
+Event: declamping
+Angle index: 1
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 32.05% importance
+2. Timestep 8 -> 11.90% importance
+3. Timestep 7 -> 7.07% importance
+4. Timestep 5 -> 6.61% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0279, R²=0.8634
+Component 1: MAE=0.0149, R²=0.9733
+Component 2: MAE=0.0220, R²=0.9670
+Component 3: MAE=0.0149, R²=0.9733
+
+Mean MAE: 0.0199
+Mean R²: 0.9443
+
+Plot saved to: ../../../../results/rf_angles/angle_1/declamping_angle_1.png
+==========================================================================================
+Timestamp: 2025-10-29 10:45:27
+Event: clamping
+Angle index: 2
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 37 -> 3.70% importance
+2. Timestep 12 -> 3.66% importance
+3. Timestep 0 -> 3.63% importance
+4. Timestep 9 -> 3.38% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0356, R²=0.8636
+Component 1: MAE=0.0556, R²=0.8719
+Component 2: MAE=0.0682, R²=0.8727
+Component 3: MAE=0.0556, R²=0.8719
+
+Mean MAE: 0.0538
+Mean R²: 0.8700
+
+Plot saved to: ../../../../results/rf_angles/angle_2/clamping_angle_2.png
+==========================================================================================
+Timestamp: 2025-10-29 10:45:38
+Event: bending
+Angle index: 2
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 24.61% importance
+2. Timestep 28 -> 17.88% importance
+3. Timestep 35 -> 11.09% importance
+4. Timestep 29 -> 8.71% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0329, R²=0.8794
+Component 1: MAE=0.0135, R²=0.9884
+Component 2: MAE=0.0174, R²=0.9876
+Component 3: MAE=0.0135, R²=0.9884
+
+Mean MAE: 0.0193
+Mean R²: 0.9609
+
+Plot saved to: ../../../../results/rf_angles/angle_2/bending_angle_2.png
+==========================================================================================
+Timestamp: 2025-10-29 10:45:48
+Event: declamping
+Angle index: 2
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 8 -> 19.14% importance
+2. Timestep 7 -> 15.37% importance
+3. Timestep 6 -> 14.02% importance
+4. Timestep 5 -> 7.97% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0339, R²=0.8672
+Component 1: MAE=0.0230, R²=0.9716
+Component 2: MAE=0.0289, R²=0.9692
+Component 3: MAE=0.0230, R²=0.9716
+
+Mean MAE: 0.0272
+Mean R²: 0.9449
+
+Plot saved to: ../../../../results/rf_angles/angle_2/declamping_angle_2.png
+==========================================================================================
+Timestamp: 2025-10-29 10:45:57
+Event: clamping
+Angle index: 3
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 12 -> 3.96% importance
+2. Timestep 0 -> 3.53% importance
+3. Timestep 32 -> 3.43% importance
+4. Timestep 37 -> 3.22% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0404, R²=0.8639
+Component 1: MAE=0.0636, R²=0.8814
+Component 2: MAE=0.0749, R²=0.8802
+Component 3: MAE=0.0636, R²=0.8814
+
+Mean MAE: 0.0606
+Mean R²: 0.8767
+
+Plot saved to: ../../../../results/rf_angles/angle_3/clamping_angle_3.png
+==========================================================================================
+Timestamp: 2025-10-29 10:46:08
+Event: bending
+Angle index: 3
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 38.89% importance
+2. Timestep 35 -> 7.76% importance
+3. Timestep 29 -> 5.89% importance
+4. Timestep 27 -> 4.52% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0398, R²=0.8704
+Component 1: MAE=0.0178, R²=0.9864
+Component 2: MAE=0.0220, R²=0.9857
+Component 3: MAE=0.0178, R²=0.9864
+
+Mean MAE: 0.0243
+Mean R²: 0.9572
+
+Plot saved to: ../../../../results/rf_angles/angle_3/bending_angle_3.png
+==========================================================================================
+Timestamp: 2025-10-29 10:46:18
+Event: declamping
+Angle index: 3
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 7 -> 25.60% importance
+2. Timestep 8 -> 22.46% importance
+3. Timestep 6 -> 7.62% importance
+4. Timestep 11 -> 6.43% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0394, R²=0.8678
+Component 1: MAE=0.0269, R²=0.9703
+Component 2: MAE=0.0327, R²=0.9696
+Component 3: MAE=0.0269, R²=0.9703
+
+Mean MAE: 0.0315
+Mean R²: 0.9445
+
+Plot saved to: ../../../../results/rf_angles/angle_3/declamping_angle_3.png
+==========================================================================================
+Timestamp: 2025-10-29 10:46:27
+Event: clamping
+Angle index: 4
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 0 -> 3.63% importance
+2. Timestep 12 -> 3.55% importance
+3. Timestep 32 -> 3.44% importance
+4. Timestep 6 -> 2.97% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0458, R²=0.8654
+Component 1: MAE=0.0722, R²=0.8758
+Component 2: MAE=0.0827, R²=0.8753
+Component 3: MAE=0.0722, R²=0.8758
+
+Mean MAE: 0.0682
+Mean R²: 0.8731
+
+Plot saved to: ../../../../results/rf_angles/angle_4/clamping_angle_4.png
+==========================================================================================
+Timestamp: 2025-10-29 10:46:38
+Event: bending
+Angle index: 4
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 56.04% importance
+2. Timestep 34 -> 9.29% importance
+3. Timestep 37 -> 3.37% importance
+4. Timestep 30 -> 2.26% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0440, R²=0.8745
+Component 1: MAE=0.0199, R²=0.9842
+Component 2: MAE=0.0248, R²=0.9823
+Component 3: MAE=0.0199, R²=0.9842
+
+Mean MAE: 0.0271
+Mean R²: 0.9563
+
+Plot saved to: ../../../../results/rf_angles/angle_4/bending_angle_4.png
+==========================================================================================
+Timestamp: 2025-10-29 10:46:46
+Event: declamping
+Angle index: 4
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 8 -> 23.92% importance
+2. Timestep 7 -> 21.45% importance
+3. Timestep 11 -> 7.37% importance
+4. Timestep 6 -> 6.08% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0437, R²=0.8636
+Component 1: MAE=0.0321, R²=0.9638
+Component 2: MAE=0.0376, R²=0.9633
+Component 3: MAE=0.0321, R²=0.9638
+
+Mean MAE: 0.0364
+Mean R²: 0.9386
+
+Plot saved to: ../../../../results/rf_angles/angle_4/declamping_angle_4.png
+==========================================================================================
+Timestamp: 2025-10-29 10:47:14
+Event: clamping
+Angle index: 5
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 32 -> 3.13% importance
+2. Timestep 45 -> 2.85% importance
+3. Timestep 34 -> 2.80% importance
+4. Timestep 36 -> 2.80% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0526, R²=0.8629
+Component 1: MAE=0.0743, R²=0.8770
+Component 2: MAE=0.0831, R²=0.8771
+Component 3: MAE=0.0743, R²=0.8770
+
+Mean MAE: 0.0711
+Mean R²: 0.8735
+
+Plot saved to: ../../../../results/rf_angles/angle_5/clamping_angle_5.png
+==========================================================================================
+Timestamp: 2025-10-29 10:47:23
+Event: bending
+Angle index: 5
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 61.52% importance
+2. Timestep 33 -> 4.90% importance
+3. Timestep 38 -> 3.49% importance
+4. Timestep 34 -> 2.98% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0487, R²=0.8716
+Component 1: MAE=0.0192, R²=0.9850
+Component 2: MAE=0.0250, R²=0.9821
+Component 3: MAE=0.0192, R²=0.9850
+
+Mean MAE: 0.0280
+Mean R²: 0.9559
+
+Plot saved to: ../../../../results/rf_angles/angle_5/bending_angle_5.png
+==========================================================================================
+Timestamp: 2025-10-29 10:47:32
+Event: declamping
+Angle index: 5
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 8 -> 21.61% importance
+2. Timestep 9 -> 13.16% importance
+3. Timestep 11 -> 8.38% importance
+4. Timestep 5 -> 6.44% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0480, R²=0.8687
+Component 1: MAE=0.0327, R²=0.9615
+Component 2: MAE=0.0382, R²=0.9616
+Component 3: MAE=0.0327, R²=0.9615
+
+Mean MAE: 0.0379
+Mean R²: 0.9383
+
+Plot saved to: ../../../../results/rf_angles/angle_5/declamping_angle_5.png
+==========================================================================================
+Timestamp: 2025-10-29 10:47:40
+Event: clamping
+Angle index: 6
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 22 -> 3.41% importance
+2. Timestep 32 -> 3.13% importance
+3. Timestep 36 -> 3.11% importance
+4. Timestep 34 -> 2.89% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0558, R²=0.8638
+Component 1: MAE=0.0693, R²=0.8880
+Component 2: MAE=0.0772, R²=0.8893
+Component 3: MAE=0.0693, R²=0.8880
+
+Mean MAE: 0.0679
+Mean R²: 0.8823
+
+Plot saved to: ../../../../results/rf_angles/angle_6/clamping_angle_6.png
+==========================================================================================
+Timestamp: 2025-10-29 10:47:48
+Event: bending
+Angle index: 6
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 42.73% importance
+2. Timestep 27 -> 14.39% importance
+3. Timestep 4 -> 6.78% importance
+4. Timestep 33 -> 5.82% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0542, R²=0.8711
+Component 1: MAE=0.0197, R²=0.9835
+Component 2: MAE=0.0258, R²=0.9806
+Component 3: MAE=0.0197, R²=0.9835
+
+Mean MAE: 0.0299
+Mean R²: 0.9547
+
+Plot saved to: ../../../../results/rf_angles/angle_6/bending_angle_6.png
+==========================================================================================
+Timestamp: 2025-10-29 10:47:57
+Event: declamping
+Angle index: 6
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 17.63% importance
+2. Timestep 8 -> 14.91% importance
+3. Timestep 5 -> 7.91% importance
+4. Timestep 11 -> 7.15% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0539, R²=0.8686
+Component 1: MAE=0.0356, R²=0.9498
+Component 2: MAE=0.0411, R²=0.9523
+Component 3: MAE=0.0356, R²=0.9498
+
+Mean MAE: 0.0416
+Mean R²: 0.9301
+
+Plot saved to: ../../../../results/rf_angles/angle_6/declamping_angle_6.png
+==========================================================================================
+Timestamp: 2025-10-29 10:48:05
+Event: clamping
+Angle index: 7
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 3.82% importance
+2. Timestep 22 -> 3.71% importance
+3. Timestep 45 -> 2.75% importance
+4. Timestep 33 -> 2.71% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0576, R²=0.8701
+Component 1: MAE=0.0650, R²=0.8860
+Component 2: MAE=0.0715, R²=0.8917
+Component 3: MAE=0.0650, R²=0.8860
+
+Mean MAE: 0.0648
+Mean R²: 0.8835
+
+Plot saved to: ../../../../results/rf_angles/angle_7/clamping_angle_7.png
+==========================================================================================
+Timestamp: 2025-10-29 10:48:14
+Event: bending
+Angle index: 7
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 27 -> 36.75% importance
+2. Timestep 34 -> 8.92% importance
+3. Timestep 4 -> 7.39% importance
+4. Timestep 28 -> 5.82% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0555, R²=0.8784
+Component 1: MAE=0.0190, R²=0.9807
+Component 2: MAE=0.0265, R²=0.9754
+Component 3: MAE=0.0190, R²=0.9807
+
+Mean MAE: 0.0300
+Mean R²: 0.9538
+
+Plot saved to: ../../../../results/rf_angles/angle_7/bending_angle_7.png
+==========================================================================================
+Timestamp: 2025-10-29 10:48:23
+Event: declamping
+Angle index: 7
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 14.62% importance
+2. Timestep 13 -> 10.82% importance
+3. Timestep 8 -> 10.78% importance
+4. Timestep 5 -> 7.81% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0557, R²=0.8762
+Component 1: MAE=0.0335, R²=0.9499
+Component 2: MAE=0.0380, R²=0.9532
+Component 3: MAE=0.0335, R²=0.9499
+
+Mean MAE: 0.0402
+Mean R²: 0.9323
+
+Plot saved to: ../../../../results/rf_angles/angle_7/declamping_angle_7.png
+==========================================================================================
+Timestamp: 2025-10-29 10:48:31
+Event: clamping
+Angle index: 8
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 4.12% importance
+2. Timestep 22 -> 3.12% importance
+3. Timestep 2 -> 3.01% importance
+4. Timestep 45 -> 2.63% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0597, R²=0.8754
+Component 1: MAE=0.0569, R²=0.8912
+Component 2: MAE=0.0621, R²=0.8960
+Component 3: MAE=0.0569, R²=0.8912
+
+Mean MAE: 0.0589
+Mean R²: 0.8885
+
+Plot saved to: ../../../../results/rf_angles/angle_8/clamping_angle_8.png
+==========================================================================================
+Timestamp: 2025-10-29 10:48:40
+Event: bending
+Angle index: 8
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 34 -> 30.65% importance
+2. Timestep 3 -> 10.70% importance
+3. Timestep 27 -> 10.17% importance
+4. Timestep 30 -> 2.55% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0589, R²=0.8735
+Component 1: MAE=0.0201, R²=0.9778
+Component 2: MAE=0.0269, R²=0.9719
+Component 3: MAE=0.0201, R²=0.9778
+
+Mean MAE: 0.0315
+Mean R²: 0.9502
+
+Plot saved to: ../../../../results/rf_angles/angle_8/bending_angle_8.png
+==========================================================================================
+Timestamp: 2025-10-29 10:48:49
+Event: declamping
+Angle index: 8
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 13 -> 20.71% importance
+2. Timestep 8 -> 9.38% importance
+3. Timestep 5 -> 7.37% importance
+4. Timestep 9 -> 6.44% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0546, R²=0.8941
+Component 1: MAE=0.0304, R²=0.9505
+Component 2: MAE=0.0354, R²=0.9497
+Component 3: MAE=0.0304, R²=0.9505
+
+Mean MAE: 0.0377
+Mean R²: 0.9362
+
+Plot saved to: ../../../../results/rf_angles/angle_8/declamping_angle_8.png
+==========================================================================================
+Timestamp: 2025-10-29 10:48:56
+Event: clamping
+Angle index: 9
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 4.26% importance
+2. Timestep 37 -> 3.45% importance
+3. Timestep 7 -> 2.74% importance
+4. Timestep 31 -> 2.67% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0617, R²=0.8796
+Component 1: MAE=0.0478, R²=0.8937
+Component 2: MAE=0.0543, R²=0.8926
+Component 3: MAE=0.0478, R²=0.8937
+
+Mean MAE: 0.0529
+Mean R²: 0.8899
+
+Plot saved to: ../../../../results/rf_angles/angle_9/clamping_angle_9.png
+==========================================================================================
+Timestamp: 2025-10-29 10:49:06
+Event: bending
+Angle index: 9
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 34 -> 35.60% importance
+2. Timestep 3 -> 8.25% importance
+3. Timestep 36 -> 2.20% importance
+4. Timestep 26 -> 2.05% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0600, R²=0.8774
+Component 1: MAE=0.0197, R²=0.9706
+Component 2: MAE=0.0272, R²=0.9634
+Component 3: MAE=0.0197, R²=0.9706
+
+Mean MAE: 0.0316
+Mean R²: 0.9455
+
+Plot saved to: ../../../../results/rf_angles/angle_9/bending_angle_9.png
+==========================================================================================
+Timestamp: 2025-10-29 10:49:15
+Event: declamping
+Angle index: 9
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 13 -> 25.74% importance
+2. Timestep 8 -> 7.77% importance
+3. Timestep 5 -> 4.64% importance
+4. Timestep 4 -> 3.93% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0565, R²=0.8941
+Component 1: MAE=0.0259, R²=0.9512
+Component 2: MAE=0.0321, R²=0.9469
+Component 3: MAE=0.0259, R²=0.9512
+
+Mean MAE: 0.0351
+Mean R²: 0.9358
+
+Plot saved to: ../../../../results/rf_angles/angle_9/declamping_angle_9.png
+==========================================================================================
+Timestamp: 2025-10-29 10:49:22
+Event: clamping
+Angle index: 10
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 3.54% importance
+2. Timestep 28 -> 2.85% importance
+3. Timestep 34 -> 2.78% importance
+4. Timestep 11 -> 2.77% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0617, R²=0.8840
+Component 1: MAE=0.0400, R²=0.8971
+Component 2: MAE=0.0471, R²=0.8872
+Component 3: MAE=0.0400, R²=0.8971
+
+Mean MAE: 0.0472
+Mean R²: 0.8914
+
+Plot saved to: ../../../../results/rf_angles/angle_10/clamping_angle_10.png
+==========================================================================================
+Timestamp: 2025-10-29 10:49:31
+Event: bending
+Angle index: 10
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 34 -> 28.70% importance
+2. Timestep 3 -> 3.99% importance
+3. Timestep 1 -> 3.16% importance
+4. Timestep 4 -> 2.57% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0592, R²=0.8849
+Component 1: MAE=0.0174, R²=0.9677
+Component 2: MAE=0.0258, R²=0.9573
+Component 3: MAE=0.0174, R²=0.9677
+
+Mean MAE: 0.0299
+Mean R²: 0.9444
+
+Plot saved to: ../../../../results/rf_angles/angle_10/bending_angle_10.png
+==========================================================================================
+Timestamp: 2025-10-29 10:49:40
+Event: declamping
+Angle index: 10
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 13 -> 16.90% importance
+2. Timestep 12 -> 9.75% importance
+3. Timestep 8 -> 7.48% importance
+4. Timestep 7 -> 3.95% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0562, R²=0.8949
+Component 1: MAE=0.0216, R²=0.9552
+Component 2: MAE=0.0280, R²=0.9479
+Component 3: MAE=0.0216, R²=0.9552
+
+Mean MAE: 0.0318
+Mean R²: 0.9383
+
+Plot saved to: ../../../../results/rf_angles/angle_10/declamping_angle_10.png
+==========================================================================================
+Timestamp: 2025-10-29 10:49:48
+Event: clamping
+Angle index: 11
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 28 -> 3.92% importance
+2. Timestep 9 -> 3.85% importance
+3. Timestep 34 -> 2.90% importance
+4. Timestep 3 -> 2.75% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0674, R²=0.8721
+Component 1: MAE=0.0360, R²=0.8910
+Component 2: MAE=0.0459, R²=0.8654
+Component 3: MAE=0.0360, R²=0.8910
+
+Mean MAE: 0.0464
+Mean R²: 0.8799
+
+Plot saved to: ../../../../results/rf_angles/angle_11/clamping_angle_11.png
+==========================================================================================
+Timestamp: 2025-10-29 10:49:57
+Event: bending
+Angle index: 11
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 11 -> 9.37% importance
+2. Timestep 27 -> 5.62% importance
+3. Timestep 8 -> 4.44% importance
+4. Timestep 1 -> 4.41% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0598, R²=0.8867
+Component 1: MAE=0.0178, R²=0.9550
+Component 2: MAE=0.0251, R²=0.9500
+Component 3: MAE=0.0178, R²=0.9550
+
+Mean MAE: 0.0301
+Mean R²: 0.9367
+
+Plot saved to: ../../../../results/rf_angles/angle_11/bending_angle_11.png
+==========================================================================================
+Timestamp: 2025-10-29 10:50:06
+Event: declamping
+Angle index: 11
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 9.70% importance
+2. Timestep 10 -> 9.65% importance
+3. Timestep 13 -> 5.86% importance
+4. Timestep 8 -> 5.28% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0557, R²=0.8999
+Component 1: MAE=0.0209, R²=0.9497
+Component 2: MAE=0.0270, R²=0.9432
+Component 3: MAE=0.0209, R²=0.9497
+
+Mean MAE: 0.0311
+Mean R²: 0.9356
+
+Plot saved to: ../../../../results/rf_angles/angle_11/declamping_angle_11.png
+==========================================================================================
+Timestamp: 2025-10-29 10:50:14
+Event: clamping
+Angle index: 12
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 4.65% importance
+2. Timestep 10 -> 3.01% importance
+3. Timestep 11 -> 2.99% importance
+4. Timestep 40 -> 2.88% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0622, R²=0.8837
+Component 1: MAE=0.0332, R²=0.8888
+Component 2: MAE=0.0413, R²=0.8762
+Component 3: MAE=0.0332, R²=0.8888
+
+Mean MAE: 0.0425
+Mean R²: 0.8844
+
+Plot saved to: ../../../../results/rf_angles/angle_12/clamping_angle_12.png
+==========================================================================================
+Timestamp: 2025-10-29 10:50:23
+Event: bending
+Angle index: 12
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 41 -> 18.48% importance
+2. Timestep 1 -> 5.42% importance
+3. Timestep 27 -> 4.35% importance
+4. Timestep 34 -> 4.32% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0572, R²=0.8946
+Component 1: MAE=0.0167, R²=0.9598
+Component 2: MAE=0.0232, R²=0.9549
+Component 3: MAE=0.0167, R²=0.9598
+
+Mean MAE: 0.0284
+Mean R²: 0.9423
+
+Plot saved to: ../../../../results/rf_angles/angle_12/bending_angle_12.png
+==========================================================================================
+Timestamp: 2025-10-29 10:50:32
+Event: declamping
+Angle index: 12
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 22.44% importance
+2. Timestep 8 -> 6.86% importance
+3. Timestep 5 -> 4.34% importance
+4. Timestep 14 -> 3.51% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0564, R²=0.9010
+Component 1: MAE=0.0192, R²=0.9485
+Component 2: MAE=0.0255, R²=0.9441
+Component 3: MAE=0.0192, R²=0.9485
+
+Mean MAE: 0.0301
+Mean R²: 0.9355
+
+Plot saved to: ../../../../results/rf_angles/angle_12/declamping_angle_12.png
+==========================================================================================
+Timestamp: 2025-10-29 10:50:40
+Event: clamping
+Angle index: 13
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 5.13% importance
+2. Timestep 10 -> 3.14% importance
+3. Timestep 40 -> 3.09% importance
+4. Timestep 11 -> 2.89% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0631, R²=0.8859
+Component 1: MAE=0.0326, R²=0.8835
+Component 2: MAE=0.0412, R²=0.8726
+Component 3: MAE=0.0326, R²=0.8835
+
+Mean MAE: 0.0424
+Mean R²: 0.8814
+
+Plot saved to: ../../../../results/rf_angles/angle_13/clamping_angle_13.png
+==========================================================================================
+Timestamp: 2025-10-29 10:50:50
+Event: bending
+Angle index: 13
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 41 -> 24.50% importance
+2. Timestep 1 -> 7.69% importance
+3. Timestep 38 -> 4.09% importance
+4. Timestep 42 -> 3.30% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0579, R²=0.8955
+Component 1: MAE=0.0162, R²=0.9569
+Component 2: MAE=0.0235, R²=0.9495
+Component 3: MAE=0.0162, R²=0.9569
+
+Mean MAE: 0.0285
+Mean R²: 0.9397
+
+Plot saved to: ../../../../results/rf_angles/angle_13/bending_angle_13.png
+==========================================================================================
+Timestamp: 2025-10-29 10:51:01
+Event: declamping
+Angle index: 13
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 24.16% importance
+2. Timestep 8 -> 5.53% importance
+3. Timestep 5 -> 5.38% importance
+4. Timestep 14 -> 4.22% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0569, R²=0.9020
+Component 1: MAE=0.0175, R²=0.9513
+Component 2: MAE=0.0246, R²=0.9452
+Component 3: MAE=0.0175, R²=0.9513
+
+Mean MAE: 0.0291
+Mean R²: 0.9374
+
+Plot saved to: ../../../../results/rf_angles/angle_13/declamping_angle_13.png
+==========================================================================================
+Timestamp: 2025-10-29 10:51:10
+Event: clamping
+Angle index: 14
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 5.92% importance
+2. Timestep 10 -> 3.31% importance
+3. Timestep 32 -> 2.96% importance
+4. Timestep 0 -> 2.89% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0658, R²=0.8841
+Component 1: MAE=0.0317, R²=0.8740
+Component 2: MAE=0.0413, R²=0.8669
+Component 3: MAE=0.0317, R²=0.8740
+
+Mean MAE: 0.0426
+Mean R²: 0.8748
+
+Plot saved to: ../../../../results/rf_angles/angle_14/clamping_angle_14.png
+==========================================================================================
+Timestamp: 2025-10-29 10:51:21
+Event: bending
+Angle index: 14
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 41 -> 19.65% importance
+2. Timestep 1 -> 9.31% importance
+3. Timestep 42 -> 5.82% importance
+4. Timestep 40 -> 4.41% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0609, R²=0.8939
+Component 1: MAE=0.0157, R²=0.9544
+Component 2: MAE=0.0242, R²=0.9458
+Component 3: MAE=0.0157, R²=0.9544
+
+Mean MAE: 0.0291
+Mean R²: 0.9372
+
+Plot saved to: ../../../../results/rf_angles/angle_14/bending_angle_14.png
+==========================================================================================
+Timestamp: 2025-10-29 10:51:31
+Event: declamping
+Angle index: 14
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 21.90% importance
+2. Timestep 5 -> 5.63% importance
+3. Timestep 8 -> 4.63% importance
+4. Timestep 14 -> 4.49% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0592, R²=0.9037
+Component 1: MAE=0.0172, R²=0.9449
+Component 2: MAE=0.0247, R²=0.9413
+Component 3: MAE=0.0172, R²=0.9449
+
+Mean MAE: 0.0296
+Mean R²: 0.9337
+
+Plot saved to: ../../../../results/rf_angles/angle_14/declamping_angle_14.png
+==========================================================================================
+Timestamp: 2025-10-29 10:51:39
+Event: clamping
+Angle index: 15
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 5.75% importance
+2. Timestep 19 -> 3.24% importance
+3. Timestep 10 -> 3.21% importance
+4. Timestep 31 -> 3.07% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0679, R²=0.8824
+Component 1: MAE=0.0309, R²=0.8665
+Component 2: MAE=0.0412, R²=0.8623
+Component 3: MAE=0.0309, R²=0.8665
+
+Mean MAE: 0.0428
+Mean R²: 0.8694
+
+Plot saved to: ../../../../results/rf_angles/angle_15/clamping_angle_15.png
+==========================================================================================
+Timestamp: 2025-10-29 10:51:49
+Event: bending
+Angle index: 15
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 42 -> 10.86% importance
+2. Timestep 41 -> 9.91% importance
+3. Timestep 1 -> 9.13% importance
+4. Timestep 40 -> 6.56% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0612, R²=0.8974
+Component 1: MAE=0.0163, R²=0.9471
+Component 2: MAE=0.0246, R²=0.9436
+Component 3: MAE=0.0163, R²=0.9471
+
+Mean MAE: 0.0296
+Mean R²: 0.9338
+
+Plot saved to: ../../../../results/rf_angles/angle_15/bending_angle_15.png
+==========================================================================================
+Timestamp: 2025-10-29 10:51:58
+Event: declamping
+Angle index: 15
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 6 -> 15.61% importance
+2. Timestep 5 -> 5.48% importance
+3. Timestep 8 -> 4.50% importance
+4. Timestep 13 -> 4.14% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0597, R²=0.9050
+Component 1: MAE=0.0173, R²=0.9388
+Component 2: MAE=0.0259, R²=0.9343
+Component 3: MAE=0.0173, R²=0.9388
+
+Mean MAE: 0.0300
+Mean R²: 0.9293
+
+Plot saved to: ../../../../results/rf_angles/angle_15/declamping_angle_15.png
+==========================================================================================
+Timestamp: 2025-10-29 10:52:05
+Event: clamping
+Angle index: 16
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 4.89% importance
+2. Timestep 19 -> 3.33% importance
+3. Timestep 3 -> 3.31% importance
+4. Timestep 31 -> 2.85% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0684, R²=0.8811
+Component 1: MAE=0.0285, R²=0.8655
+Component 2: MAE=0.0396, R²=0.8637
+Component 3: MAE=0.0285, R²=0.8655
+
+Mean MAE: 0.0412
+Mean R²: 0.8689
+
+Plot saved to: ../../../../results/rf_angles/angle_16/clamping_angle_16.png
+==========================================================================================
+Timestamp: 2025-10-29 10:52:14
+Event: bending
+Angle index: 16
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 42 -> 9.47% importance
+2. Timestep 1 -> 6.53% importance
+3. Timestep 40 -> 6.18% importance
+4. Timestep 37 -> 5.78% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0601, R²=0.9018
+Component 1: MAE=0.0156, R²=0.9454
+Component 2: MAE=0.0248, R²=0.9396
+Component 3: MAE=0.0156, R²=0.9454
+
+Mean MAE: 0.0290
+Mean R²: 0.9331
+
+Plot saved to: ../../../../results/rf_angles/angle_16/bending_angle_16.png
+==========================================================================================
+Timestamp: 2025-10-29 10:52:23
+Event: declamping
+Angle index: 16
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 0 -> 7.56% importance
+2. Timestep 6 -> 6.14% importance
+3. Timestep 12 -> 5.90% importance
+4. Timestep 13 -> 4.93% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0612, R²=0.9030
+Component 1: MAE=0.0178, R²=0.9296
+Component 2: MAE=0.0293, R²=0.9214
+Component 3: MAE=0.0178, R²=0.9296
+
+Mean MAE: 0.0315
+Mean R²: 0.9209
+
+Plot saved to: ../../../../results/rf_angles/angle_16/declamping_angle_16.png
+==========================================================================================
+Timestamp: 2025-10-29 10:52:30
+Event: clamping
+Angle index: 17
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 9 -> 3.59% importance
+2. Timestep 3 -> 3.26% importance
+3. Timestep 32 -> 3.21% importance
+4. Timestep 36 -> 2.93% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0672, R²=0.8788
+Component 1: MAE=0.0259, R²=0.8649
+Component 2: MAE=0.0379, R²=0.8654
+Component 3: MAE=0.0259, R²=0.8649
+
+Mean MAE: 0.0392
+Mean R²: 0.8685
+
+Plot saved to: ../../../../results/rf_angles/angle_17/clamping_angle_17.png
+==========================================================================================
+Timestamp: 2025-10-29 10:52:41
+Event: bending
+Angle index: 17
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 37 -> 8.89% importance
+2. Timestep 45 -> 5.28% importance
+3. Timestep 39 -> 5.05% importance
+4. Timestep 42 -> 5.02% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0594, R²=0.9018
+Component 1: MAE=0.0144, R²=0.9476
+Component 2: MAE=0.0249, R²=0.9392
+Component 3: MAE=0.0144, R²=0.9476
+
+Mean MAE: 0.0283
+Mean R²: 0.9340
+
+Plot saved to: ../../../../results/rf_angles/angle_17/bending_angle_17.png
+==========================================================================================
+Timestamp: 2025-10-29 10:52:50
+Event: declamping
+Angle index: 17
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 0 -> 7.25% importance
+2. Timestep 5 -> 6.51% importance
+3. Timestep 12 -> 5.99% importance
+4. Timestep 1 -> 4.62% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0595, R²=0.9065
+Component 1: MAE=0.0172, R²=0.9221
+Component 2: MAE=0.0292, R²=0.9185
+Component 3: MAE=0.0172, R²=0.9221
+
+Mean MAE: 0.0308
+Mean R²: 0.9173
+
+Plot saved to: ../../../../results/rf_angles/angle_17/declamping_angle_17.png
+==========================================================================================
+Timestamp: 2025-10-29 10:52:59
+Event: clamping
+Angle index: 18
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 4.08% importance
+2. Timestep 24 -> 3.10% importance
+3. Timestep 32 -> 3.06% importance
+4. Timestep 31 -> 2.92% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0677, R²=0.8765
+Component 1: MAE=0.0247, R²=0.8627
+Component 2: MAE=0.0380, R²=0.8625
+Component 3: MAE=0.0247, R²=0.8627
+
+Mean MAE: 0.0388
+Mean R²: 0.8661
+
+Plot saved to: ../../../../results/rf_angles/angle_18/clamping_angle_18.png
+==========================================================================================
+Timestamp: 2025-10-29 10:53:09
+Event: bending
+Angle index: 18
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 45 -> 7.85% importance
+2. Timestep 37 -> 7.83% importance
+3. Timestep 29 -> 6.02% importance
+4. Timestep 39 -> 5.14% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0589, R²=0.8938
+Component 1: MAE=0.0170, R²=0.9121
+Component 2: MAE=0.0296, R²=0.9126
+Component 3: MAE=0.0170, R²=0.9121
+
+Mean MAE: 0.0306
+Mean R²: 0.9076
+
+Plot saved to: ../../../../results/rf_angles/angle_18/bending_angle_18.png
+==========================================================================================
+Timestamp: 2025-10-29 10:59:32
+Event: clamping
+Angle index: 18
+Data shape: X=(260, 46, 15), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 36 -> 4.08% importance
+2. Timestep 24 -> 3.10% importance
+3. Timestep 32 -> 3.06% importance
+4. Timestep 31 -> 2.92% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0677, R²=0.8765
+Component 1: MAE=0.0247, R²=0.8627
+Component 2: MAE=0.0380, R²=0.8625
+Component 3: MAE=0.0247, R²=0.8627
+
+Mean MAE: 0.0388
+Mean R²: 0.8661
+
+Plot saved to: ../../../../results/rf_angles/angle_18/clamping_angle_18.png
+==========================================================================================
+Timestamp: 2025-11-22 18:08:23
+Event: clamping
+Angle index: 0
+Data shape: X=(260, 10, 16), Y_angle=(260, 1, 4)
+
+--- RandomForest Parameters ---
+n_estimators: 500
+random_state: 42
+n_jobs: -1
+
+--- Top 4 Most Important Timesteps ---
+1. Timestep 8 -> 14.53% importance
+2. Timestep 7 -> 14.25% importance
+3. Timestep 0 -> 11.51% importance
+4. Timestep 9 -> 11.03% importance
+
+--- Angle Component Metrics ---
+Component 0: MAE=0.0290, R²=0.8356
+Component 1: MAE=0.0281, R²=0.8551
+Component 2: MAE=0.0445, R²=0.8576
+Component 3: MAE=0.0281, R²=0.8551
+
+Mean MAE: 0.0324
+Mean R²: 0.8508
+
+Plot saved to: ../../../../results/rf_angles/angle_0/clamping_angle_0.png
