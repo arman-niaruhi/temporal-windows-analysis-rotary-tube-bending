@@ -199,11 +199,12 @@ class DataVisualizer:
         # --- Save plot button ---
         save_folder = "results/saved_plots"
         os.makedirs(save_folder, exist_ok=True)
-        if st.button(f"Save Plot: {df_name}"):
-            filename = f"{df_name}_Experiment{experiment_id}_{x_start}_{x_end}.png"
+        if st.button(f"Save Plot as PDF: {df_name}"):
+            filename = f"{df_name}_Experiment{experiment_id}_{x_start}_{x_end}.pdf"
             filepath = os.path.join(save_folder, filename)
-            fig.savefig(filepath, dpi=300)
+            fig.savefig(filepath, dpi=300, format='pdf')
             st.success(f"Plot saved as {filepath}")
+
 
     def matplotlib_mar_plot(self, experiment_df, labels, df_name, experiment_id):
         """
@@ -443,3 +444,8 @@ class StreamlitApp:
                 self.visualizer.matplotlib_mar_plot(
                     experiment_df, declamping_labels, mar_dataset_name, int(experiment_id)
                 )
+
+
+vizualiser = StreamlitApp()
+vizualiser.run()
+# streamlit run main.py visualize

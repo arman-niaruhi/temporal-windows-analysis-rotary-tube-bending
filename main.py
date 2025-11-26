@@ -1,7 +1,6 @@
 import argparse
 from src.pipeline.preprocessing.data_preprecessor import DataPreprocessPipeline
 from src.pipeline.preprocessing.loader import DataLoader
-from src.pipeline.dashboard.visualizer import StreamlitApp
 import streamlit as st
 import json
 
@@ -67,11 +66,6 @@ def acivity_recognition(sensor_df, model_path):
     
 
 
-def visualize_data():
-    vizualiser = StreamlitApp()
-    vizualiser.run()
-
-
 def main():
     parser = argparse.ArgumentParser(description="Run different pipeline steps.")
     parser.add_argument(
@@ -106,9 +100,6 @@ def main():
     elif args.step == "context":
         extract_context()
 
-    elif args.step == "visualize":
-        visualize_data()
-
 
 if __name__ == "__main__":
     main()
@@ -116,4 +107,3 @@ if __name__ == "__main__":
     # python main.py export
     # python main.py activity_recognition
     # python main.py context
-    # streamlit run main.py visualize
