@@ -6,7 +6,7 @@ import matplotlib.patches as mpatches
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QComboBox,
-    QFileDialog, QFrame, QListWidget, QMessageBox, QLineEdit, QGridLayout, QGroupBox
+    QFileDialog, QListWidget, QGroupBox
 )
 from PyQt5.QtCore import Qt
 
