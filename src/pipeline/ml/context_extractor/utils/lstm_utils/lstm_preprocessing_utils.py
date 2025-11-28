@@ -1,7 +1,7 @@
 import numpy as np
 from ..base_utils.base_preprocessor import BasePreprocessor
 
-class WindowAlgPreprocessor(BasePreprocessor):
+class LSTMPreprocessor(BasePreprocessor):
     def normalize_angle(self, col="Angle[degree]ORDistance[mm]"):
         """Normalize a specific target column for window algorithm."""
         return self.normalize_column(col)

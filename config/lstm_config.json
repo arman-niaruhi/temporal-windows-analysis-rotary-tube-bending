@@ -1,0 +1,33 @@
+{
+    "input_path_param": {
+        "sensors_path": "data/ml/label_df/complete_features.csv",
+        "target_path": "data/ml/targets.csv",
+        "machine_part": "COMPLETE"
+    },
+    "preprocessing_param": {
+        "to_58_excluded": true,
+        "seperate_test_set": false,
+        "random_seed": 42,
+        "agg_mertic": "mean",
+        "window_num": 400,
+        "annot_timesteps": [
+            150,
+            340,    
+            790,
+            1240
+        ],
+        "feature_indices": [
+            1,
+            5
+        ]
+    },
+    "training_param": {
+        "hidden_dim": 32,
+        "lstm_layers": 1,
+        "dropout": 0.2,
+        "lr": 0.0005,
+        "weight_decay": 5e-4,
+        "batch_size": 8,
+        "max_epochs": 800
+    }
+}
