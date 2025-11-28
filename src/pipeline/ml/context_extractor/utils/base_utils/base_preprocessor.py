@@ -26,7 +26,7 @@ class BasePreprocessor:
 
     def get_feature_cols(self):
         return self._feature_cols
-
+    
     def get_dfs(self):
         """Get the sensor and target dataframes"""
         if self.sensor_df is None and self.target_df is None:
