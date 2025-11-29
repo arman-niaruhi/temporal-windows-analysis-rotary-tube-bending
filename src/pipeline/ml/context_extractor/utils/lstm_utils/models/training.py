@@ -1,26 +1,40 @@
+import time
 import random
 import shutil
-from pathlib import Path
-import time
-from datetime import datetime
 import warnings
 from tqdm import tqdm
-from sklearn.model_selection import train_test_split
+from pathlib import Path
+from datetime import datetime
+
 import numpy as np
+
+from sklearn.model_selection import train_test_split
+
 import torch
-from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 import mlflow
 import mlflow.pytorch
-from src.pipeline.ml.context_extractor.utils.lstm_utils.models.att_lstm import AttentionLSTM
-from src.pipeline.ml.context_extractor.utils.lstm_utils.data.data_preprocessor import (
-    ProcessDataset
+
+from src.pipeline.ml.context_extractor.utils.lstm_utils.models.att_lstm import (
+    AttentionLSTM,
 )
-from src.pipeline.ml.context_extractor.utils.lstm_utils.utils.metrics import compute_all_metrics, compute_epoch_metrics
-from src.pipeline.ml.context_extractor.utils.lstm_utils.utils.visualization import OrganizedImageSaver
-from src.pipeline.ml.context_extractor.utils.lstm_utils.utils.feature_importance import analyze_feature_importance
+from src.pipeline.ml.context_extractor.utils.lstm_utils.data.data_preprocessor import (
+    ProcessDataset,
+)
+from src.pipeline.ml.context_extractor.utils.lstm_utils.utils.metrics import (
+    compute_all_metrics,
+    compute_epoch_metrics,
+)
+from src.pipeline.ml.context_extractor.utils.lstm_utils.utils.visualization import (
+    OrganizedImageSaver,
+)
+from src.pipeline.ml.context_extractor.utils.lstm_utils.utils.feature_importance import (
+    analyze_feature_importance,
+)
 
 
 def move_images_to_mlflow_artifacts(image_saver):
@@ -50,8 +64,6 @@ def move_images_to_mlflow_artifacts(image_saver):
         return None
 
 
-
-
 def save_experiment_description_as_text(EXPERIMENT_DESCRIPTION):
     """Save experiment description as a text file in MLflow artifacts"""
     desc_path = Path("experiment_description.txt")
@@ -64,29 +76,23 @@ def save_experiment_description_as_text(EXPERIMENT_DESCRIPTION):
 
 
 def train_model(
- X,Y,
+    X,
+    Y,
     params,
     sensor_names,
     target_feature_names,
     machine_part,
     preprocessing_info,
-    annot_timesteps
+    annot_timesteps,
 ):
     if mlflow.active_run() is not None:
         mlflow.end_run()
-
-    # Seed for reproducibility
-    
+        
     warnings.filterwarnings("ignore")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    N_EXPERIMENTS_TRAIN_DATA, TIMESTEPS_IN_TRAIN_DATA, FEATURES_IN_TRAIN_DATA = (
-        X.shape
-    )
-    N_CROSSCUT_TRAIN_DATA, PREDICTIONS_OUT_TRAIN_DATA, FEATURES_OUT_TRAIN_DATA = (
-        Y.shape
-    )
-
+    N_EXPERIMENTS_TRAIN_DATA, TIMESTEPS_IN_TRAIN_DATA, FEATURES_IN_TRAIN_DATA = X.shape
+    N_CROSSCUT_TRAIN_DATA, PREDICTIONS_OUT_TRAIN_DATA, FEATURES_OUT_TRAIN_DATA = Y.shape
 
     X_train, X_val, Y_train, Y_val = train_test_split(
         X, Y, test_size=0.1, random_state=42
@@ -343,43 +349,36 @@ def train_model(
                 metrics_to_log[f"final_mae_feature_{i}"] = mae
 
         mlflow.log_metrics(metrics_to_log)
-
-        # Log model
-        mlflow.pytorch.log_model(model, "model")
-
-        # Add this at the end of train_model function, after final evaluation and before mlflow.log_metrics(metrics_to_log)
-
+        mlflow.pytorch.log_model(model.cpu(), "model")
         # ==================== FEATURE IMPORTANCE ANALYSIS ====================
         print("\nStarting feature importance analysis...")
 
         # Perform comprehensive feature importance analysis
-        combined_importance_df, all_importance_dfs, importance_paths = analyze_feature_importance(
-            model=model,
-            X_val=X_val,
-            val_loader=val_loader,
-            feature_names=sensor_names,
-            device=device
+        combined_importance_df, all_importance_dfs, importance_paths = (
+            analyze_feature_importance(
+                model=model,
+                X_val=X_val,
+                val_loader=val_loader,
+                feature_names=sensor_names,
+                device=device,
+            )
         )
 
         # Log feature importance to MLflow
         if combined_importance_df is not None:
             # Log the combined importance CSV
-            mlflow.log_artifact(str(importance_paths['combined_csv']))
-            
+            mlflow.log_artifact(str(importance_paths["combined_csv"]))
+
             # Log top 10 features as parameters
-            top_10_features = combined_importance_df.head(10)['Feature'].tolist()
+            top_10_features = combined_importance_df.head(10)["Feature"].tolist()
             mlflow.log_param("top_10_features", ", ".join(top_10_features))
-            
+
             # Log individual importance scores for top 5 features
             for i, row in combined_importance_df.head(5).iterrows():
-                feature_name = row['Feature'].replace('_mean', '')
-                mlflow.log_metric(f"importance_rank_{i+1}_{feature_name}", row['Average_Rank'])
-            
-            print(f"\nTop 10 Most Important Features:")
-            print("="*80)
-            for i, row in top_10_features.iterrows():
-                print(f"{i+1}. {row['Feature']} (Average Importance: {row['Average_Rank']:.4f})")
-            print("="*80)
+                feature_name = row["Feature"].replace("_mean", "")
+                mlflow.log_metric(
+                    f"importance_rank_{i + 1}_{feature_name}", row["Average_Rank"]
+                )
 
         # Log all importance plots to MLflow artifacts
         if importance_paths:
@@ -387,26 +386,21 @@ def train_model(
                 if path_value and Path(path_value).exists():
                     try:
                         mlflow.log_artifact(str(path_value))
-                        print(f"✓ Logged {path_name} to MLflow")
                     except Exception as e:
-                        print(f"✗ Failed to log {path_name}: {e}")
+                        print(f"✗ Error logging {path_name} to MLflow: {e}")
 
         # Add feature importance results to return dictionary
-        final_metrics['feature_importance'] = combined_importance_df
-        final_metrics['importance_paths'] = importance_paths
+        final_metrics["feature_importance"] = combined_importance_df
+        final_metrics["importance_paths"] = importance_paths
 
         # Clean up temporary files
         if Path("images/04_feature_importance").exists():
             try:
                 mlflow.log_artifact("images/04_feature_importance")
                 shutil.rmtree("images/04_feature_importance")
-                print("✓ Feature importance artifacts logged to MLflow")
             except Exception as e:
                 print(f"✗ Error logging feature importance artifacts: {e}")
 
-        print("\nFeature importance analysis complete!")
-        # ======================================================================
-        
         # Log images from the last epoch
         move_images_to_mlflow_artifacts(image_saver)
 
@@ -415,6 +409,3 @@ def train_model(
             "best_val_loss": best_val_loss,
             "final_metrics": final_metrics,
         }
-
-
-
