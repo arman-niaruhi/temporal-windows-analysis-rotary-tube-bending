@@ -1,5 +1,5 @@
 from src.pipeline.ml.context_extractor.utils.lstm_utils.lstm_preprocessing_utils import (
-    LSTMPreprocessor,
+    LSTMPreprocessor
 )
 
 import json
@@ -10,7 +10,7 @@ import torch
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 from sklearn.model_selection import train_test_split
-
+from src.pipeline.ml.context_extractor.utils.lstm_utils.feature_importance import analyze_feature_importance
 
 import shutil
 from pathlib import Path
@@ -251,11 +251,11 @@ class OrganizedImageSaver:
         self,
         sensor_data,
         feature_names,
+        output_feature_names,
         pred_data,
         loss_data,
         attn_data,
         epoch,
-        n_samples,
         x_axis,
         y_lim,
         PREDICTIONS_OUT,
@@ -266,63 +266,81 @@ class OrganizedImageSaver:
     ):
         """Save each subplot as a separate image in organized folders"""
 
-        # MULTI-SUBPLOT PREDICTIONS
         plt.style.use("tableau-colorblind10")
 
         true_np, pred_np, idxs = pred_data
-        num_plots = len(idxs)
+        num_samples = len(idxs)
+        n_features = true_np.shape[-1]
 
-        # Compute rows/cols for a balanced grid
-        ncols = 2 if num_plots > 1 else 1
-        nrows = int(np.ceil(num_plots / ncols))
+        # Horizontal layout: one row per sample, one column per feature
+        nrows = num_samples
+        ncols = n_features
 
         fig_pred, axes = plt.subplots(
-            nrows=nrows, ncols=ncols, figsize=(14, 4 * nrows), sharex=True, sharey=False
+            nrows=nrows,
+            ncols=ncols,
+            figsize=(5 * ncols, 3.5 * nrows),
+            sharex=True,
+            sharey=False
         )
 
-        # Ensure axes is always iterable
-        axes = np.array(axes).reshape(-1)
+        axes = np.array(axes).reshape(nrows, ncols)
 
-        for ax, (i, idx) in zip(axes, enumerate(idxs)):
-            ax.plot(
-                x_axis,
-                true_np[idx, :, 0],
-                "o-",
-                lw=2.3,
-                ms=4,
-                label=f"True {i}",
-            )
+        for row_i, idx in enumerate(idxs):
+            for feat in range(n_features):
+                ax = axes[row_i, feat]
 
-            ax.plot(
-                x_axis,
-                pred_np[idx, :, 0],
-                "--s",
-                lw=1.8,
-                ms=4,
-                alpha=0.9,
-                label=f"Pred {i}",
-            )
+                ax.plot(
+                    x_axis,
+                    true_np[idx, :, feat],
+                    "o-",
+                    lw=2.2,
+                    ms=4,
+                    label="True Value",
+                )
 
-            ax.set_ylim(*y_lim)
-            ax.set_title(f"Sample {i}", fontsize=13, weight="bold")
-            ax.grid(True, linestyle=":", alpha=0.55)
-            ax.legend(fontsize=9)
+                ax.plot(
+                    x_axis,
+                    pred_np[idx, :, feat],
+                    "--s",
+                    lw=1.8,
+                    ms=4,
+                    alpha=0.9,
+                    label="Prediction",
+                )
+
+                ax.set_ylim(*y_lim)
+                ax.grid(True, linestyle=":", alpha=0.55)
+
+                # Row labels (left-most column)
+                if feat == 0:
+                    ax.set_ylabel(f"Sample {row_i}", fontsize=12, weight="bold")
+
+                # Column labels (top row)
+                if row_i == 0:
+                    ax.set_title(output_feature_names[feat], fontsize=13, weight="bold")
+
+                # Legend only once per row
+                if feat == n_features - 1:
+                    ax.legend(fontsize=9, loc="upper right")
 
         # Common labels
         fig_pred.suptitle(
-            f"Predictions – Epoch {epoch} ({num_plots} samples)",
+            f"Predictions – Epoch {epoch} ({num_samples} samples × {n_features} features)",
             fontsize=16,
             weight="bold",
         )
 
         fig_pred.supxlabel(f"Prediction Index (Total: {PREDICTIONS_OUT})", fontsize=13)
-        fig_pred.supylabel("Target Value (Feature 0)", fontsize=13)
+        fig_pred.supylabel("Target Value", fontsize=13)
 
         plt.tight_layout(rect=[0, 0, 1, 0.96])
 
         pred_path = self.predictions_dir / f"predictions_epoch_{epoch:04d}.png"
         fig_pred.savefig(pred_path, dpi=180, bbox_inches="tight")
         plt.close(fig_pred)
+
+
 
         # 2. LOSS PLOT
         fig_loss = plt.figure(figsize=(10, 7))
@@ -682,11 +700,11 @@ def train_model(
                 image_saver.save_epoch_plots(
                     X_train,
                     sensor_names,
+                    target_feature_names,
                     pred_data,
                     loss_data,
                     attn_data,
                     epoch,
-                    n_samples,
                     x_axis,
                     y_lim,
                     PREDICTIONS_OUT_TRAIN_DATA,
@@ -759,6 +777,66 @@ def train_model(
         # Log model
         mlflow.pytorch.log_model(model, "model")
 
+        # Add this at the end of train_model function, after final evaluation and before mlflow.log_metrics(metrics_to_log)
+
+        # ==================== FEATURE IMPORTANCE ANALYSIS ====================
+        print("\nStarting feature importance analysis...")
+
+        # Perform comprehensive feature importance analysis
+        combined_importance_df, all_importance_dfs, importance_paths = analyze_feature_importance(
+            model=model,
+            X_val=X_val,
+            val_loader=val_loader,
+            feature_names=sensor_names,
+            device=device
+        )
+
+        # Log feature importance to MLflow
+        if combined_importance_df is not None:
+            # Log the combined importance CSV
+            mlflow.log_artifact(str(importance_paths['combined_csv']))
+            
+            # Log top 10 features as parameters
+            top_10_features = combined_importance_df.head(10)['Feature'].tolist()
+            mlflow.log_param("top_10_features", ", ".join(top_10_features))
+            
+            # Log individual importance scores for top 5 features
+            for i, row in combined_importance_df.head(5).iterrows():
+                feature_name = row['Feature'].replace('_mean', '')
+                mlflow.log_metric(f"importance_rank_{i+1}_{feature_name}", row['Average_Rank'])
+            
+            print(f"\nTop 10 Most Important Features:")
+            print("="*80)
+            for i, row in top_10_features.iterrows():
+                print(f"{i+1}. {row['Feature']} (Average Importance: {row['Average_Rank']:.4f})")
+            print("="*80)
+
+        # Log all importance plots to MLflow artifacts
+        if importance_paths:
+            for path_name, path_value in importance_paths.items():
+                if path_value and Path(path_value).exists():
+                    try:
+                        mlflow.log_artifact(str(path_value))
+                        print(f"✓ Logged {path_name} to MLflow")
+                    except Exception as e:
+                        print(f"✗ Failed to log {path_name}: {e}")
+
+        # Add feature importance results to return dictionary
+        final_metrics['feature_importance'] = combined_importance_df
+        final_metrics['importance_paths'] = importance_paths
+
+        # Clean up temporary files
+        if Path("images/04_feature_importance").exists():
+            try:
+                mlflow.log_artifact("images/04_feature_importance")
+                shutil.rmtree("images/04_feature_importance")
+                print("✓ Feature importance artifacts logged to MLflow")
+            except Exception as e:
+                print(f"✗ Error logging feature importance artifacts: {e}")
+
+        print("\nFeature importance analysis complete!")
+        # ======================================================================
+        
         # Log images from the last epoch
         move_images_to_mlflow_artifacts(image_saver)
 
