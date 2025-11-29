@@ -1,8 +1,12 @@
 import numpy as np
 from sklearn.metrics import (
-    mean_absolute_error, r2_score, mean_squared_error,
+    mean_absolute_error,
+    r2_score,
+    mean_squared_error,
 )
 import torch
+
+
 def compute_all_metrics(y_true, y_pred):
     """Compute comprehensive metrics"""
     y_true_np = y_true.cpu().numpy() if torch.is_tensor(y_true) else y_true
@@ -52,16 +56,16 @@ def compute_epoch_metrics(y_true, y_pred):
     """Compute comprehensive metrics for a single epoch"""
     y_true_np = y_true.cpu().numpy() if torch.is_tensor(y_true) else y_true
     y_pred_np = y_pred.cpu().numpy() if torch.is_tensor(y_pred) else y_pred
-    
+
     # Flatten for overall metrics
     y_true_flat = y_true_np.flatten()
     y_pred_flat = y_pred_np.flatten()
-    
+
     # Basic metrics
     mse = mean_squared_error(y_true_flat, y_pred_flat)
     mae = mean_absolute_error(y_true_flat, y_pred_flat)
     r2 = r2_score(y_true_flat, y_pred_flat)
-    
+
     # Additional metrics
     rmse = np.sqrt(mse)
 
@@ -70,31 +74,33 @@ def compute_epoch_metrics(y_true, y_pred):
     denominator = np.abs(y_true_flat) + epsilon
     # Alternative: use max(absolute_value, epsilon) for each element
     # denominator = np.maximum(np.abs(y_true_flat), epsilon)
-    
+
     mape = np.mean(np.abs((y_true_flat - y_pred_flat) / denominator)) * 100
-    
+
     # Max Error
     max_error = np.max(np.abs(y_true_flat - y_pred_flat))
-    
+
     # Explained Variance Score (similar to R² but different calculation)
     from sklearn.metrics import explained_variance_score
+
     evs = explained_variance_score(y_true_flat, y_pred_flat)
-    
+
     # Mean Bias Error (shows if model systematically over/under predicts)
     mbe = np.mean(y_pred_flat - y_true_flat)
-    
+
     # Median Absolute Error (more robust to outliers than MAE)
     from sklearn.metrics import median_absolute_error
+
     medae = median_absolute_error(y_true_flat, y_pred_flat)
-    
+
     return {
-        'mse': mse,
-        'rmse': rmse,
-        'mae': mae,
-        'r2': r2,
-        'mape': mape,
-        'max_error': max_error,
-        'evs': evs,
-        'mbe': mbe,
-        'medae': medae
+        "mse": mse,
+        "rmse": rmse,
+        "mae": mae,
+        "r2": r2,
+        "mape": mape,
+        "max_error": max_error,
+        "evs": evs,
+        "mbe": mbe,
+        "medae": medae,
     }

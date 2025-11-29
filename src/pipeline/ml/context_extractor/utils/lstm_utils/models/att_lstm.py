@@ -1,6 +1,6 @@
-
 import torch
 import torch.nn as nn
+
 
 class MLPAttention(nn.Module):
     def __init__(self, n_predictions, hidden_dim=128):

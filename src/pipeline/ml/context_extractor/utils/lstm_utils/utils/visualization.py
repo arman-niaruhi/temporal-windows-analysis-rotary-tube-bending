@@ -4,10 +4,11 @@ import pandas as pd
 from pathlib import Path
 from matplotlib import rcParams
 
+
 class OrganizedImageSaver:
     def __init__(self, base_dir="images", machine_part="COMPLETE"):
         self.base_dir = Path(base_dir)
-        
+
         self.machine_part = machine_part
 
         # Create four main folders
@@ -57,7 +58,7 @@ class OrganizedImageSaver:
             ncols=ncols,
             figsize=(5 * ncols, 3.5 * nrows),
             sharex=True,
-            sharey=False
+            sharey=False,
         )
 
         axes = np.array(axes).reshape(nrows, ncols)
@@ -116,8 +117,6 @@ class OrganizedImageSaver:
         fig_pred.savefig(pred_path, dpi=180, bbox_inches="tight")
         plt.close(fig_pred)
 
-
-
         # 2. LOSS PLOT
         fig_loss = plt.figure(figsize=(10, 7))
         ax_loss = fig_loss.add_subplot(111)
@@ -175,8 +174,7 @@ class OrganizedImageSaver:
         self.epoch_count = epoch
 
         return pred_path, loss_path, attn_path, csv_path
-    
-        
+
     def plot_selected_features_with_attn_heatmap(
         self,
         sensor_data,
@@ -253,7 +251,9 @@ class OrganizedImageSaver:
 
             for ts, label in zip(annot_timesteps, annot_labels):
                 # Vertical line for visibility
-                ax_main.axvline(ts, color="black", linestyle="--", linewidth=1.2, alpha=0.7)
+                ax_main.axvline(
+                    ts, color="black", linestyle="--", linewidth=1.2, alpha=0.7
+                )
 
                 # Annotated text placed slightly above the data region
                 ax_main.annotate(
@@ -271,7 +271,9 @@ class OrganizedImageSaver:
 
         ax_main.set_xlim(0, main_timesteps - 1)
         ax_main.set_facecolor("#f9f9f9")
-        ax_main.set_title("Sensor Data Over Time", fontsize=14, fontweight="bold", pad=15)
+        ax_main.set_title(
+            "Sensor Data Over Time", fontsize=14, fontweight="bold", pad=15
+        )
 
         # Add legend with enhanced styling
         legend = ax_main.legend(
@@ -291,7 +293,9 @@ class OrganizedImageSaver:
         # --- ATTENTION HEATMAP ---
         # Ensure heatmap has exactly the same number of timesteps as main plot
         if attn_timesteps != main_timesteps:
-            print(f"Resizing attention from {attn_timesteps} to {main_timesteps} timesteps")
+            print(
+                f"Resizing attention from {attn_timesteps} to {main_timesteps} timesteps"
+            )
             attn_data_resized = np.zeros((n_attention_heads, main_timesteps))
             for i in range(n_attention_heads):
                 x_original = np.arange(attn_timesteps)
@@ -312,7 +316,9 @@ class OrganizedImageSaver:
 
         # Style heatmap
         ax_heatmap.set_xlabel("Time Step", fontsize=12, fontweight="bold", labelpad=10)
-        ax_heatmap.set_ylabel("Attention Head", fontsize=9, fontweight="bold", labelpad=10)
+        ax_heatmap.set_ylabel(
+            "Attention Head", fontsize=9, fontweight="bold", labelpad=10
+        )
 
         ax_heatmap.set_yticks(np.arange(n_attention_heads))
         # Reverse the label order
@@ -348,8 +354,9 @@ class OrganizedImageSaver:
         pos_heat = ax_heatmap.get_position()
 
         # Make heatmap width match main plot width
-        ax_heatmap.set_position([pos_heat.x0, pos_heat.y0, pos_main.width, pos_heat.height])
-
+        ax_heatmap.set_position(
+            [pos_heat.x0, pos_heat.y0, pos_main.width, pos_heat.height]
+        )
 
         fig.savefig(attn_path, dpi=150, bbox_inches="tight")
         plt.close(fig)

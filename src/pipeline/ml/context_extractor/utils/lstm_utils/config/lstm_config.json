@@ -9,7 +9,7 @@
         "seperate_test_set": false,
         "random_seed": 42,
         "agg_mertic": "mean",
-        "window_num": 400,
+        "window_num": 1900,
         "annot_timesteps": [
             150,
             340,    
@@ -25,7 +25,7 @@
         "hidden_dim": 32,
         "lstm_layers": 1,
         "dropout": 0.2,
-        "lr": 0.0005,
+        "lr": 0.00005,
         "weight_decay": 5e-4,
         "batch_size": 8,
         "max_epochs": 800
