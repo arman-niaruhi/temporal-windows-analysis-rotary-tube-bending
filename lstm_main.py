@@ -1,5 +1,5 @@
-from src.pipeline.ml.context_extractor.utils.lstm_utils.data.data_preprocessor import prepare_data
 from src.pipeline.ml.context_extractor.utils.lstm_utils.config.seed import enforce_reproducibility
+from src.pipeline.ml.context_extractor.utils.lstm_utils.data.data_preprocessor import prepare_data
 from src.pipeline.ml.context_extractor.utils.lstm_utils.models.training import train_model
 import json
 
