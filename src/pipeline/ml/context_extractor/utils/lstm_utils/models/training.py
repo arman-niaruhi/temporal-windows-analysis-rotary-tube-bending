@@ -366,41 +366,22 @@ def train_model(
 
         # Log feature importance to MLflow
         if combined_importance_df is not None:
-            # Log the combined importance CSV
-            mlflow.log_artifact(str(importance_paths["combined_csv"]))
 
-            # Log top 10 features as parameters
-            top_10_features = combined_importance_df.head(10)["Feature"].tolist()
-            mlflow.log_param("top_10_features", ", ".join(top_10_features))
-
-            # Log individual importance scores for top 5 features
-            for i, row in combined_importance_df.head(5).iterrows():
-                feature_name = row["Feature"].replace("_mean", "")
-                mlflow.log_metric(
-                    f"importance_rank_{i + 1}_{feature_name}", row["Average_Rank"]
-                )
-
-        # Log all importance plots to MLflow artifacts
-        if importance_paths:
-            for path_name, path_value in importance_paths.items():
-                if path_value and Path(path_value).exists():
-                    try:
-                        mlflow.log_artifact(str(path_value))
-                    except Exception as e:
-                        print(f"✗ Error logging {path_name} to MLflow: {e}")
-
-        # Add feature importance results to return dictionary
-        final_metrics["feature_importance"] = combined_importance_df
-        final_metrics["importance_paths"] = importance_paths
-
-        # Clean up temporary files
-        if Path("images/04_feature_importance").exists():
-            try:
-                mlflow.log_artifact("images/04_feature_importance")
-                shutil.rmtree("images/04_feature_importance")
-            except Exception as e:
-                print(f"✗ Error logging feature importance artifacts: {e}")
-
+            combined_csv_path = importance_paths.get("combined_csv")
+            if combined_csv_path and Path(combined_csv_path).exists():
+                mlflow.log_artifact(str(combined_csv_path))
+            else:
+                print("Warning: combined_csv path missing or does not exist; skipping MLflow log.")
+            import pandas as pd
+            # Log top 10 features
+            combined_importance_df = {
+                k: v if isinstance(v, list) else [v]
+                for k, v in combined_importance_df.items()
+            }
+            combined_importance_df = pd.DataFrame(combined_importance_df)
+            combined_importance_df.to_csv("feature_importance_summary.csv", index=False)
+            mlflow.log_artifact("feature_importance_summary.csv")
+            Path("feature_importance_summary.csv").unlink()  # Delete temporary file
         # Log images from the last epoch
         move_images_to_mlflow_artifacts(image_saver)
 
