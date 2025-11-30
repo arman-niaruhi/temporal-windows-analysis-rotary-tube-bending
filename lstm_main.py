@@ -26,6 +26,3 @@ if __name__ == "__main__":
         annot_timesteps, 
         mandrel_extraction_annot_timesteps
     )
-    
-    
-    # 630, 800
