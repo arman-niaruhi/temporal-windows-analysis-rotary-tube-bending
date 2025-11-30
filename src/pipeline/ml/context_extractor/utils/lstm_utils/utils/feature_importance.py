@@ -113,17 +113,17 @@ def compute_attention_importance(
     plt.grid(axis="x", alpha=0.3, linestyle="--", linewidth=0.8)
 
     # Add value annotations with improved positioning
-    for i, (bar, val) in enumerate(zip(bars, top_df["Attention_Importance"])):
-        plt.text(
-            val + 0.001,
-            i,
-            f"{val:.4f}",
-            va="center",
-            ha="left",
-            fontsize=10,
-            fontweight="bold",
-            bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.8),
-        )
+    # for i, (bar, val) in enumerate(zip(bars, top_df["Attention_Importance"])):
+    #     plt.text(
+    #         val + 0.001,
+    #         i,
+    #         f"{val:.4f}",
+    #         va="center",
+    #         ha="left",
+    #         fontsize=10,
+    #         fontweight="bold",
+    #         bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.8),
+    #     )
 
     plt.tight_layout()
     plot_paths["feature_importance"] = output_dir / "01_feature_importance_bars.png"
@@ -513,18 +513,6 @@ def compute_ablation_importance(
     ax.grid(axis="x", alpha=0.3, linestyle="--")
     ax.axvline(x=0, color="black", linestyle="-", linewidth=1)
 
-    # Add value labels
-    for bar, val in zip(bars, importance_df["Ablation_Importance"]):
-        ax.text(
-            val,
-            bar.get_y() + bar.get_height() / 2,
-            f"{val:.6f}",
-            va="center",
-            ha="left" if val > 0 else "right",
-            fontsize=9,
-            fontweight="bold",
-        )
-
     plt.tight_layout()
     ablation_path = output_dir / "ablation_importance.png"
     fig.savefig(ablation_path, dpi=150, bbox_inches="tight")
@@ -596,7 +584,6 @@ def compute_permutation_importance(
     # Plot
     fig, ax = plt.subplots(figsize=(12, max(8, len(feature_names) * 0.3)))
     colors = plt.cm.coolwarm(np.linspace(0, 1, len(feature_names)))
-
     bars = ax.barh(
         importance_df["Feature"], importance_df["Permutation_Importance"], color=colors
     )
@@ -606,17 +593,17 @@ def compute_permutation_importance(
     ax.grid(axis="x", alpha=0.3, linestyle="--")
     ax.axvline(x=0, color="black", linestyle="-", linewidth=1)
 
-    # Add value labels
-    for bar, val in zip(bars, importance_df["Permutation_Importance"]):
-        ax.text(
-            val,
-            bar.get_y() + bar.get_height() / 2,
-            f"{val:.6f}",
-            va="center",
-            ha="left" if val > 0 else "right",
-            fontsize=9,
-            fontweight="bold",
-        )
+    # # Add value labels near x=0
+    # for bar, val in zip(bars, importance_df["Permutation_Importance"]):
+    #     ax.text(
+    #         0.0,  # Position at x=0
+    #         bar.get_y() + bar.get_height() / 2,
+    #         f"{val:.6f}",
+    #         va="center",
+    #         ha="right" if val > 0 else "left",  # Align based on bar direction
+    #         fontsize=9,
+    #         fontweight="bold",
+    #     )
 
     plt.tight_layout()
     perm_path = output_dir / "permutation_importance.png"
