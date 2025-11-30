@@ -6,16 +6,16 @@ import json
 if __name__ == "__main__":
     with open("src/pipeline/ml/context_extractor/utils/lstm_utils/config/lstm_config.json", "r") as f:
         config = json.load(f)
+    enforce_reproducibility(seed=config.get("seed", 42))
     input_path_param = config.get("input_path_param")
     preprocessing_param = config.get("preprocessing_param")
     machine_part = input_path_param.get("machine_part")
 
-    X, Y, sensor_names, target_feature_names, annot_timesteps = prepare_data(
+    X, Y, sensor_names, target_feature_names, annot_timesteps, mandrel_extraction_annot_timesteps = prepare_data(
         input_path_param=input_path_param, preprocessing_param=preprocessing_param
     )
     
-    enforce_reproducibility(seed=config.get("seed", 42))
-    result = train_model(
+    train_model(
         X,
         Y,
         config.get("training_param"),
@@ -23,5 +23,9 @@ if __name__ == "__main__":
         target_feature_names,
         machine_part,
         config.get("preprocessing_param"),
-        annot_timesteps
+        annot_timesteps, 
+        mandrel_extraction_annot_timesteps
     )
+    
+    
+    # 630, 800
