@@ -8,19 +8,20 @@ from matplotlib import rcParams
 class OrganizedImageSaver:
     def __init__(self, base_dir="images", machine_part="COMPLETE"):
         self.base_dir = Path(base_dir)
-
         self.machine_part = machine_part
 
-        # Create four main folders
+        # Create main folders
         self.predictions_dir = self.base_dir / "01_predictions"
         self.loss_dir = self.base_dir / "02_loss"
         self.attention_dir = self.base_dir / "03_attention"
         self.attention_csv_dir = self.base_dir / "03_attention_csv"
+        self.attention_lines_dir = self.base_dir / "04_attention_lines"
 
         self.predictions_dir.mkdir(parents=True, exist_ok=True)
         self.loss_dir.mkdir(parents=True, exist_ok=True)
         self.attention_dir.mkdir(parents=True, exist_ok=True)
         self.attention_csv_dir.mkdir(parents=True, exist_ok=True)
+        self.attention_lines_dir.mkdir(parents=True, exist_ok=True)
 
         self.epoch_count = 0
 
@@ -40,6 +41,7 @@ class OrganizedImageSaver:
         val_loss,
         best_val_loss,
         annot_timesteps,
+        mandrel_extraction_annot_timesteps
     ):
         """Save each subplot as a separate image in organized folders"""
 
@@ -160,7 +162,7 @@ class OrganizedImageSaver:
         attn_mean = attn_data
         attn_path = self.attention_dir / f"attention_epoch_{epoch:04d}.png"
         self.plot_selected_features_with_attn_heatmap(
-            sensor_data, feature_names, attn_mean, attn_path, annot_timesteps
+            sensor_data, feature_names, attn_mean, attn_path, annot_timesteps, mandrel_extraction_annot_timesteps
         )
         attn_df = pd.DataFrame(
             attn_mean,
@@ -175,6 +177,260 @@ class OrganizedImageSaver:
 
         return pred_path, loss_path, attn_path, csv_path
 
+    def plot_attention_lines_with_sensors(
+        self,
+        sensor_data,
+        sensor_names,
+        attn_mean,
+        annot_timesteps=None,
+        mandrel_extraction_annot_timesteps=None,
+        sample_idx=-1,
+        figsize=(20, 10),
+    ):
+        """
+        Plots sensor data and ONE attention head as line plots in two subplots.
+        Creates separate plots for each attention head (angle).
+        
+        Args:
+            sensor_data: Array of shape (n_samples, timesteps, n_features)
+            sensor_names: List of sensor feature names
+            attn_mean: Attention weights of shape (n_prediction_heads, timesteps)
+            annot_timesteps: Optional list of timesteps to annotate
+            sample_idx: Which sample to plot (default -1 for last sample)
+            figsize: Figure size tuple
+        """
+        # Set beautiful style parameters
+        rcParams["font.family"] = "sans-serif"
+        rcParams["font.size"] = 10
+
+        # Remove '_mean' from all feature names
+        cleaned_feature_names = [name.replace("_mean", "") for name in sensor_names]
+
+        # Get the data for the selected sample
+        sample_data = sensor_data[sample_idx, :, :]
+        main_timesteps = sample_data.shape[0]
+        n_attention_heads = attn_mean.shape[0]
+        attn_timesteps = attn_mean.shape[1]
+
+        # Resize attention if needed to match sensor timesteps
+        if attn_timesteps != main_timesteps:
+            print(f"Resizing attention from {attn_timesteps} to {main_timesteps} timesteps")
+            attn_data_resized = np.zeros((n_attention_heads, main_timesteps))
+            for i in range(n_attention_heads):
+                x_original = np.arange(attn_timesteps)
+                x_target = np.linspace(0, attn_timesteps - 1, main_timesteps)
+                attn_data_resized[i] = np.interp(x_target, x_original, attn_mean[i])
+            attn_data = attn_data_resized
+        else:
+            attn_data = attn_mean
+
+        time_steps = np.arange(main_timesteps)
+        colors_sensors = plt.cm.tab20(np.linspace(0, 1, len(cleaned_feature_names)))
+        
+        # Prepare annotation labels if needed
+        annot_labels = None
+        if annot_timesteps and (self.machine_part == "COMPLETE"):
+            annot_labels = [
+                "Start-Clamping",
+                "Start-Bending",
+                "Start-Declamping",
+                "End-Declamping",
+            ]
+
+        saved_paths = []
+
+        # Create a separate plot for EACH attention head
+        for angle_idx in range(n_attention_heads):
+            # Create figure with two subplots (vertical layout)
+            fig = plt.figure(figsize=figsize, facecolor="white")
+            fig.clf()
+            gs = fig.add_gridspec(2, 1, height_ratios=[1, 1], hspace=0.3)
+            ax_sensors = fig.add_subplot(gs[0])
+            ax_attention = fig.add_subplot(gs[1])
+
+            # --- SUBPLOT 1: SENSOR DATA (same for all plots) ---
+            for i, (feature_name, color) in enumerate(zip(cleaned_feature_names, colors_sensors)):
+                ax_sensors.plot(
+                    time_steps,
+                    sample_data[:, i],
+                    color=color,
+                    linewidth=2.0,
+                    alpha=0.85,
+                    label=feature_name,
+                    marker="o",
+                    markersize=3,
+                    markevery=max(1, main_timesteps // 20),
+                )
+
+            # Style sensor plot
+            ax_sensors.set_xlabel("Time Step", fontsize=12, fontweight="bold", labelpad=10)
+            ax_sensors.set_ylabel("Sensor Value", fontsize=12, fontweight="bold", labelpad=10)
+            ax_sensors.grid(True, alpha=0.2, linestyle="--", linewidth=0.8, color="gray")
+            ax_sensors.set_axisbelow(True)
+
+            # Remove top and right spines
+            ax_sensors.spines["top"].set_visible(False)
+            ax_sensors.spines["right"].set_visible(False)
+            ax_sensors.spines["left"].set_linewidth(1.2)
+            ax_sensors.spines["bottom"].set_linewidth(1.2)
+            ax_sensors.spines["left"].set_color("#333333")
+            ax_sensors.spines["bottom"].set_color("#333333")
+
+            # Add annotations if provided
+            if annot_labels:
+                for ts, label in zip(annot_timesteps, annot_labels):
+                    ax_sensors.axvline(
+                        ts, color="black", linestyle="--", linewidth=1.2, alpha=0.6
+                    )
+                    ax_sensors.annotate(
+                        label,
+                        xy=(ts, sample_data[:, :].max()),
+                        xytext=(0, 10),
+                        textcoords="offset points",
+                        ha="center",
+                        va="bottom",
+                        fontsize=10,
+                        fontweight="bold",
+                        color="black",
+                        bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", lw=0.8),
+                    )
+            if mandrel_extraction_annot_timesteps:
+                ax_sensors.axvspan(
+                    mandrel_extraction_annot_timesteps[0],
+                    mandrel_extraction_annot_timesteps[1],
+                    color="blue",
+                    alpha=0.12,
+                    linewidth=0,
+                    zorder=0.5
+                )
+                
+            ax_sensors.set_xlim(0, main_timesteps - 1)
+            ax_sensors.set_facecolor("#f9f9f9")
+            ax_sensors.set_title(
+                "Sensor Data Over Time",
+                fontsize=14,
+                fontweight="bold",
+                pad=15,
+            )
+
+            # Add legend
+            legend_sensors = ax_sensors.legend(
+                bbox_to_anchor=(1.02, 1),
+                loc="upper left",
+                borderaxespad=0.0,
+                frameon=True,
+                fancybox=True,
+                shadow=True,
+                fontsize=9,
+                framealpha=0.95,
+                edgecolor="#cccccc",
+                ncol=1,
+            )
+            legend_sensors.get_frame().set_facecolor("white")
+            legend_sensors.get_frame().set_linewidth(1.2)
+
+            # --- SUBPLOT 2: SINGLE ATTENTION HEAD ---
+            # Reverse the angle index for display (so last head = angle_1)
+            display_angle = angle_idx + 1
+            
+            # Use red color for all attention plots
+            angle_color = '#d62728'  # Red color
+            
+            ax_attention.plot(
+                time_steps,
+                attn_data[angle_idx, :],
+                color=angle_color,
+                linewidth=2.5,
+                alpha=0.9,
+                label=f"Angle {display_angle}",
+                marker="s",
+                markersize=4,
+                markevery=max(1, main_timesteps // 20),
+            )
+
+            # Style attention plot
+            ax_attention.set_xlabel("Time Step", fontsize=12, fontweight="bold", labelpad=10)
+            ax_attention.set_ylabel("Attention Weight", fontsize=12, fontweight="bold", labelpad=10)
+            ax_attention.grid(True, alpha=0.2, linestyle="--", linewidth=0.8, color="gray")
+            ax_attention.set_axisbelow(True)
+
+            # Remove top and right spines
+            ax_attention.spines["top"].set_visible(False)
+            ax_attention.spines["right"].set_visible(False)
+            ax_attention.spines["left"].set_linewidth(1.2)
+            ax_attention.spines["bottom"].set_linewidth(1.2)
+            ax_attention.spines["left"].set_color("#333333")
+            ax_attention.spines["bottom"].set_color("#333333")
+
+            # Add annotations if provided
+            if annot_labels:
+                for ts, label in zip(annot_timesteps, annot_labels):
+                    ax_attention.axvline(
+                        ts, color="black", linestyle="--", linewidth=1.2, alpha=0.6
+                    )
+                    ax_attention.annotate(
+                        label,
+                        xy=(ts, attn_data[angle_idx, :].max()),
+                        xytext=(0, 10),
+                        textcoords="offset points",
+                        ha="center",
+                        va="bottom",
+                        fontsize=10,
+                        fontweight="bold",
+                        color="black",
+                        bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", lw=0.8),
+                    )
+            if mandrel_extraction_annot_timesteps:
+                ax_attention.axvspan(
+                    mandrel_extraction_annot_timesteps[0],
+                    mandrel_extraction_annot_timesteps[1],
+                    color="blue",
+                    alpha=0.12,
+                    linewidth=0,
+                    zorder=0.5
+                )
+            ax_attention.set_xlim(0, main_timesteps - 1)
+            ax_attention.set_facecolor("#f9f9f9")
+            ax_attention.set_title(
+                f"Attention Weight - Angle {display_angle}",
+                fontsize=14,
+                fontweight="bold",
+                pad=15,
+            )
+
+            # Add legend
+            legend_attention = ax_attention.legend(
+                loc="upper right",
+                frameon=True,
+                fancybox=True,
+                shadow=True,
+                fontsize=11,
+                framealpha=0.95,
+                edgecolor="#cccccc",
+            )
+            legend_attention.get_frame().set_facecolor("white")
+            legend_attention.get_frame().set_linewidth(1.2)
+
+            # Overall title
+            fig.suptitle(
+                f"Final Epoch - Angle {display_angle} Analysis",
+                fontsize=16,
+                fontweight="bold",
+                y=0.995,
+            )
+
+            plt.tight_layout()
+
+            # Save the figure
+            line_path = self.attention_lines_dir / f"attention_angle_{display_angle:02d}.png"
+            fig.savefig(line_path, dpi=150, bbox_inches="tight")
+            plt.close(fig)
+            
+            saved_paths.append(line_path)
+            print(f"  ✓ Saved: {line_path.name}")
+
+        return saved_paths
+
     def plot_selected_features_with_attn_heatmap(
         self,
         sensor_data,
@@ -182,6 +438,7 @@ class OrganizedImageSaver:
         attn_mean,
         attn_path,
         annot_timesteps=None,
+        mandrel_extraction_annot_timesteps=None,
         sample_idx=100,
         figsize=(25, 12),
     ):
@@ -243,12 +500,13 @@ class OrganizedImageSaver:
 
         if annot_timesteps and (self.machine_part == "COMPLETE"):
             annot_labels = [
-                "Start-Clamping",
+                "Start-Declamping",
                 "Start-Bending",
                 "Start-Declamping",
-                "End-Clamping",
+                "End-Declamping",
             ]  # Optional short labels
 
+        
             for ts, label in zip(annot_timesteps, annot_labels):
                 # Vertical line for visibility
                 ax_main.axvline(
@@ -269,6 +527,15 @@ class OrganizedImageSaver:
                     bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", lw=0.8),
                 )
 
+        if mandrel_extraction_annot_timesteps:
+            ax_main.axvspan(
+                mandrel_extraction_annot_timesteps[0],
+                mandrel_extraction_annot_timesteps[1],
+                color="blue",
+                alpha=0.12,
+                linewidth=0,
+                zorder=0.5
+            )
         ax_main.set_xlim(0, main_timesteps - 1)
         ax_main.set_facecolor("#f9f9f9")
         ax_main.set_title(
