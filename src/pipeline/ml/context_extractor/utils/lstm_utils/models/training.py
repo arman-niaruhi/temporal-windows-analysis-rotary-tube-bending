@@ -84,6 +84,7 @@ def train_model(
     machine_part,
     preprocessing_info,
     annot_timesteps,
+    mandrel_extraction_annot_timesteps
 ):
     if mlflow.active_run() is not None:
         mlflow.end_run()
@@ -171,6 +172,13 @@ def train_model(
         val_losses = []
         train_losses = []
         learning_rates = []
+        
+        # NEW: Store all metrics history
+        metrics_history = {
+            'mse': [], 'rmse': [], 'mae': [], 'r2': [], 
+            'mape': [], 'max_error': [], 'evs': [], 'mbe': [], 'medae': []
+        }
+        
         best_val_loss = float("inf")
         best_state = None
         patience = 0
@@ -218,6 +226,10 @@ def train_model(
             val_preds_epoch = torch.cat(val_preds_epoch, dim=0)
             val_targets_epoch = torch.cat(val_targets_epoch, dim=0)
             metrics = compute_epoch_metrics(val_targets_epoch, val_preds_epoch)
+
+            # NEW: Store metrics for plotting
+            for key in metrics_history.keys():
+                metrics_history[key].append(metrics[key])
 
             scheduler.step(val_loss)
             current_lr = optimizer.param_groups[0]["lr"]
@@ -288,6 +300,7 @@ def train_model(
                     val_loss,
                     best_val_loss,
                     annot_timesteps,
+                    mandrel_extraction_annot_timesteps
                 )
 
             # Enhanced print statement with metrics
@@ -350,6 +363,18 @@ def train_model(
 
         mlflow.log_metrics(metrics_to_log)
         mlflow.pytorch.log_model(model.cpu(), "model")
+        
+        # ==================== PLOT ALL METRICS ====================
+        print("\nPlotting comprehensive metrics...")
+        plot_all_metrics(
+            metrics_history=metrics_history,
+            train_losses=train_losses,
+            val_losses=val_losses,
+            learning_rates=learning_rates,
+            epoch_times=epoch_times,
+            image_saver=image_saver,
+        )
+        
         # ==================== FEATURE IMPORTANCE ANALYSIS ====================
         print("\nStarting feature importance analysis...")
 
@@ -383,6 +408,21 @@ def train_model(
             mlflow.log_artifact("feature_importance_summary.csv")
             Path("feature_importance_summary.csv").unlink()  # Delete temporary file
         # Log images from the last epoch
+        
+        with torch.no_grad():
+            model.eval()
+            _, final_attn = model(plot_X)
+            final_attn_mean = final_attn.mean(0).cpu().numpy()
+
+        # Create the final line plot
+        image_saver.plot_attention_lines_with_sensors(
+            sensor_data=X_val,
+            sensor_names=sensor_names,
+            attn_mean=final_attn_mean,
+            annot_timesteps=annot_timesteps,
+            mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+            sample_idx=-1,  # Use last sample
+        )
         move_images_to_mlflow_artifacts(image_saver)
 
         return {
@@ -390,3 +430,232 @@ def train_model(
             "best_val_loss": best_val_loss,
             "final_metrics": final_metrics,
         }
+
+
+def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, epoch_times, image_saver):
+    """
+    Create individual plots for each training metric.
+    """
+    import matplotlib.pyplot as plt
+    
+    epochs = list(range(1, len(train_losses) + 1))
+    saved_paths = []
+    
+    # 1. Loss curves (Train vs Val)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, train_losses, label='Train Loss', color='blue', linewidth=2.5, marker='o', markersize=4)
+    ax.plot(epochs, val_losses, label='Val Loss', color='red', linewidth=2.5, marker='s', markersize=4)
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('Loss', fontsize=14)
+    ax.set_title('Training and Validation Loss', fontsize=16, fontweight='bold')
+    ax.legend(fontsize=12)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_loss.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved Loss plot to {path}")
+    
+    # 2. MSE
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, metrics_history['mse'], color='purple', linewidth=2.5, marker='o', markersize=4)
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('MSE', fontsize=14)
+    ax.set_title('Mean Squared Error', fontsize=16, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_mse.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved MSE plot to {path}")
+    
+    # 3. RMSE
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, metrics_history['rmse'], color='darkviolet', linewidth=2.5, marker='o', markersize=4)
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('RMSE', fontsize=14)
+    ax.set_title('Root Mean Squared Error', fontsize=16, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_rmse.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved RMSE plot to {path}")
+    
+    # 4. MAE
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, metrics_history['mae'], color='orange', linewidth=2.5, marker='o', markersize=4)
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('MAE', fontsize=14)
+    ax.set_title('Mean Absolute Error', fontsize=16, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_mae.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved MAE plot to {path}")
+    
+    # 5. MedAE
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, metrics_history['medae'], color='darkorange', linewidth=2.5, marker='o', markersize=4)
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('MedAE', fontsize=14)
+    ax.set_title('Median Absolute Error', fontsize=16, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_medae.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved MedAE plot to {path}")
+    
+    # 6. R² Score
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, metrics_history['r2'], color='green', linewidth=2.5, marker='o', markersize=4)
+    ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5, linewidth=2, label='Perfect Score')
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('R² Score', fontsize=14)
+    ax.set_title('R² Score (Coefficient of Determination)', fontsize=16, fontweight='bold')
+    ax.legend(fontsize=12)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_r2.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved R² plot to {path}")
+    
+    # 7. MAPE
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, metrics_history['mape'], color='brown', linewidth=2.5, marker='o', markersize=4)
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('MAPE (%)', fontsize=14)
+    ax.set_title('Mean Absolute Percentage Error', fontsize=16, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_mape.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved MAPE plot to {path}")
+    
+    # 8. Max Error
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, metrics_history['max_error'], color='red', linewidth=2.5, marker='o', markersize=4)
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('Max Error', fontsize=14)
+    ax.set_title('Maximum Error', fontsize=16, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_max_error.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved Max Error plot to {path}")
+    
+    # 9. EVS (Explained Variance Score)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, metrics_history['evs'], color='teal', linewidth=2.5, marker='o', markersize=4)
+    ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5, linewidth=2, label='Perfect Score')
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('EVS', fontsize=14)
+    ax.set_title('Explained Variance Score', fontsize=16, fontweight='bold')
+    ax.legend(fontsize=12)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_evs.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved EVS plot to {path}")
+    
+    # 10. MBE (Mean Bias Error)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, metrics_history['mbe'], color='navy', linewidth=2.5, marker='o', markersize=4)
+    ax.axhline(y=0, color='gray', linestyle='--', alpha=0.5, linewidth=2, label='Zero Bias')
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('MBE', fontsize=14)
+    ax.set_title('Mean Bias Error', fontsize=16, fontweight='bold')
+    ax.legend(fontsize=12)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_mbe.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved MBE plot to {path}")
+    
+    # 11. Learning Rate
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, learning_rates, color='magenta', linewidth=2.5, marker='o', markersize=4)
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('Learning Rate', fontsize=14)
+    ax.set_title('Learning Rate Schedule', fontsize=16, fontweight='bold')
+    ax.set_yscale('log')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_learning_rate.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved Learning Rate plot to {path}")
+    
+    # 12. Epoch Times
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(epochs, epoch_times, color='cyan', linewidth=2.5, marker='o', markersize=4)
+    ax.axhline(y=np.mean(epoch_times), color='red', linestyle='--', alpha=0.5, linewidth=2, 
+               label=f'Avg: {np.mean(epoch_times):.2f}s')
+    ax.set_xlabel('Epoch', fontsize=14)
+    ax.set_ylabel('Time (seconds)', fontsize=14)
+    ax.set_title('Training Time per Epoch', fontsize=16, fontweight='bold')
+    ax.legend(fontsize=12)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    path = image_saver.base_dir / "metric_epoch_time.png"
+    plt.savefig(path, dpi=150, bbox_inches='tight')
+    plt.close()
+    saved_paths.append(path)
+    print(f"✓ Saved Epoch Time plot to {path}")
+    
+    # 13. Summary text file
+    summary_path = image_saver.base_dir / "metrics_summary.txt"
+    with open(summary_path, 'w') as f:
+        f.write("="*60 + "\n")
+        f.write("FINAL TRAINING METRICS SUMMARY\n")
+        f.write("="*60 + "\n\n")
+        f.write(f"Total Epochs:          {len(epochs)}\n")
+        f.write(f"Best Val Loss:         {min(val_losses):.6f}\n")
+        f.write(f"Final Val Loss:        {val_losses[-1]:.6f}\n")
+        f.write(f"Final Train Loss:      {train_losses[-1]:.6f}\n\n")
+        f.write("-"*60 + "\n")
+        f.write("FINAL VALIDATION METRICS:\n")
+        f.write("-"*60 + "\n")
+        f.write(f"MSE:                   {metrics_history['mse'][-1]:.6f}\n")
+        f.write(f"RMSE:                  {metrics_history['rmse'][-1]:.6f}\n")
+        f.write(f"MAE:                   {metrics_history['mae'][-1]:.6f}\n")
+        f.write(f"MedAE:                 {metrics_history['medae'][-1]:.6f}\n")
+        f.write(f"R² Score:              {metrics_history['r2'][-1]:.6f}\n")
+        f.write(f"MAPE:                  {metrics_history['mape'][-1]:.2f}%\n")
+        f.write(f"Max Error:             {metrics_history['max_error'][-1]:.6f}\n")
+        f.write(f"EVS:                   {metrics_history['evs'][-1]:.6f}\n")
+        f.write(f"MBE:                   {metrics_history['mbe'][-1]:.6f}\n\n")
+        f.write("-"*60 + "\n")
+        f.write("TRAINING STATISTICS:\n")
+        f.write("-"*60 + "\n")
+        f.write(f"Avg Epoch Time:        {np.mean(epoch_times):.2f}s\n")
+        f.write(f"Total Training Time:   {sum(epoch_times):.2f}s\n")
+        f.write(f"Final Learning Rate:   {learning_rates[-1]:.2e}\n")
+        f.write("="*60 + "\n")
+    
+    saved_paths.append(summary_path)
+    print(f"✓ Saved metrics summary to {summary_path}")
+    
+    # Log all artifacts to MLflow
+    for path in saved_paths:
+        mlflow.log_artifact(str(path))
+    
+    print(f"\n✓ Total of {len(saved_paths)} metric files saved and logged to MLflow")
