@@ -62,7 +62,7 @@ class DataLoader:
             "df_machine",
             "df_sensor",
             "df_machine_and_movement",
-            "df_movements",
+            "df_movement",
         ]) -> Dict[str, pd.DataFrame]:
         """
         Load all tables from the SQLite database into a dictionary of DataFrames.
@@ -101,7 +101,7 @@ class DataLoader:
             "df_machine",
             "df_sensor",
             "df_machine_and_movement",
-            "df_movements",
+            "df_movement",
         ],
     ) -> Dict[str, pd.DataFrame]:
         """
@@ -136,63 +136,20 @@ class DataLoader:
 
         conn.close()
         return dataframes
-
-    def store_to_csv(self,
-        cols_to_match: list[str],
-        load_setup: pd.DataFrame | None,
-        selected_dfs_features: list[pd.DataFrame],
-        selected_dfs_target: list[pd.DataFrame],
-        feature_file: str = "features.csv", 
-        target_file: str = "targets.csv"
-    ):
+    
+    @log_function
+    def load_experiment_ids_from_sqlite(
+        self):
         """
-        Store filtered machine and arc data to CSV files.
-
-        Args:
-            cols_to_match (list[str]): Columns to group by for duplicate detection.
-            load_setup (pd.DataFrame | None): Setup DataFrame containing experiment information.
-            selected_dfs_features (list[pd.DataFrame]): List of feature DataFrames to filter.
-            selected_dfs_target (list[pd.DataFrame]): List of target DataFrames to filter.
-            feature_file (str): Path to save the features CSV.
-            target_file (str): Path to save the targets CSV.
+        Load Experiment_ID from the SQLite database.
 
         Returns:
-            tuple[pd.DataFrame, pd.DataFrame] | None:
-                (df_machine_filtered, df_arc_filtered) – the filtered DataFrames, or None if no filtering is done.
+            pd.DataFrame: panda dataframe of experiment ids.
         """
-
-        # If no setup data is provided, return immediately
-        if load_setup is None or load_setup.empty:
-            print("load_setup is None or empty — skipping filtering.")
-            return
-
-        # If no matching columns provided, skip filtering and save as-is
-        if len(cols_to_match) == 0:
-            print("cols_to_match is empty — saving DataFrames without filtering.")
-            for df in selected_dfs_features:
-                df.to_csv(feature_file, index=False)
-            for df in selected_dfs_target:
-                df.to_csv(target_file, index=False)
-            return
-
-        # Group by specified columns and collect Experiment_IDs
-        grouped = load_setup.groupby(cols_to_match)['Experiment_ID'].apply(list)
-
-        # Find duplicate experiment groups
-        duplicates_list = [exp_list for exp_list in grouped if len(exp_list) > 1]
-        print("Duplicate experiment groups:", duplicates_list)
-
-        # Take only the first experiment ID from each group
-        first_experiments = [exp_list[0] for exp_list in grouped]
-
-        # Filter and save
-        for df in selected_dfs_features:
-            df_filtered = df[df['Experiment_ID'].isin(first_experiments)]
-            df_filtered.to_csv(feature_file, index=False)
-
-        for df in selected_dfs_target:
-            df_filtered = df[df['Experiment_ID'].isin(first_experiments)]
-            df_filtered.to_csv(target_file, index=False)
-
-
-        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        df = pd.read_sql_query(f"SELECT * FROM machine_and_movement", conn)
+        conn.close()
+        experiment_ids = df["Experiment_ID"].unique()
+        return experiment_ids
