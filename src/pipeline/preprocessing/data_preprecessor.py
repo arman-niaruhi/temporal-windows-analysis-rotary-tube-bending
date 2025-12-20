@@ -85,7 +85,7 @@ class DataPreprocessPipeline:
         if correlation_matrices:
             transformer.save_correlation_matrices(tables=correlation_matrices)
 
-        df_machine_and_movement, df_sensor, df_machine, df_movements = (
+        df_machine_and_movement, df_sensor, df_machine, df_movement = (
             transformer.get_process_data()
         )
         df_arc, df_lin1, df_lin2, linear_df, all_geometry_data = (
@@ -106,7 +106,7 @@ class DataPreprocessPipeline:
             "linear": linear_df,
             "machine": df_machine,
             "sensor": df_sensor,
-            "movements": df_movements,
+            "movement": df_movement,
             "bending": df_bending,
         }
         loader.store_to_sqlite(
@@ -115,6 +115,6 @@ class DataPreprocessPipeline:
                 "machine",
                 "sensor",
                 "machine_and_movement",
-                "movements",
+                "movement",
             ],
         )

@@ -6,7 +6,7 @@ from matplotlib import rcParams
 
 
 class OrganizedImageSaver:
-    def __init__(self, base_dir="images", machine_part="COMPLETE"):
+    def __init__(self, base_dir="images", machine_part="All"):
         self.base_dir = Path(base_dir)
         self.machine_part = machine_part
 
@@ -229,7 +229,7 @@ class OrganizedImageSaver:
         
         # Prepare annotation labels if needed
         annot_labels = None
-        if annot_timesteps and (self.machine_part == "COMPLETE"):
+        if annot_timesteps and (self.machine_part == "All"):
             annot_labels = [
                 "Start-Clamping",
                 "Start-Bending",
@@ -498,7 +498,7 @@ class OrganizedImageSaver:
         ax_main.spines["left"].set_color("#333333")
         ax_main.spines["bottom"].set_color("#333333")
 
-        if annot_timesteps and (self.machine_part == "COMPLETE"):
+        if annot_timesteps and (self.machine_part == "All"):
             annot_labels = [
                 "Start-Declamping",
                 "Start-Bending",

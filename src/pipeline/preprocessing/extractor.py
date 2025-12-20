@@ -120,7 +120,7 @@ class DataExtractor:
             "df_sensor": self._take_bending_setups(
                 self.loaded_dict, "process_parameters_loads_sensor"
             ),
-            "df_movements": self._take_bending_setups(
+            "df_movement": self._take_bending_setups(
                 self.loaded_dict, "process_parameters_movements"
             ),
             "df_bending": self._take_bending_setups(self.loaded_dict, "bending_setups"),

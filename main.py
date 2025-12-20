@@ -1,7 +1,11 @@
 import argparse
 from src.pipeline.preprocessing.data_preprecessor import DataPreprocessPipeline
-from src.pipeline.preprocessing.loader import DataLoader
-import streamlit as st
+from src.pipeline.ml.classification.utils.plot_utils import plot_predictions_vs_true_annot
+from src.pipeline.ml.classification.training import analyze_features, training_pipeline 
+from src.pipeline.ml.classification.inference_one_label import get_all_predictions, plot_experiment
+from src.pipeline.ml.context_extractor.utils.lstm_utils.config.seed import enforce_reproducibility
+from src.pipeline.ml.context_extractor.utils.lstm_utils.data.data_preprocessor import prepare_data
+from src.pipeline.ml.context_extractor.utils.lstm_utils.models.training import train_model
 import json
 
 
@@ -17,66 +21,42 @@ def preprocess_data(
     )
 
 
-@st.cache_data
-def load_data():
-    loader = DataLoader("data/processed/tube_geometry.db")
-    return loader.load_all_data_from_sqlite()
+def extract_context(extraction_configuration_path:str):
+    with open(extraction_configuration_path, "r") as f:
+        config = json.load(f)
+    enforce_reproducibility(seed=config.get("general_setting").get("seed"))
+    input_path_param = config.get("input_path_param")
+    preprocessing_param = config.get("preprocessing_param")
+    machine_part = input_path_param.get("machine_part")
 
-
-def export_csv(loaded_dfs):
-    df_arc = loaded_dfs["arc"]
-    df_linear = loaded_dfs["linear"]
-    df_linear1 = loaded_dfs["lin1"]
-    df_linear2 = loaded_dfs["lin2"]
-    df_machine_and_movement = loaded_dfs["machine_and_movement"]
-    df_machine = loaded_dfs["machine"]
-    df_movement = loaded_dfs["movements"]
-    df_sensor = loaded_dfs["sensor"]
-    load_setup = loaded_dfs.get("bending", None)
-
-    cols_to_match = [
-        # "Pressure-die lateral position",
-        # "Pressure-die distance",
-        # "Pressure-die boost",
-        # "Mandrel position",
-        # "Mandrel retraction timing",
-        # "Collet boost",
-        # "Clamp-die lateral position",
-    ]
-
-    loader = DataLoader("data/processed/tube_geometry.db")
-    loader.store_to_csv(
-        cols_to_match=cols_to_match,
-        load_setup=load_setup,
-        selected_dfs_features=[df_movement],
-        selected_dfs_target=[df_arc],
-        feature_file="data/ml/features_movement_complete.csv",
-        target_file="data/ml/targets.csv",
+    X, Y, sensor_names, target_feature_names, annot_timesteps, mandrel_extraction_annot_timesteps = prepare_data(
+        input_path_param=input_path_param, preprocessing_param=preprocessing_param
     )
-
-
-def extract_context():
-    # Placeholder for context extraction
-    pass
-
-def acivity_recognition(sensor_df, model_path):
-    from src.pipeline.ml.classification.inference import predict_activity
-    labels = predict_activity(sensor_df, model_path)
-    print(labels)
     
+    train_model(
+        X,
+        Y,
+        config.get("training_param"),
+        sensor_names,
+        target_feature_names,
+        machine_part,
+        config.get("preprocessing_param"),
+        annot_timesteps, 
+        mandrel_extraction_annot_timesteps
+    )
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run different pipeline steps.")
     parser.add_argument(
         "step",
-        choices=["preprocess", "export", "activity_recognition", "context", "visualize"],
+        choices=["preprocess", "activity_recognition_one", "activity_recognition", "context", "visualize"],
         help="Choose which pipeline step to run",
     )
     args = parser.parse_args()
 
     if args.step == "preprocess":
-        with open("config/config.json", "r") as f:
+        with open("config/preprocessing_config.json", "r") as f:
             config = json.load(f)
         preprocess_data(
             config["failed_experiment"],
@@ -84,26 +64,99 @@ def main():
             config["normalized_tables"],
             config["correlation_matrices"],
         )
-
-    elif args.step == "export":
-        loaded_dfs = load_data()
-        export_csv(loaded_dfs)
         
     elif args.step == "activity_recognition":
-        model_path = "models/classifier/machine_and_movement"
-        loader = DataLoader("data/processed/tube_geometry.db")
-        loaded_dfs = loader.load_all_data_from_sqlite()
-        sensors_df = loaded_dfs["machine_and_movement"]
-        sensor_df = sensors_df[sensors_df["Experiment_ID"] == 2].set_index("Time_[s]")
-        acivity_recognition(sensor_df=sensor_df, model_path=model_path)
+        with open("config/machine_activity_recognition.json", "r") as f:
+            config = json.load(f)
+        model, sensors_df, test_loader, device, feature_cols= training_pipeline(model_path_root=config["model_path_root"],
+        database_path=config["database_path"],
+        annotation_json_path=config["annotation_json_path"],
+        experiment_ids_path=config["experiment_ids_path"],
+        machine_part=config["machine_part"],
+        eliminated_columns=config["eliminated_columns"],
+        label=config["label"],
+        pipeline_config=config["pipeline_config"])
+
+        # analyze_features(model, sensors_df, test_loader, device)
+
+        EXPERIMENT_IDS = [
+            # 2,
+            # 3,
+            # 22,
+            # 23,
+            # 40,
+            # 54,
+            # 83,
+            # 85,
+            # 110,
+            # 112,
+            # 119,
+            # 120,
+            # 121,
+            # 122,
+            # 123,
+            # 178,
+            # 179,
+            # 182,
+            # 183,
+            # 211,
+            # 212,
+            # 213,
+            # 255,
+            # 258,
+            # 261,
+            # 271,
+            # 272,
+            # 273,
+            # 302,
+            # 303,
+            # 304,
+            # 317,
+            # 318,
+            110
+        ]
+        plot_predictions_vs_true_annot(model, test_loader.dataset, sensors_df, feature_cols, EXPERIMENT_IDS)
+        
+    elif args.step == "activity_recognition_one":
+        import sys
+        import os
+        current_dir = os.getcwd()
+        project_root = os.path.join(current_dir)
+        project_root = os.path.abspath(project_root)
+        sys.path.insert(0, project_root)
+        
+
+        DATABASE_PATH = f"{project_root}/data/processed/tube_geometry.db"
+        MACHINE_PART = "machine_and_movement"
+        ANNOTATION_JSON_PATH = f"{project_root}/data/ml/machine-and-movement_complete.json"
+        ELIMINATED_COLUMNS = [
+                                "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]", 
+                                "COLLET_ROTATING_Movement_[mm]", 
+                                "BEND-DIE_VERTICAL_Movement_[mm]", 
+                                "PRESSURE-DIE_LATERAL_Movement_[mm]"
+                                ]
+
+        LABELS = ["Clamping", "Bending", "Mandrel Extraction", "De-Clamping"]
+        plot_experiment(
+            110,
+            DATABASE_PATH, 
+            ANNOTATION_JSON_PATH,
+            ELIMINATED_COLUMNS, 
+            project_root, 
+            LABELS,
+            MACHINE_PART,
+            get_all_predictions,
+            figsize=(15, 10)
+        )
+
 
     elif args.step == "context":
-        extract_context()
+        extract_context("config/context_extraction_config.json")
 
 
 if __name__ == "__main__":
     main()
     # python main.py preprocess
-    # python main.py export
     # python main.py activity_recognition
+    # python main.py activity_recognition_one
     # python main.py context

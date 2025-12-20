@@ -15,6 +15,7 @@ dependencies = [
     "matplotlib>=3.10.7",
     "mlflow>=3.5.0",
     "notebook>=7.4.7",
+    "opencv-python>=4.11.0.86",
     "pandas>=2.0.3",
     "patchify>=0.2.3",
     "plotly>=6.3.1",
