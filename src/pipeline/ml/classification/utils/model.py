@@ -165,6 +165,7 @@ class LSTMSequenceClassifier(nn.Module):
         learning_rate=1e-3,
         patience=10,
         device=None,
+        idx_to_label=None,
         model_path="models",
         run_name="LSTM_Training",
         experiment_name="LSTM_Activity_Classifier",
@@ -177,7 +178,7 @@ class LSTMSequenceClassifier(nn.Module):
         """
 
         os.makedirs(model_path, exist_ok=True)
-        model_name = os.path.join(model_path, "Activity_Detector.joblib")
+        model_name = os.path.join(model_path, "Activity_Detector.pth")
         summary_path = os.path.join(model_path, "experiment_summary.txt")
 
         if device is None:
@@ -364,20 +365,41 @@ class LSTMSequenceClassifier(nn.Module):
                     },
                     step=epoch,
                 )
+                class_indices = sorted(idx_to_label.keys())
+                class_names = [idx_to_label[i] for i in class_indices]
 
                 # --- Confusion Matrix ---
                 if (epoch % save_confusion_every == 0) or (epoch == num_epochs - 1):
                     try:
-                        cm = confusion_matrix(y_val_true, y_val_pred)
+                        cm = confusion_matrix(
+                            y_val_true,
+                            y_val_pred,
+                            labels=class_indices
+                        )
+
                         fig, ax = plt.subplots(figsize=(6, 5))
-                        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax)
+                        sns.heatmap(
+                            cm,
+                            annot=True,
+                            fmt="d",
+                            cmap="Greens",
+                            xticklabels=class_names,
+                            yticklabels=class_names,
+                            ax=ax,
+                        )
+
                         ax.set_title(f"Confusion Matrix (Epoch {epoch + 1})")
-                        plt.xlabel("Predicted")
-                        plt.ylabel("True")
-                        fig_path = os.path.join(model_path, f"confusion_matrix_epoch_{epoch + 1}.png")
+                        ax.set_xlabel("Predicted Label")
+                        ax.set_ylabel("True Label")
+
+                        fig_path = os.path.join(
+                            model_path, f"confusion_matrix_epoch_{epoch + 1}.png"
+                        )
                         plt.savefig(fig_path, bbox_inches="tight")
                         plt.close(fig)
+
                         mlflow.log_artifact(fig_path)
+
                     except Exception as e:
                         print(f"Warning: could not save confusion matrix at epoch {epoch+1}: {e}")
 
@@ -399,7 +421,7 @@ class LSTMSequenceClassifier(nn.Module):
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     counter = 0
-                    joblib.dump(self.state_dict(), model_name)
+                    torch.save(self.state_dict(), model_name)
                 else:
                     counter += 1
                     if counter >= patience:
@@ -408,8 +430,9 @@ class LSTMSequenceClassifier(nn.Module):
 
             # --- Load best model ---
             if os.path.exists(model_name):
-                best_state = joblib.load(model_name)
+                best_state = torch.load(model_name, map_location=device)
                 self.load_state_dict(best_state)
+
                 print("\nTraining complete. Best model loaded from:", model_name)
 
             # Log model to MLflow

@@ -375,7 +375,7 @@ class StreamlitApp:
         experiment_ids = test_experiment_ids if use_test_experiments else self.experiment_ids
             
         experiment_id = st.sidebar.selectbox("Select Experiment ID", experiment_ids, index=1)
-        df_names = ["arc", "machine_and_movement", "sensor", "machine", "movements"]
+        df_names = ["arc", "machine_and_movement", "sensor", "machine", "movement"]
         selected_df_names = st.sidebar.multiselect(
             "Select Datasets", df_names, default=df_names
         )
@@ -422,7 +422,7 @@ class StreamlitApp:
 
             mar_options = [
                            "machine_and_movement", 
-                           "movements", 
+                           "movement", 
                            "machine", 
                            "Single Machine and Movement",
                            "Single Movement",

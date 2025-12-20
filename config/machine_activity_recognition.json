@@ -1,0 +1,29 @@
+{
+  "database_path": "data/processed/tube_geometry.db",
+  "label": "Bending",
+  "machine_part": "machine_and_movement",
+  "annotation_json_path": "data/ml/machine-and-movement_complete.json",
+  "experiment_ids_path": "data/ml/unique_experiment_ids.json",
+  "model_path_root": "models/classifier",
+  "eliminated_columns": [
+    "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
+    "COLLET_ROTATING_Movement_[mm]",
+    "BEND-DIE_VERTICAL_Movement_[mm]",
+    "PRESSURE-DIE_LATERAL_Movement_[mm]"
+  ],
+  "pipeline_config": {
+    "dataloader_config": {
+      "batch_size": 8
+    },
+    "model_config": {
+      "hidden_size": 64,
+      "num_layers": 2
+    },
+    "training_config": {
+      "training": false,
+      "num_epochs": 1,
+      "learning_rate": 1e-5,
+      "patience": 3
+    }
+  }
+}
