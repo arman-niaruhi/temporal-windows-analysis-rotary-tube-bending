@@ -17,7 +17,7 @@ class DataTransformer:
         df_stl_lin2: pd.DataFrame,
         df_machine: pd.DataFrame,
         df_sensor: pd.DataFrame,
-        df_movements: pd.DataFrame,
+        df_movement: pd.DataFrame,
         df_bending: pd.DataFrame,
     ) -> None:
 
@@ -30,7 +30,7 @@ class DataTransformer:
         self.df_stl_lin2 = df_stl_lin2
         self.df_machine = df_machine
         self.df_sensor = df_sensor
-        self.df_movements = df_movements
+        self.df_movement = df_movement
         self.df_bending = df_bending
 
     @log_function
@@ -83,7 +83,7 @@ class DataTransformer:
     @log_function
     def get_process_data(self, experiment_ids: list[int] | None = None):
         """
-        Retrieve machine, movements, and sensor data, optionally filtered by experiment IDs.
+        Retrieve machine, movement, and sensor data, optionally filtered by experiment IDs.
 
         Args:
             experiment_ids (list[int] | None): List of Experiment_IDs to filter.
@@ -91,12 +91,12 @@ class DataTransformer:
 
         Returns:
             Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-                df_machine_and_movement, df_sensor, df_machine, df_movements
+                df_machine_and_movement, df_sensor, df_machine, df_movement
         """
         if experiment_ids is None:
-            df_machine, df_movements, df_sensor = (
+            df_machine, df_movement, df_sensor = (
                 self.df_machine,
-                self.df_movements,
+                self.df_movement,
                 self.df_sensor,
             )
         else:
@@ -104,22 +104,22 @@ class DataTransformer:
             df_machine = self.df_machine[
                 self.df_machine["Experiment_ID"].isin(experiment_ids)
             ]
-            df_movements = self.df_movements[
-                self.df_movements["Experiment_ID"].isin(experiment_ids)
+            df_movement = self.df_movement[
+                self.df_movement["Experiment_ID"].isin(experiment_ids)
             ]
             df_sensor = self.df_sensor[
                 self.df_sensor["Experiment_ID"].isin(experiment_ids)
             ]
 
-        # Remove 'Experiment_ID' from movements
-        df_movements_wo_experiment = df_movements.drop(columns=["Experiment_ID"])
+        # Remove 'Experiment_ID' from movement
+        df_movement_wo_experiment = df_movement.drop(columns=["Experiment_ID"])
 
-        # Combine machine and movements
+        # Combine machine and movement
         df_machine_and_movement = pd.concat(
-            [df_machine, df_movements_wo_experiment], axis=1
+            [df_machine, df_movement_wo_experiment], axis=1
         )
 
-        return df_machine_and_movement, df_sensor, df_machine, df_movements
+        return df_machine_and_movement, df_sensor, df_machine, df_movement
 
     @log_function
     def delete_failed_experiment(self, failed_experiment: list[int] | None) -> None:
@@ -144,7 +144,7 @@ class DataTransformer:
             "df_stl_lin2",
             "df_machine",
             "df_sensor",
-            "df_movements",
+            "df_movement",
             "df_bending",
         ]:
             df = getattr(self, attr)
@@ -197,7 +197,7 @@ class DataTransformer:
         for df_name in [
             "df_machine",
             "df_sensor",
-            "df_movements",
+            "df_movement",
             "df_arc",
             "df_lin1",
             "df_lin2",
@@ -241,15 +241,14 @@ class DataTransformer:
         in place and logs the number of columns normalized for each DataFrame.
 
         Args:
-            None
+            normalized_table (list[str]): List of attribute names of DataFrames to normalize.
 
         Returns:
             None: The method modifies the DataFrame attributes of the class directly.
         """
         for attr_name in normalized_table:
-            df = getattr(self, attr_name)
+            df = getattr(self, attr_name).copy()  # Make a copy to avoid SettingWithCopyWarning
 
-            # Select numeric columns excluding 'Experiment_ID' and 'Angle[degree]ORDistance[mm]'
             numeric_cols = df.select_dtypes(include="number").columns.difference(
                 ["Experiment_ID", "Angle[degree]ORDistance[mm]"]
             )
@@ -258,14 +257,16 @@ class DataTransformer:
                 logger.info(f"No numeric columns to normalize in '{attr_name}'.")
                 continue
 
-            df.loc[:, numeric_cols] = (df[numeric_cols] - df[numeric_cols].min()) / (
-                df[numeric_cols].max() - df[numeric_cols].min()
+            # Normalize per Experiment_ID
+            df.loc[:, numeric_cols] = df.groupby("Experiment_ID")[numeric_cols].transform(
+                lambda x: (x - x.min()) / (x.max() - x.min()) if x.max() != x.min() else 0
             )
 
             setattr(self, attr_name, df)
             logger.info(
-                f"Normalized {len(numeric_cols)} numeric columns in '{attr_name}' (excluding 'Experiment_ID')."
+                f"Normalized {len(numeric_cols)} numeric columns per Experiment_ID in '{attr_name}'."
             )
+
 
     @log_function
     def nan_handler(self):
@@ -291,7 +292,7 @@ class DataTransformer:
             "df_stl_lin2",
             "df_machine",
             "df_sensor",
-            "df_movements",
+            "df_movement",
             "df_bending",
         ]:
             df = getattr(self, attr_name)

@@ -2,8 +2,10 @@ import torch
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import random
+import numpy as np
+from scipy.ndimage import binary_opening, binary_closing
 
-def plot_predictions_vs_true_annot(model, dataset, sensor_df, feature_cols, test_exps, device="cpu"):
+def plot_predictions_vs_true_annot(model, dataset, sensor_df, feature_cols, test_exps, morphing=False, device="cpu"):
     """
     Multi-panel plot:
     - Top subplot: sensor data (features vs. time)
@@ -14,7 +16,7 @@ def plot_predictions_vs_true_annot(model, dataset, sensor_df, feature_cols, test
     model.eval()
 
     # --- Select a random experiment ---
-    exp_id = random.choice(test_exps)
+    exp_id = str(random.choice(test_exps))
     exp_data = sensor_df[sensor_df["Experiment_ID"] == exp_id]
 
     # --- Features ---
@@ -28,7 +30,22 @@ def plot_predictions_vs_true_annot(model, dataset, sensor_df, feature_cols, test
     with torch.no_grad():
         outputs = model(X)
         y_pred = torch.argmax(outputs, dim=-1).squeeze(0).cpu().numpy()
+        
+    # Size of neighborhood to consider
+    kernel_size = 5  # adjust: larger = more aggressive smoothing
 
+    # Process each unique label
+    smoothed = np.zeros_like(y_pred)
+    for label in np.unique(y_pred):
+        mask = y_pred == label
+        # Apply morphological closing (fills small gaps)
+        mask = binary_closing(mask, structure=np.ones(kernel_size))
+        # Apply morphological opening (removes small noise)
+        mask = binary_opening(mask, structure=np.ones(kernel_size))
+        smoothed[mask] = label
+        
+    # y_pred = smoothed
+    
     # --- Map indices to label names ---
     idx_to_label = {v: k for k, v in dataset.label_to_idx.items()}
     y_true_names = [idx_to_label[label] if isinstance(label, int) else label for label in y_true]
