@@ -1,21 +1,59 @@
-import numpy as np
 import pandas as pd
+import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
+import json
 
 
+import sys
+import os
+current_dir = os.getcwd()
+project_root = os.path.join(current_dir)
+project_root = os.path.abspath(project_root)
+sys.path.insert(0, project_root)
+DATABASE_PATH = f"{project_root}/data/processed/tube_geometry.db"
 class BasePreprocessor:
-    def __init__(self, sensors_path="../data/features.csv", target_path="../data/target.csv"):
-        self.sensors_path = sensors_path
-        self.target_path = target_path
+    def __init__(self, machine_part, annotation_json_path):
+        self.machine_par = machine_part
         self.sensor_df = None
         self.target_df = None
         self._feature_cols = None
+        self.annotation_json_path = annotation_json_path
 
-    def read_data(self):
-        """Read sensor CSV and target CSV/JSON."""
-        self.sensor_df = pd.read_csv(self.sensors_path, index_col="Time_[s]")
-        self.target_df = pd.read_csv(self.target_path, index_col=False)
-        return self.sensor_df, self.target_df
+    def read_data(self, label_name):
+        loader = DataLoaderETL(DATABASE_PATH)
+        dataframes = loader.load_all_data_from_sqlite()
+        sensors_df = dataframes['machine_and_movement']
+
+        with open(self.annotation_json_path, "r") as f:
+            labels = json.load(f)
+
+        if label_name == "All":
+            sensors_df.index = sensors_df["Time_[s]"]
+            sensors_df.drop(columns=["Time_[s]"], inplace=True)
+            return sensors_df, dataframes['arc']
+        
+        label_windows = (
+            pd.DataFrame([
+                {
+                    "Experiment_ID": int(exp_id),
+                    "start": phase["start"],
+                    "end": phase["end"]
+                }
+                for exp_id, phases in labels.items()
+                for phase in phases
+                if phase["label"] == label_name
+            ])
+        )
+        df_label = (
+                sensors_df
+                .merge(label_windows, on="Experiment_ID", how="inner")
+                .query("`Time_[s]` >= start and `Time_[s]` <= end")
+                .drop(columns=["start", "end"])
+            )
+        df_label.index = df_label["Time_[s]"]
+        df_label.drop(columns=["Time_[s]"], inplace=True)
+        return df_label, dataframes['arc']
 
     def feature_selection(self, variance_threshold=0):
         """Select features based on variance threshold."""

@@ -200,6 +200,10 @@ def train_model(
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
                 optimizer.step()
                 train_loss += loss.item()
+                
+                del pred, loss, Xb, Yb
+                torch.cuda.empty_cache()
+                
             train_loss /= len(train_loader)
             train_losses.append(train_loss)
 
@@ -265,6 +269,7 @@ def train_model(
                 mlflow.log_metric("best_val_loss", best_val_loss, step=epoch)
             else:
                 patience += 1
+                
 
             # Save separate plots every 2 epochs
             if epoch % 2 == 0 or epoch == 1:
@@ -391,6 +396,20 @@ def train_model(
 
         # Log feature importance to MLflow
         if combined_importance_df is not None:
+            X_sample = plot_X[:1]  # take the first sample of the batch
+            # Use the corresponding sensor_data sample for plotting top subplot
+            sensor_data_sample = X_val[:1].cpu().numpy()
+            save_integrated_gradients_combined(
+                model=model,
+                X_sample=X_sample,
+                sensor_data=sensor_data_sample,
+                sensor_names=sensor_names,
+                target_feature_names=target_feature_names,
+                image_saver=image_saver,
+                annot_timesteps=annot_timesteps,
+                mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+            )
+
 
             combined_csv_path = importance_paths.get("combined_csv")
             if combined_csv_path and Path(combined_csv_path).exists():
@@ -430,7 +449,225 @@ def train_model(
             "best_val_loss": best_val_loss,
             "final_metrics": final_metrics,
         }
+        
+def save_integrated_gradients_combined(
+    model, X_sample,
+    sensor_data, sensor_names,
+    target_feature_names,
+    image_saver,
+    annot_timesteps=None,
+    mandrel_extraction_annot_timesteps=None,
+    figsize_combined=(25, 3),
+    figsize_individual=(25, 6)
+):
+    """
+    Computes and saves Integrated Gradients saliency maps:
+    1) Combined: all target features in a single figure.
+    2) Individual: each target feature in a separate figure with sensor data on top,
+       aligned properly and saved in its own folder.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from captum.attr import IntegratedGradients
+    import torch
+    import mlflow
+    import os
 
+
+    model.eval()
+    X_sample = X_sample.to(next(model.parameters()).device)
+
+    with torch.no_grad():
+        pred, _ = model(X_sample)
+
+    n_output_features = pred.shape[2]
+    cleaned_sensor_names = [name.replace("_mean", "") for name in sensor_names]
+    cleaned_sensor_names_heatmap = list(reversed(cleaned_sensor_names))
+    sample_data = sensor_data[-1, :, :]
+    main_timesteps = sample_data.shape[0]
+
+    # -------------------------
+    # 1) Combined IG Figure
+    # -------------------------
+    ig_maps = []
+    import pandas as pd
+    for idx in range(n_output_features):
+        def forward_for_ig(x, target_idx=idx):
+            pred, _ = model(x)
+            return pred[:, :, target_idx].sum(dim=1)
+
+        ig = IntegratedGradients(forward_for_ig)
+        attributions, _ = ig.attribute(X_sample, return_convergence_delta=True)
+        attributions = attributions.squeeze(0).cpu().detach().numpy()  # [timesteps, input_features]
+        attr_df = pd.DataFrame(attributions, columns=cleaned_sensor_names)
+        attr_df.to_csv(image_saver.base_dir / f"ig_feature_{target_feature_names[idx] if target_feature_names else idx}.csv", index=False)
+        ig_maps.append(attributions)
+    
+
+    n_rows = n_output_features + 1  # top row: sensor data
+    fig = plt.figure(figsize=(figsize_combined[0], figsize_combined[1] * n_rows), facecolor="white")
+    gs = fig.add_gridspec(n_rows, 1, height_ratios=[2] + [1]*n_output_features, hspace=0.25)
+
+    # --- Top: Sensor data ---
+    ax_main = fig.add_subplot(gs[0])
+    colors = plt.cm.tab20(np.linspace(0, 1, len(cleaned_sensor_names)))
+    for i, color in enumerate(colors):
+        ax_main.plot(sample_data[:, i], color=color, linewidth=2.5, alpha=0.85, label=cleaned_sensor_names[i],
+                     marker="o", markersize=3, markevery=max(1, main_timesteps // 20))
+    ax_main.set_xlabel("Time Step", fontsize=12, fontweight="bold")
+    ax_main.set_ylabel("Sensor Value", fontsize=12, fontweight="bold")
+    ax_main.grid(True, linestyle="--", alpha=0.2)
+    ax_main.set_facecolor("#f9f9f9")
+    ax_main.set_xlim(0, main_timesteps-1)
+    ax_main.spines["top"].set_visible(False)
+    ax_main.spines["right"].set_visible(False)
+
+    # Move legend outside to avoid shrinking axes
+    ax_main.legend(loc="upper left", bbox_to_anchor=(1.02, 1), frameon=True, fontsize=10)
+    fig.canvas.draw()  # force update positions
+
+    # Annotations
+    if annot_timesteps:
+        annot_labels = ["Start-Declamping","Start-Bending","Start-Declamping","End-Declamping"]
+        for ts, label in zip(annot_timesteps, annot_labels):
+            ax_main.axvline(ts, color="black", linestyle="--", alpha=0.7)
+            ax_main.annotate(label, xy=(ts, sample_data.max()), xytext=(0,10),
+                             textcoords="offset points", ha="center", va="bottom",
+                             fontsize=11, fontweight="bold",
+                             bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", lw=0.8))
+    if mandrel_extraction_annot_timesteps:
+        ax_main.axvspan(
+            mandrel_extraction_annot_timesteps[0],
+            mandrel_extraction_annot_timesteps[1],
+            color="blue",
+            alpha=0.12,
+            linewidth=0
+        )
+
+    # --- IG Heatmaps ---
+    for idx, attributions in enumerate(ig_maps):
+        ax = fig.add_subplot(gs[idx+1])
+        im = ax.imshow(attributions.T, cmap="magma", aspect="auto", interpolation="nearest",
+                       extent=[0, main_timesteps-1, 0, len(cleaned_sensor_names_heatmap)])
+        ax.set_yticks(np.arange(len(cleaned_sensor_names_heatmap)) + 0.5)
+        ax.set_yticklabels(cleaned_sensor_names_heatmap)
+        ax.set_xlim(0, main_timesteps-1)
+        ax.set_xlabel("Time Step", fontsize=12, fontweight="bold")
+        target_name = target_feature_names[idx] if target_feature_names else f"Feature {idx}"
+        ax.set_ylabel(f"{target_name}", fontsize=12, fontweight="bold")
+        ax.set_facecolor("white")
+        cbar = plt.colorbar(im, ax=ax, fraction=0.02, pad=0.02)
+        cbar.ax.tick_params(labelsize=9)
+        cbar.outline.set_linewidth(1.2)
+
+    plt.tight_layout()
+    combined_path = image_saver.base_dir / "ig_combined.png"
+    fig.savefig(combined_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    mlflow.log_artifact(str(combined_path))
+
+    # -------------------------
+    # 2) Individual IG Plots (aligned and saved in feature folders)
+    # -------------------------
+    for idx in range(n_output_features):
+        attributions = ig_maps[idx]
+        target_name = target_feature_names[idx] if target_feature_names else f"Feature_{idx}"
+        
+        feature_folder = image_saver.base_dir / target_name.replace(" ", "_")
+        os.makedirs(feature_folder, exist_ok=True)
+
+        # Create figure with GridSpec for precise control
+        fig = plt.figure(figsize=(20, 10), facecolor="white")  # Wider figure (20 instead of 16)
+        
+        # Create GridSpec: 2 rows, 2 columns (second column for legend/colorbar)
+        gs = fig.add_gridspec(2, 2, 
+                            width_ratios=[0.88, 0.12],  # More space for plots, less for legend (88%/12%)
+                            height_ratios=[2, 1],
+                            hspace=0.3, wspace=0.05)  # Less wspace between columns
+        
+        # Main axes for plots
+        ax_top = fig.add_subplot(gs[0, 0])
+        ax_bottom = fig.add_subplot(gs[1, 0], sharex=ax_top)
+        
+        # --- Top: sensor data ---
+        for i, color in enumerate(colors):
+            ax_top.plot(sample_data[:, i], color=color, linewidth=2.5, alpha=0.85, 
+                        label=cleaned_sensor_names[i],
+                        marker="o", markersize=3, markevery=max(1, main_timesteps // 20))
+        
+        ax_top.set_xlabel("Time Step", fontsize=12, fontweight="bold")
+        ax_top.set_ylabel("Sensor Value", fontsize=12, fontweight="bold")
+        ax_top.grid(True, linestyle="--", alpha=0.2)
+        ax_top.set_facecolor("#f9f9f9")
+        ax_top.set_xlim(0, main_timesteps-1)
+        ax_top.spines["top"].set_visible(False)
+        ax_top.spines["right"].set_visible(False)
+        
+        # Legend in the right column - make it more compact
+        legend_ax = fig.add_subplot(gs[0, 1])
+        legend_ax.axis('off')  # Hide the axis
+        
+        # Get legend handles and labels from ax_top
+        handles, labels = ax_top.get_legend_handles_labels()
+        
+        # Create a more compact legend
+        legend = legend_ax.legend(handles, labels, 
+                                loc='upper left',
+                                fontsize=9,  # Smaller font
+                                frameon=True,
+                                borderpad=0.8,  # Less padding inside border
+                                labelspacing=0.5,  # Less spacing between labels
+                                handlelength=1.5,  # Shorter line handles
+                                handletextpad=0.5,  # Less space between handle and text
+                                borderaxespad=0.5)  # Less padding from axes border
+        
+        # Annotations
+        if annot_timesteps:
+            annot_labels = ["Start-Declamping","Start-Bending","Start-Declamping","End-Declamping"]
+            for ts, label in zip(annot_timesteps, annot_labels):
+                ax_top.axvline(ts, color="black", linestyle="--", alpha=0.7)
+                ax_top.annotate(label, xy=(ts, sample_data.max()), xytext=(0,10),
+                                textcoords="offset points", ha="center", va="bottom",
+                                fontsize=11, fontweight="bold",
+                                bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", lw=0.8))
+        
+        if mandrel_extraction_annot_timesteps:
+            ax_top.axvspan(
+                mandrel_extraction_annot_timesteps[0],
+                mandrel_extraction_annot_timesteps[1],
+                color="blue",
+                alpha=0.12,
+                linewidth=0
+            )
+
+        # --- Bottom: IG heatmap ---
+        im = ax_bottom.imshow(
+            attributions.T,
+            aspect="auto",
+            cmap="magma",
+            interpolation="nearest",
+            extent=[0, main_timesteps-1, 0, len(cleaned_sensor_names_heatmap)]
+        )
+
+        ax_bottom.set_yticks(np.arange(len(cleaned_sensor_names_heatmap)) + 0.5)
+        ax_bottom.set_yticklabels(cleaned_sensor_names_heatmap)
+        ax_bottom.set_xlabel("Time Step", fontsize=12, fontweight="bold")
+        ax_bottom.set_ylabel(f"{target_name}", fontsize=12, fontweight="bold")
+        ax_bottom.set_facecolor("white")
+        
+        # Colorbar in the right column (below legend) - also make more compact
+        cbar_ax = fig.add_subplot(gs[1, 1])
+        cbar = fig.colorbar(im, cax=cbar_ax, orientation='vertical')
+        cbar.ax.tick_params(labelsize=8)  # Smaller font for colorbar
+        cbar.outline.set_linewidth(1.2)
+
+        # Tight layout
+        plt.tight_layout()
+
+        indiv_path = feature_folder / "ig.png"
+        fig.savefig(indiv_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        mlflow.log_artifact(str(indiv_path))
 
 def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, epoch_times, image_saver):
     """
