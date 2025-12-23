@@ -2,12 +2,15 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import torch
 import os
+import logging
 
 from src.pipeline.ml.classification.utils.model import LSTMSequenceClassifier
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 from src.pipeline.ml.classification.utils.classification_utils import (
     ClassifierPreprocessor,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def get_all_predictions(
@@ -41,11 +44,17 @@ def get_all_predictions(
     ).to(device)
 
     model_path = os.path.join(models_path, machine_part, Label, "activity_detector.pth")
-
-    state_dict = torch.load(
+    
+    try:
+        state_dict = torch.load(
             model_path,
             map_location=device
         )
+        
+    except FileNotFoundError:
+        logger.error(f"Model file not found at {model_path}. Please ensure the model has been trained and the path is correct.")
+        raise
+    
     model.load_state_dict(state_dict)
     model.eval()
 
@@ -95,6 +104,7 @@ def inference_one_label_in_one(
     figsize : tuple, optional
         Figure size for the plot.
     """
+    logger.info(f"Starting inference for Experiment ID: {exp_id} with labels: {labels}")
 
     # Assign distinct base colors
     base_colors = list(mcolors.TABLEAU_COLORS.values())[: len(labels)]

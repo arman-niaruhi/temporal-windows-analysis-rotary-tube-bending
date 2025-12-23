@@ -21,7 +21,7 @@
     },
     "training_config": {
       "training": false,
-      "num_epochs": 300,
+      "num_epochs": 1,
       "learning_rate": 1e-5,
       "patience": 3
     }
@@ -30,5 +30,14 @@
   "show_result_properties":{
     "store_plots": true,
     "store_plots_path": "results/activity_recognition" 
+  },
+  "inference_one_label_in_one":{
+    "models_path": "models/classifier",
+    "labels": [
+      "Clamping",
+      "Bending",
+      "Mandrel Extraction",
+      "De-Clamping"
+    ]
   }
 }
