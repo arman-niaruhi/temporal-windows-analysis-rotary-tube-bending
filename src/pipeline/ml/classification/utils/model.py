@@ -19,9 +19,11 @@ import joblib
 from torchviz import make_dot
 import warnings
 from datetime import datetime
-import json
+import logging
 
 warnings.filterwarnings("ignore", message="Can't initialize NVML")
+
+logger = logging.getLogger(__name__)
 
 
 class LSTMSequenceClassifier(nn.Module):
@@ -69,26 +71,34 @@ class LSTMSequenceClassifier(nn.Module):
         batch_size = x.size(0)
         seq_len = x.size(1)
         num_directions = 2 if self.bidirectional else 1
-        
+
         # LSTM initial states
         h0 = torch.zeros(
-            self.num_layers * num_directions, batch_size, self.hidden_size, device=x.device
+            self.num_layers * num_directions,
+            batch_size,
+            self.hidden_size,
+            device=x.device,
         )
         c0 = torch.zeros(
-            self.num_layers * num_directions, batch_size, self.hidden_size, device=x.device
+            self.num_layers * num_directions,
+            batch_size,
+            self.hidden_size,
+            device=x.device,
         )
 
         # LSTM forward - process all timesteps
-        out, _ = self.lstm(x, (h0, c0))  # out shape: (batch, seq_len, hidden_size * num_directions)
-        
+        out, _ = self.lstm(
+            x, (h0, c0)
+        )  # out shape: (batch, seq_len, hidden_size * num_directions)
+
         # Apply FC layer to each timestep
         # Reshape to apply FC: (batch * seq_len, hidden_size * num_directions)
         out_reshaped = out.reshape(-1, out.size(2))
         logits_reshaped = self.fc(out_reshaped)  # (batch * seq_len, num_classes)
-        
+
         # Reshape back to (batch, seq_len, num_classes)
         logits = logits_reshaped.reshape(batch_size, seq_len, self.num_classes)
-        
+
         return logits
 
     def save_experiment_summary(
@@ -156,6 +166,7 @@ class LSTMSequenceClassifier(nn.Module):
                 )
 
             f.write("===== END OF SUMMARY =====\n")
+            logger.info(f"Experiment summary saved to {file_path}")
 
     def train_model(
         self,
@@ -183,11 +194,19 @@ class LSTMSequenceClassifier(nn.Module):
 
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            logger.info(f"No device specified. Using device: {device}")
         self.to(device)
+        logger.info("Device is set to: %s", device)
+        logger.info(
+            "Trainging Setup: %d epochs, learning rate %.6f, patience %d",
+            num_epochs,
+            learning_rate,
+            patience,
+        )
 
         # Use ignore_index=-1 to ignore padded positions
         criterion = nn.CrossEntropyLoss(ignore_index=-1)
-        optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+        optimizer = optim.AdamW(self.parameters(), lr=learning_rate)
         best_val_loss = np.inf
         counter = 0
 
@@ -217,7 +236,9 @@ class LSTMSequenceClassifier(nn.Module):
                 }
             )
 
-            epoch_bar = tqdm(range(num_epochs), desc="Training", leave=True, colour="blue")
+            epoch_bar = tqdm(
+                range(num_epochs), desc="Training", leave=True, colour="blue"
+            )
             for epoch in epoch_bar:
                 # --- Training ---
                 self.train()
@@ -240,19 +261,21 @@ class LSTMSequenceClassifier(nn.Module):
                     else:
                         X_batch, y_batch = batch_data
                         mask_batch = None
-                    
+
                     X_batch = X_batch.to(device)  # (batch, seq_len, input_size)
                     y_batch = y_batch.to(device)  # (batch, seq_len)
 
                     optimizer.zero_grad()
-                    outputs = self(X_batch, mask=mask_batch)  # (batch, seq_len, num_classes)
-                    
+                    outputs = self(
+                        X_batch, mask=mask_batch
+                    )  # (batch, seq_len, num_classes)
+
                     # Reshape for loss calculation
                     # outputs: (batch * seq_len, num_classes)
                     # y_batch: (batch * seq_len)
                     outputs_flat = outputs.view(-1, self.num_classes)
                     y_batch_flat = y_batch.view(-1)
-                    
+
                     loss = criterion(outputs_flat, y_batch_flat)
                     loss.backward()
                     optimizer.step()
@@ -266,12 +289,12 @@ class LSTMSequenceClassifier(nn.Module):
                     # Get predictions only for valid timesteps
                     preds = torch.argmax(outputs_flat, dim=1).detach().cpu().numpy()
                     y_true = y_batch_flat.cpu().numpy()
-                    
+
                     # Filter out padding (-1 labels)
                     valid_indices = y_true != -1
                     y_train_pred.extend(preds[valid_indices])
                     y_train_true.extend(y_true[valid_indices])
-                    
+
                     batch_bar.set_postfix(loss=loss.item())
 
                 train_loss /= total_train_samples
@@ -301,17 +324,17 @@ class LSTMSequenceClassifier(nn.Module):
                         else:
                             X_val, y_val = batch_data
                             mask_val = None
-                        
+
                         X_val = X_val.to(device)
                         y_val = y_val.to(device)
 
                         outputs = self(X_val, mask=mask_val)
-                        
+
                         outputs_flat = outputs.view(-1, self.num_classes)
                         y_val_flat = y_val.view(-1)
-                        
+
                         loss = criterion(outputs_flat, y_val_flat)
-                        
+
                         valid_mask = y_val_flat != -1
                         num_valid = valid_mask.sum().item()
                         total_val_samples += num_valid
@@ -319,7 +342,7 @@ class LSTMSequenceClassifier(nn.Module):
 
                         preds = torch.argmax(outputs_flat, dim=1).cpu().numpy()
                         y_true = y_val_flat.cpu().numpy()
-                        
+
                         valid_indices = y_true != -1
                         y_val_pred.extend(preds[valid_indices])
                         y_val_true.extend(y_true[valid_indices])
@@ -372,9 +395,7 @@ class LSTMSequenceClassifier(nn.Module):
                 if (epoch % save_confusion_every == 0) or (epoch == num_epochs - 1):
                     try:
                         cm = confusion_matrix(
-                            y_val_true,
-                            y_val_pred,
-                            labels=class_indices
+                            y_val_true, y_val_pred, labels=class_indices
                         )
 
                         fig, ax = plt.subplots(figsize=(6, 5))
@@ -401,7 +422,9 @@ class LSTMSequenceClassifier(nn.Module):
                         mlflow.log_artifact(fig_path)
 
                     except Exception as e:
-                        print(f"Warning: could not save confusion matrix at epoch {epoch+1}: {e}")
+                        print(
+                            f"Warning: could not save confusion matrix at epoch {epoch+1}: {e}"
+                        )
 
                 # --- Update tqdm ---
                 lr = optimizer.param_groups[0]["lr"]
@@ -433,13 +456,15 @@ class LSTMSequenceClassifier(nn.Module):
                 best_state = torch.load(model_name, map_location=device)
                 self.load_state_dict(best_state)
 
-                print("\nTraining complete. Best model loaded from:", model_name)
+                logger.info(
+                    "\nTraining complete. Best model loaded from: %s", model_name
+                )
 
             # Log model to MLflow
             try:
                 mlflow.pytorch.log_model(self, artifact_path="model")
             except Exception as e:
-                print("Warning: mlflow.pytorch.log_model failed:", e)
+                logger.error("Warning: mlflow.pytorch.log_model failed:", e)
 
             # Save experiment summary
             try:
@@ -457,13 +482,16 @@ class LSTMSequenceClassifier(nn.Module):
                     notes=notes,
                 )
                 mlflow.log_artifact(summary_path)
-                print("Experiment summary saved to:", summary_path)
             except Exception as e:
-                print("Warning: failed to write or log experiment summary:", e)
+                logger.error("Warning: could not save experiment summary:", e)
 
-            print("Model and metrics logged to MLflow (run id:", run_id, ")")
+            logger.info("MLflow run completed. Run ID: %s", run_id)
 
-        return {"train_history": train_history, "val_history": val_history, "run_id": run_id}
+        return {
+            "train_history": train_history,
+            "val_history": val_history,
+            "run_id": run_id,
+        }
 
     def visualize_model(
         self, input_size=None, seq_len=5, batch_size=2, out_file="lstm_model_graph"

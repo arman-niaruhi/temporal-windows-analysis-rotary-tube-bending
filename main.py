@@ -1,4 +1,5 @@
 import argparse
+import os
 from src.pipeline.preprocessing.data_preprecessor import DataPreprocessPipeline
 from src.pipeline.ml.classification.utils.plot_utils import (
     plot_predictions_vs_true_annot,
@@ -15,9 +16,13 @@ from src.pipeline.ml.context_extractor.utils.seed_utils import enforce_reproduci
 from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import prepare_data
 from src.pipeline.ml.context_extractor.utils.training_utils import train_model
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def main():
+    activity_recognition_config_path = "config/machine_activity_recognition.json"
     parser = argparse.ArgumentParser(description="Run different pipeline steps.")
     parser.add_argument(
         "step",
@@ -38,43 +43,110 @@ def main():
         )
 
     elif args.step == "activity_recognition":
-        with open("config/machine_activity_recognition.json", "r") as f:
-            config = json.load(f)
-        model, sensors_df, test_loader, device, feature_cols = training_pipeline(
-            model_path_root=config["model_path_root"],
-            database_path=config["database_path"],
-            annotation_json_path=config["annotation_json_path"],
-            experiment_ids_path=config["experiment_ids_path"],
-            machine_part=config["machine_part"],
-            eliminated_columns=config["eliminated_columns"],
-            label=config["label"],
-            pipeline_config=config["pipeline_config"],
-        )
-
-        if config["analytics"]:
-            analyze_features(model, sensors_df, test_loader, device)
-
-        plot_predictions_vs_true_annot(
-            model,
-            test_loader.dataset,
-            sensors_df,
-            feature_cols,
-            config["show_result_properties"],
-            config["machine_part"],
-            config["label"],
-        )
-        if config["inference_one_label_in_one"]:
-            inference_one_label_in_one(
-                110,
-                config["database_path"],
-                config["annotation_json_path"],
-                config["eliminated_columns"],
-                config["inference_one_label_in_one"].get("models_path"),
-                config["inference_one_label_in_one"].get("labels"),
-                config["machine_part"],
-                get_all_predictions,
-                figsize=(15, 10),
+        if not os.path.exists(activity_recognition_config_path):
+            logger.error(
+                f"Configuration file not found at {activity_recognition_config_path}. Please create the config file."
             )
+
+        with open(activity_recognition_config_path, "r") as f:
+            config = json.load(f)
+
+        try:
+            model, sensors_df, test_loader, device, feature_cols = training_pipeline(
+                model_path_root=config.get("model_path_root", "models/classifier"),
+                database_path=config.get(
+                    "database_path", "data/processed/tube_geometry.db"
+                ),
+                annotation_json_path=config.get(
+                    "annotation_json_path", "data/ml/machine-and-movement_complete.json"
+                ),
+                experiment_ids_path=config.get(
+                    "experiment_ids_path", "data/ml/unique_experiment_ids.json"
+                ),
+                machine_part=config.get("machine_part", "machine_and_movement"),
+                eliminated_columns=config.get(
+                    "eliminated_columns",
+                    [
+                        "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
+                        "COLLET_ROTATING_Movement_[mm]",
+                        "BEND-DIE_VERTICAL_Movement_[mm]",
+                        "PRESSURE-DIE_LATERAL_Movement_[mm]",
+                    ],
+                ),
+                label=config.get("label", "All"),
+                pipeline_config=config.get(
+                    "pipeline_config",
+                    {
+                        "dataloader_config": {"batch_size": 8},
+                        "model_config": {"hidden_size": 64, "num_layers": 2},
+                        "training_config": {
+                            "training": False,
+                            "num_epochs": 1,
+                            "learning_rate": 1e-5,
+                            "patience": 3,
+                        },
+                    },
+                ),
+            )
+        except Exception as e:
+            logger.error(f"Error during training pipeline: {e}")
+            return
+
+        if config.get("analytics", False):
+            try:
+                analyze_features(model, sensors_df, test_loader, device)
+            except Exception as e:
+                logger.error(f"Warning: Feature analysis failed: {e}")
+
+        try:
+            plot_predictions_vs_true_annot(
+                model,
+                getattr(test_loader, "dataset", None),
+                sensors_df,
+                feature_cols,
+                config.get(
+                    "show_result_properties",
+                    {
+                        "store_plots": True,
+                        "store_plots_path": "results/activity_recognition",
+                    },
+                ),
+                config.get("machine_part", "machine_and_movement"),
+                config.get("label", "All"),
+            )
+        except Exception as e:
+            print(f"Warning: Plotting predictions failed: {e}")
+
+        inference_config = config.get("inference_one_label_in_one", None)
+
+        if inference_config:
+            try:
+                inference_one_label_in_one(
+                    110,
+                    config.get("database_path", "data/processed/tube_geometry.db"),
+                    config.get(
+                        "annotation_json_path",
+                        "data/ml/machine-and-movement_complete.json",
+                    ),
+                    config.get(
+                        "eliminated_columns",
+                        [
+                            "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
+                            "COLLET_ROTATING_Movement_[mm]",
+                            "BEND-DIE_VERTICAL_Movement_[mm]",
+                            "PRESSURE-DIE_LATERAL_Movement_[mm]",
+                        ],
+                    ),
+                    inference_config.get("models_path"),
+                    inference_config.get("labels"),
+                    config.get("machine_part", "machine_and_movement"),
+                    get_all_predictions,
+                    figsize=(15, 10),
+                )
+            except Exception as e:
+                logger.error(
+                    f"Warning: Inference for one label in one experiment failed: {e}"
+                )
 
     elif args.step == "context_extraction":
         extraction_configuration_path = "config/context_extraction_config.json"

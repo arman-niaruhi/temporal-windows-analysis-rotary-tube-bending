@@ -3,20 +3,11 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 # ---------------------------------------------------------------------
 # Logging configuration
 # ---------------------------------------------------------------------
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        "%(asctime)s | %(levelname)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
 
 
 # ---------------------------------------------------------------------
@@ -72,9 +63,9 @@ def permutation_importance_sequence(model, data_loader, device, n_repeats=10):
 
                     perm_values = X_batch[:, :, feature_idx].flatten()
                     perm_indices = torch.randperm(perm_values.shape[0])
-                    X_permuted[:, :, feature_idx] = perm_values[
-                        perm_indices
-                    ].reshape(X_batch.shape[0], X_batch.shape[1])
+                    X_permuted[:, :, feature_idx] = perm_values[perm_indices].reshape(
+                        X_batch.shape[0], X_batch.shape[1]
+                    )
 
                     X_permuted = X_permuted.to(device)
                     y_batch = y_batch.to(device)
@@ -142,11 +133,7 @@ def gradient_importance_sequence(model, data_loader, device, n_batches=10):
             valid_indices = torch.where(valid_mask[i])[0]
             if len(valid_indices) > 0:
                 grad_mean = (
-                    gradients[i, valid_indices, :]
-                    .mean(dim=0)
-                    .detach()
-                    .cpu()
-                    .numpy()
+                    gradients[i, valid_indices, :].mean(dim=0).detach().cpu().numpy()
                 )
                 all_gradients.append(grad_mean)
 
@@ -192,8 +179,11 @@ def integrated_gradients_importance(model, data_loader, device, n_samples=50, st
 
             for alpha in np.linspace(0, 1, steps):
                 X_interp = (
-                    baseline + alpha * (X_sample - baseline)
-                ).clone().detach().requires_grad_(True)
+                    (baseline + alpha * (X_sample - baseline))
+                    .clone()
+                    .detach()
+                    .requires_grad_(True)
+                )
 
                 outputs = model(X_interp)
                 pred_class = outputs.argmax(dim=-1)
@@ -226,7 +216,9 @@ def integrated_gradients_importance(model, data_loader, device, n_samples=50, st
 # ---------------------------------------------------------------------
 # Occlusion Importance
 # ---------------------------------------------------------------------
-def occlusion_importance(model, data_loader, device, n_samples=100, occlusion_value=0.0):
+def occlusion_importance(
+    model, data_loader, device, n_samples=100, occlusion_value=0.0
+):
     """
     Occlusion-based importance.
     """
@@ -402,29 +394,33 @@ def feature_ablation_importance(model, data_loader, device):
     return np.array(importances)
 
 
-def plot_feature_importance(importances, std=None, feature_names=None, method_name="Permutation"):
+def plot_feature_importance(
+    importances, std=None, feature_names=None, method_name="Permutation"
+):
     """Plot feature importance with error bars."""
     if feature_names is None:
         feature_names = [f"Feature {i}" for i in range(len(importances))]
-    
+
     # Sort by importance
     sorted_idx = np.argsort(importances)[::-1]
     sorted_importances = importances[sorted_idx]
     sorted_names = [feature_names[i] for i in sorted_idx]
-    
+
     plt.figure(figsize=(10, max(6, len(importances) * 0.3)))
-    
+
     if std is not None:
         sorted_std = std[sorted_idx]
         plt.barh(range(len(sorted_importances)), sorted_importances, xerr=sorted_std)
     else:
         plt.barh(range(len(sorted_importances)), sorted_importances)
-    
+
     plt.yticks(range(len(sorted_names)), sorted_names)
     plt.xlabel("Importance Score")
     plt.title(f"Feature Importance ({method_name} Method)")
     plt.tight_layout()
-    plt.savefig(f"feature_importance_{method_name.lower()}.png", dpi=300, bbox_inches='tight')
+    plt.savefig(
+        f"feature_importance_{method_name.lower()}.png", dpi=300, bbox_inches="tight"
+    )
 
 
 def compare_methods(method_dict, feature_names=None):
@@ -435,75 +431,85 @@ def compare_methods(method_dict, feature_names=None):
     if feature_names is None:
         first_imp = list(method_dict.values())[0]
         feature_names = [f"Feature {i}" for i in range(len(first_imp))]
-    
+
     # Normalize all methods to [0, 1]
     normalized_methods = {}
     for method_name, importances in method_dict.items():
         imp_min, imp_max = importances.min(), importances.max()
         normalized = (importances - imp_min) / (imp_max - imp_min + 1e-10)
         normalized_methods[method_name] = normalized
-    
+
     # Create comparison plot
     x = np.arange(len(feature_names))
     width = 0.8 / len(method_dict)
-    
+
     fig, ax = plt.subplots(figsize=(14, 7))
-    
+
     for i, (method_name, norm_imp) in enumerate(normalized_methods.items()):
-        offset = width * (i - len(method_dict)/2 + 0.5)
+        offset = width * (i - len(method_dict) / 2 + 0.5)
         ax.bar(x + offset, norm_imp, width, label=method_name, alpha=0.8)
-    
-    ax.set_xlabel('Features', fontsize=12)
-    ax.set_ylabel('Normalized Importance', fontsize=12)
-    ax.set_title('Feature Importance - All Methods Comparison', fontsize=14, fontweight='bold')
+
+    ax.set_xlabel("Features", fontsize=12)
+    ax.set_ylabel("Normalized Importance", fontsize=12)
+    ax.set_title(
+        "Feature Importance - All Methods Comparison", fontsize=14, fontweight="bold"
+    )
     ax.set_xticks(x)
-    ax.set_xticklabels(feature_names, rotation=45, ha='right')
-    ax.legend(loc='best')
-    ax.grid(axis='y', alpha=0.3)
-    
+    ax.set_xticklabels(feature_names, rotation=45, ha="right")
+    ax.legend(loc="best")
+    ax.grid(axis="y", alpha=0.3)
+
     plt.tight_layout()
-    plt.savefig("feature_importance_all_methods_comparison.png", dpi=300, bbox_inches='tight')
-    
+    plt.savefig(
+        "feature_importance_all_methods_comparison.png", dpi=300, bbox_inches="tight"
+    )
+
     # Create heatmap
     importance_matrix = np.array([imp for imp in normalized_methods.values()])
-    
+
     fig, ax = plt.subplots(figsize=(12, len(method_dict) * 1.2))
-    sns.heatmap(importance_matrix, 
-                xticklabels=feature_names, 
-                yticklabels=list(method_dict.keys()),
-                cmap='YlOrRd', 
-                annot=True, 
-                fmt='.2f',
-                cbar_kws={'label': 'Normalized Importance'})
-    plt.title('Feature Importance Heatmap - All Methods', fontsize=14, fontweight='bold')
-    plt.xlabel('Features', fontsize=12)
-    plt.ylabel('Methods', fontsize=12)
+    sns.heatmap(
+        importance_matrix,
+        xticklabels=feature_names,
+        yticklabels=list(method_dict.keys()),
+        cmap="YlOrRd",
+        annot=True,
+        fmt=".2f",
+        cbar_kws={"label": "Normalized Importance"},
+    )
+    plt.title(
+        "Feature Importance Heatmap - All Methods", fontsize=14, fontweight="bold"
+    )
+    plt.xlabel("Features", fontsize=12)
+    plt.ylabel("Methods", fontsize=12)
     plt.tight_layout()
-    plt.savefig("feature_importance_heatmap.png", dpi=300, bbox_inches='tight')
-    
+    plt.savefig("feature_importance_heatmap.png", dpi=300, bbox_inches="tight")
+
     # Correlation between methods
     if len(method_dict) > 1:
         method_names = list(method_dict.keys())
         n_methods = len(method_names)
         correlation_matrix = np.zeros((n_methods, n_methods))
-        
+
         for i, method1 in enumerate(method_names):
             for j, method2 in enumerate(method_names):
                 correlation_matrix[i, j] = np.corrcoef(
-                    method_dict[method1], 
-                    method_dict[method2]
+                    method_dict[method1], method_dict[method2]
                 )[0, 1]
-        
+
         fig, ax = plt.subplots(figsize=(8, 7))
-        sns.heatmap(correlation_matrix, 
-                    xticklabels=method_names, 
-                    yticklabels=method_names,
-                    cmap='coolwarm', 
-                    annot=True, 
-                    fmt='.2f',
-                    vmin=-1, vmax=1,
-                    center=0,
-                    cbar_kws={'label': 'Correlation'})
-        plt.title('Method Correlation Matrix', fontsize=14, fontweight='bold')
+        sns.heatmap(
+            correlation_matrix,
+            xticklabels=method_names,
+            yticklabels=method_names,
+            cmap="coolwarm",
+            annot=True,
+            fmt=".2f",
+            vmin=-1,
+            vmax=1,
+            center=0,
+            cbar_kws={"label": "Correlation"},
+        )
+        plt.title("Method Correlation Matrix", fontsize=14, fontweight="bold")
         plt.tight_layout()
-        plt.savefig("method_correlation.png", dpi=300, bbox_inches='tight')
+        plt.savefig("method_correlation.png", dpi=300, bbox_inches="tight")

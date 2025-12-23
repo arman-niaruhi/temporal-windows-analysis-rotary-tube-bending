@@ -4,6 +4,9 @@ import matplotlib.patches as mpatches
 import numpy as np
 from scipy.ndimage import binary_opening, binary_closing
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 def plot_predictions_vs_true_annot(model, dataset, sensor_df, feature_cols, plot_config, machine_part, objective_label, device="cpu"):
     """
@@ -14,7 +17,7 @@ def plot_predictions_vs_true_annot(model, dataset, sensor_df, feature_cols, plot
     Each label gets its own color, shown in a shared legend.
     """
     if not plot_config["store_plots"]:
-        return
+        logger.error("Plot storage disabled in configuration.")
     
     model.eval()
     test_exps = [
@@ -24,6 +27,7 @@ def plot_predictions_vs_true_annot(model, dataset, sensor_df, feature_cols, plot
             ]
     # --- Select a random experiment ---
     for exp_id in test_exps:
+        logger.info(f"Plotting predictions for Experiment ID: {exp_id}")
         store_path = Path(plot_config["store_plots_path"]) / machine_part / objective_label
         store_path.mkdir(parents=True, exist_ok=True)
         exp_data = sensor_df[sensor_df["Experiment_ID"] == str(exp_id)]
