@@ -1,6 +1,6 @@
 {
   "database_path": "data/processed/tube_geometry.db",
-  "label": "Bending",
+  "label": "Clamping",
   "machine_part": "machine_and_movement",
   "annotation_json_path": "data/ml/machine-and-movement_complete.json",
   "experiment_ids_path": "data/ml/unique_experiment_ids.json",
@@ -21,9 +21,14 @@
     },
     "training_config": {
       "training": false,
-      "num_epochs": 1,
+      "num_epochs": 300,
       "learning_rate": 1e-5,
       "patience": 3
     }
+  },
+  "analytics":false,
+  "show_result_properties":{
+    "store_plots": true,
+    "store_plots_path": "results/activity_recognition" 
   }
 }

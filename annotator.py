@@ -10,6 +10,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
+from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
+
 # Constants
 LABELS = ["Clamping", "Bending", "Mandrel Extraction", "De-Clamping"]
 LABEL_COLORS = {
@@ -34,8 +36,19 @@ class Annotator(QWidget):
         self.temp_label = {"start": None, "end": None, "label": None}
         self.legend_map = {}
         self.pick_cid = None
-        
         self._setup_gui()
+        
+        loader = DataLoaderETL("data/processed/tube_geometry.db")
+        dataframes = loader.load_all_data_from_sqlite()
+        self.df = dataframes["machine_and_movement"]
+        self.df = self.df.set_index(self.df.columns[0])
+        all_experiments = list(self.df['Experiment_ID'].unique())
+        self.exp_selector.clear()
+        self.exp_selector.addItems([str(e) for e in all_experiments])
+        self.exp_selector.setCurrentIndex(0)
+        self._plot_experiment()
+        self._set_status(f"Data loaded with {len(all_experiments)} experiments.")
+        
     
     def _setup_gui(self):
         main_layout = QVBoxLayout(self)  # Main vertical layout
@@ -57,9 +70,6 @@ class Annotator(QWidget):
         
         # Right: control panel
         control_frame = QVBoxLayout()
-        self.load_csv_btn = QPushButton("Load CSV")
-        self.load_csv_btn.clicked.connect(self._load_csv)
-        control_frame.addWidget(self.load_csv_btn)
 
         self.exp_selector = QComboBox()
         self.exp_selector.currentIndexChanged.connect(self._plot_experiment)
@@ -114,18 +124,6 @@ class Annotator(QWidget):
     
     def _set_status(self, message):
         self.status_label.setText(message)
-    
-    def _load_csv(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select CSV", filter="CSV Files (*.csv)")
-        if not path:
-            return
-        self.df = pd.read_csv(path, index_col=0)
-        all_experiments = list(self.df['Experiment_ID'].unique())
-        self.exp_selector.clear()
-        self.exp_selector.addItems([str(e) for e in all_experiments])
-        self.exp_selector.setCurrentIndex(0)
-        self._plot_experiment()
-        self._set_status(f"CSV loaded with {len(all_experiments)} experiments.")
     
     def _plot_experiment(self):
         if self.df is None or self.exp_selector.currentText() == "":

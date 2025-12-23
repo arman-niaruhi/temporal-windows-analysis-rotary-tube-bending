@@ -178,7 +178,7 @@ class LSTMSequenceClassifier(nn.Module):
         """
 
         os.makedirs(model_path, exist_ok=True)
-        model_name = os.path.join(model_path, "Activity_Detector.pth")
+        model_name = os.path.join(model_path, "activity_detector.pth")
         summary_path = os.path.join(model_path, "experiment_summary.txt")
 
         if device is None:

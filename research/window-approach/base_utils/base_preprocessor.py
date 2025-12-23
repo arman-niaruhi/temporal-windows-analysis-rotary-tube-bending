@@ -5,23 +5,18 @@ from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 import json
 
 
-import sys
-import os
-current_dir = os.getcwd()
-project_root = os.path.join(current_dir)
-project_root = os.path.abspath(project_root)
-sys.path.insert(0, project_root)
-DATABASE_PATH = f"{project_root}/data/processed/tube_geometry.db"
+
 class BasePreprocessor:
-    def __init__(self, machine_part, annotation_json_path):
+    def __init__(self, database_path, machine_part, annotation_json_path):
         self.machine_par = machine_part
         self.sensor_df = None
         self.target_df = None
         self._feature_cols = None
         self.annotation_json_path = annotation_json_path
+        self.database_path = database_path
 
     def read_data(self, label_name):
-        loader = DataLoaderETL(DATABASE_PATH)
+        loader = DataLoaderETL(self.database_path)
         dataframes = loader.load_all_data_from_sqlite()
         sensors_df = dataframes['machine_and_movement']
 
