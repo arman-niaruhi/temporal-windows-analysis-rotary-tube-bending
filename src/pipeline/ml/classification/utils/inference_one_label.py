@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import torch
+import os
 
 from src.pipeline.ml.classification.utils.model import LSTMSequenceClassifier
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
@@ -14,7 +15,7 @@ def get_all_predictions(
     database_path: str,
     annotation_json_path: str,
     eliminated_columns: list[str],
-    project_root: str,
+    models_path: str,
     machine_part: str,
     exp_id: int,
 ):
@@ -39,9 +40,10 @@ def get_all_predictions(
         input_size, hidden_size, num_layers, num_classes, bidirectional=True
     ).to(device)
 
-    model_path = f"{project_root}/models/classifier/{machine_part}/{Label}"
+    model_path = os.path.join(models_path, machine_part, Label, "activity_detector.pth")
+
     state_dict = torch.load(
-            f"{model_path}/Activity_Detector.pth",
+            model_path,
             map_location=device
         )
     model.load_state_dict(state_dict)
@@ -64,12 +66,12 @@ def get_all_predictions(
     return exp_data, mask_decalmping_pred, mask_declamping_true
 
 
-def plot_experiment(
+def inference_one_label_in_one(
     exp_id,
     database_path,
     annotation_json_path,
     eliminated_columns,
-    project_root,
+    models_path,
     labels,
     machine_part,
     get_all_predictions_fn,
@@ -105,7 +107,7 @@ def plot_experiment(
             database_path,
             annotation_json_path,
             eliminated_columns,
-            project_root,
+            models_path,
             machine_part=machine_part,
             exp_id=exp_id,
         )

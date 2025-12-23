@@ -81,7 +81,7 @@ def training_pipeline(model_path_root: str,
         )
     else:
         state_dict = torch.load(
-            f"{model_path}/Activity_Detector.pth",
+            f"{model_path}/activity_detector.pth",
             map_location=device
         )
         model.load_state_dict(state_dict)

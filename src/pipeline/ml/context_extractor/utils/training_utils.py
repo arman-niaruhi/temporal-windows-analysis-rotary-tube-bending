@@ -19,20 +19,20 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import mlflow
 import mlflow.pytorch
 
-from src.pipeline.ml.context_extractor.utils.lstm_utils.models.att_lstm import (
+from src.pipeline.ml.context_extractor.utils.models.att_lstm import (
     AttentionLSTM,
 )
-from src.pipeline.ml.context_extractor.utils.lstm_utils.data.data_preprocessor import (
+from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import (
     ProcessDataset,
 )
-from src.pipeline.ml.context_extractor.utils.lstm_utils.utils.metrics import (
+from src.pipeline.ml.context_extractor.utils.metrics_helper import (
     compute_all_metrics,
     compute_epoch_metrics,
 )
-from src.pipeline.ml.context_extractor.utils.lstm_utils.utils.visualization import (
+from src.pipeline.ml.context_extractor.utils.visualization_utils import (
     OrganizedImageSaver,
 )
-from src.pipeline.ml.context_extractor.utils.lstm_utils.utils.feature_importance import (
+from src.pipeline.ml.context_extractor.utils.feature_importance_utils import (
     analyze_feature_importance,
 )
 
@@ -443,12 +443,6 @@ def train_model(
             sample_idx=-1,  # Use last sample
         )
         move_images_to_mlflow_artifacts(image_saver)
-
-        return {
-            "model": model,
-            "best_val_loss": best_val_loss,
-            "final_metrics": final_metrics,
-        }
         
 def save_integrated_gradients_combined(
     model, X_sample,
