@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+from pathlib import Path
 from src.pipeline.ml.classification.utils.model import LSTMSequenceClassifier
 from src.pipeline.preprocessing.loader import DataLoader
 
@@ -474,7 +474,7 @@ def plot_feature_importance(
     )
 
 
-def compare_methods(method_dict, feature_names=None):
+def compare_methods(analyze_features_result_path, method_dict, feature_names=None):
     """
     Compare multiple importance methods side by side.
     method_dict: {'Method Name': importance_array, ...}
@@ -515,10 +515,10 @@ def compare_methods(method_dict, feature_names=None):
     ax.set_xticklabels(feature_names, rotation=45, ha="right")
     ax.legend(loc="best")
     ax.grid(axis="y", alpha=0.3)
-
+    output_file = Path(analyze_features_result_path) / "feature_importance_all_methods_comparison.png"
     plt.tight_layout()
     plt.savefig(
-        "feature_importance_all_methods_comparison.png", dpi=300, bbox_inches="tight"
+        output_file, dpi=300, bbox_inches="tight"
     )
 
     # Create heatmap
@@ -540,7 +540,9 @@ def compare_methods(method_dict, feature_names=None):
     plt.xlabel("Features", fontsize=12)
     plt.ylabel("Methods", fontsize=12)
     plt.tight_layout()
-    plt.savefig("feature_importance_heatmap.png", dpi=300, bbox_inches="tight")
+    
+    output_file = Path(analyze_features_result_path) / "feature_importance_heatmap.png"
+    plt.savefig(output_file, dpi=300, bbox_inches="tight")
 
     # Correlation between methods
     if len(method_dict) > 1:
@@ -569,4 +571,5 @@ def compare_methods(method_dict, feature_names=None):
         )
         plt.title("Method Correlation Matrix", fontsize=14, fontweight="bold")
         plt.tight_layout()
-        plt.savefig("method_correlation.png", dpi=300, bbox_inches="tight")
+        output_file = Path(analyze_features_result_path) / "method_correlation.png"
+        plt.savefig(output_file, dpi=300, bbox_inches="tight")

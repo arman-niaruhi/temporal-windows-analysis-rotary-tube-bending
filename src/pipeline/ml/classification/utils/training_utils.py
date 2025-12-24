@@ -463,7 +463,7 @@ def analyze_features(
 
     # Compare methods
     logger.info("Comparing importance methods...")
-    compare_methods(all_importances, feature_names)
+    compare_methods(analyze_features_result_path, all_importances, feature_names)
 
     # Save all results
     output_file = (
