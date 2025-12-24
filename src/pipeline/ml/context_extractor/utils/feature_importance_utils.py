@@ -5,14 +5,33 @@ from pathlib import Path
 from tqdm import tqdm
 import torch
 import torch.nn as nn
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def compute_attention_importance(
-    model, val_loader, feature_names, device, output_dir="images/04_feature_importance"
+    model: torch.nn.Module,
+    val_loader: torch.utils.data.DataLoader,
+    feature_names: list,
+    device,
+    output_dir: str = "images/04_feature_importance",
 ):
     """
     Compute feature importance using attention weights from the LSTM model
     Enhanced with comprehensive individual visualizations and explanations
+
+    Args:
+        model: Trained LSTM model with attention mechanism
+        val_loader: DataLoader for validation data
+        feature_names: List of feature names corresponding to input features
+        device: Device to run computations on (CPU or GPU)
+        output_dir: Directory to save output plots and data
+
+    Returns:
+        importance_df: DataFrame with feature importance scores
+        plot_paths: Dictionary with paths to saved plots
+        attention_data: Dictionary with additional attention statistics
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -22,7 +41,7 @@ def compute_attention_importance(
     all_predictions = []
     all_targets = []
 
-    print("Computing feature importance from attention weights...")
+    logger.info("Computing attention-based feature importance...")
 
     with torch.no_grad():
         for Xb, Yb in tqdm(val_loader, desc="Attention Importance"):
@@ -72,22 +91,18 @@ def compute_attention_importance(
         "timestep_attention": timestep_attention,
         "statistics": {
             "mse": mse,
-            "attention_mean": float(np.mean(timestep_attention))
-            if len(timestep_attention) > 1
-            else 0,
-            "attention_std": float(np.std(timestep_attention))
-            if len(timestep_attention) > 1
-            else 0,
-            "attention_peak_step": int(np.argmax(timestep_attention))
-            if len(timestep_attention) > 1
-            else 0,
+            "attention_mean": (
+                float(np.mean(timestep_attention)) if len(timestep_attention) > 1 else 0
+            ),
+            "attention_std": (
+                float(np.std(timestep_attention)) if len(timestep_attention) > 1 else 0
+            ),
+            "attention_peak_step": (
+                int(np.argmax(timestep_attention)) if len(timestep_attention) > 1 else 0
+            ),
             "top_features": importance_df.head(10)["Feature"].tolist(),
         },
     }
-
-    # =========================================================================
-    # INDIVIDUAL PLOTS - SEPARATE FILES
-    # =========================================================================
 
     plot_paths = {}
 
@@ -97,7 +112,7 @@ def compute_attention_importance(
     top_df = importance_df.head(top_features)
 
     colors = plt.cm.viridis(np.linspace(0.2, 0.8, len(top_df)))
-    bars = plt.barh(
+    plt.barh(
         range(len(top_df)), top_df["Attention_Importance"], color=colors, alpha=0.8
     )
 
@@ -111,19 +126,6 @@ def compute_attention_importance(
         pad=20,
     )
     plt.grid(axis="x", alpha=0.3, linestyle="--", linewidth=0.8)
-
-    # Add value annotations with improved positioning
-    # for i, (bar, val) in enumerate(zip(bars, top_df["Attention_Importance"])):
-    #     plt.text(
-    #         val + 0.001,
-    #         i,
-    #         f"{val:.4f}",
-    #         va="center",
-    #         ha="left",
-    #         fontsize=10,
-    #         fontweight="bold",
-    #         bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.8),
-    #     )
 
     plt.tight_layout()
     plot_paths["feature_importance"] = output_dir / "01_feature_importance_bars.png"
@@ -437,16 +439,30 @@ def compute_attention_importance(
     )
     plt.close()
 
-    print("✓ Enhanced attention analysis complete with 6 individual visualizations")
+    print("Enhanced attention analysis complete with 6 individual visualizations")
     return importance_df, plot_paths, attention_data
 
 
 def compute_ablation_importance(
-    model, val_loader, feature_names, device, output_dir="images/04_feature_importance"
+    model: torch.nn.Module,
+    val_loader: torch.utils.data.DataLoader,
+    feature_names: list,
+    device,
+    output_dir: str = "images/04_feature_importance",
 ):
     """
     Feature importance by ablating (zeroing out) each feature and measuring performance drop
     Most reliable method for feature importance
+
+    Args:
+        model: Trained LSTM model
+        val_loader: DataLoader for validation data
+        feature_names: List of feature names corresponding to input features
+        device: Device to run computations on (CPU or GPU)
+        output_dir: Directory to save output plots
+    Returns:
+        importance_df: DataFrame with feature importance scores
+        ablation_path: Path to saved ablation importance plot
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -522,11 +538,25 @@ def compute_ablation_importance(
 
 
 def compute_permutation_importance(
-    model, val_loader, feature_names, device, output_dir="images/04_feature_importance"
+    model: torch.nn.Module,
+    val_loader: torch.utils.data.DataLoader,
+    feature_names: list,
+    device,
+    output_dir: str = "images/04_feature_importance",
 ):
     """
     Compute permutation feature importance
     Reliable and interpretable method
+
+    Args:
+        model: Trained LSTM model
+        val_loader: DataLoader for validation data
+        feature_names: List of feature names corresponding to input features
+        device: Device to run computations on (CPU or GPU)
+        output_dir: Directory to save output plots
+    Returns:
+        importance_df: DataFrame with feature importance scores
+        perm_path: Path to saved permutation importance plot
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -593,18 +623,6 @@ def compute_permutation_importance(
     ax.grid(axis="x", alpha=0.3, linestyle="--")
     ax.axvline(x=0, color="black", linestyle="-", linewidth=1)
 
-    # # Add value labels near x=0
-    # for bar, val in zip(bars, importance_df["Permutation_Importance"]):
-    #     ax.text(
-    #         0.0,  # Position at x=0
-    #         bar.get_y() + bar.get_height() / 2,
-    #         f"{val:.6f}",
-    #         va="center",
-    #         ha="right" if val > 0 else "left",  # Align based on bar direction
-    #         fontsize=9,
-    #         fontweight="bold",
-    #     )
-
     plt.tight_layout()
     perm_path = output_dir / "permutation_importance.png"
     fig.savefig(perm_path, dpi=150, bbox_inches="tight")
@@ -613,13 +631,30 @@ def compute_permutation_importance(
     return importance_df, perm_path
 
 
-def analyze_feature_importance(model, X_val, val_loader, feature_names, device):
-    """
-    Compute comprehensive feature importance analyses for LSTM
-    Uses methods appropriate for temporal data
+def analyze_feature_importance(
+    model: torch.nn.Module,
+    val_loader: torch.utils.data.DataLoader,
+    feature_names: list,
+    output_dir: str = "images/04_feature_importance",
+    device: str = "cpu",
+):
     """
 
-    output_dir = Path("images/04_feature_importance")
+    Compute comprehensive feature importance analyses for LSTM
+    Uses methods appropriate for temporal data
+    Args:
+        model: Trained LSTM model
+        val_loader: DataLoader for validation data
+        feature_names: List of feature names corresponding to input features
+        output_dir: Directory to save output plots and data
+        device: Device to run computations on (CPU or GPU)
+    Returns:
+        importance_dfs: Dictionary of DataFrames with feature importance scores from each method
+        all_paths: Dictionary of paths to saved plots from each method
+        additional_data: Dictionary of additional data from each method
+
+    """
+    output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     all_paths = {}
@@ -628,46 +663,46 @@ def analyze_feature_importance(model, X_val, val_loader, feature_names, device):
 
     # 1. Attention-based Importance (Best for your architecture)
     try:
-        print("\n[1/3] Computing attention-based importance...")
+        logger.info("[1/3] Computing attention-based importance...")
         attn_df, attn_path, attn_data = compute_attention_importance(
             model, val_loader, feature_names, device
         )
         importance_dfs["attention"] = attn_df
         all_paths["attention"] = attn_path
         additional_data["attention"] = attn_data
-        print(f"✓ Attention importance complete. Saved to {attn_path}")
+        logger.info(f"Attention importance complete. Saved to {attn_path}")
     except Exception as e:
-        print(f"✗ Attention importance failed: {e}")
+        logger.error(f"✗ Attention importance failed: {e}")
         import traceback
 
         traceback.print_exc()
 
     # 3. Permutation Importance (Reliable and interpretable)
     try:
-        print("\n[2/3] Computing permutation importance...")
+        logger.info("[2/3] Computing permutation importance...")
         perm_df, perm_path = compute_permutation_importance(
             model, val_loader, feature_names, device
         )
         importance_dfs["permutation"] = perm_df
         all_paths["permutation"] = perm_path
-        print(f"✓ Permutation importance complete. Saved to {perm_path}")
+        logger.info(f"Permutation importance complete. Saved to {perm_path}")
     except Exception as e:
-        print(f"✗ Permutation importance failed: {e}")
+        logger.error(f"✗ Permutation importance failed: {e}")
         import traceback
 
         traceback.print_exc()
 
     # 4. Ablation Importance (Most reliable)
     try:
-        print("\n[3/3] Computing ablation importance...")
+        logger.info("[3/3] Computing ablation importance...")
         ablation_df, ablation_path = compute_ablation_importance(
             model, val_loader, feature_names, device
         )
         importance_dfs["ablation"] = ablation_df
         all_paths["ablation"] = ablation_path
-        print(f"✓ Ablation importance complete. Saved to {ablation_path}")
+        logger.info(f"Ablation importance complete. Saved to {ablation_path}")
     except Exception as e:
-        print(f"✗ Ablation importance failed: {e}")
+        logger.error(f"✗ Ablation importance failed: {e}")
         import traceback
 
         traceback.print_exc()

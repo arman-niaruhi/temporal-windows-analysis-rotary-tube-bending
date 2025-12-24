@@ -4,6 +4,7 @@ import numpy as np
 import random
 
 def enforce_reproducibility(seed: int = 42):
+    """Set seeds and configurations to ensure reproducibility."""
     os.environ["PYTHONHASHSEED"] = str(seed)
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
