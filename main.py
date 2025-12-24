@@ -1,8 +1,7 @@
-from src.logging.logging_config import setup_logging
-
-setup_logging()
 import argparse
 import os
+from src.logging.logging_config import setup_logging
+setup_logging()
 from src.pipeline.preprocessing.data_preprecessor import DataPreprocessPipeline
 from src.pipeline.ml.classification.utils.plot_utils import (
     plot_predictions_vs_true_annot,
@@ -18,6 +17,7 @@ from src.pipeline.ml.classification.utils.inference_one_label import (
 from src.pipeline.ml.context_extractor.utils.seed_utils import enforce_reproducibility
 from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import prepare_data
 from src.pipeline.ml.context_extractor.utils.training_utils import train_model
+
 import json
 
 import logging
@@ -216,8 +216,10 @@ def main():
                         ],
                     ),
                     models_path=inference_config.get("models_path"),
+                    model_config=config.get("pipeline_config").get("model_config",{"hidden_size": 64, "num_layers": 2}),
                     labels=inference_config.get("labels"),
                     machine_part=config.get("machine_part", "machine_and_movement"),
+                    save_dir_path=inference_config.get("save_dir_path"),
                     get_all_predictions_fn=get_all_predictions,
                     figsize=(15, 10),
                 )

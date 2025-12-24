@@ -1,6 +1,6 @@
 {
   "database_path": "data/processed/tube_geometry.db",
-  "label": "Mandrel Extraction",
+  "label": "All",
   "machine_part": "machine_and_movement",
   "annotation_json_path": "data/ml/machine-and-movement_complete.json",
   "experiment_ids_path": "data/ml/unique_experiment_ids.json",
@@ -33,6 +33,7 @@
   },
   "inference_one_label_in_one":{
     "models_path": "models/classifier",
+    "save_dir_path": "results/activity_recognition", 
     "labels": [
       "Clamping",
       "Bending",

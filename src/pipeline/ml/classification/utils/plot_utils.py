@@ -2,12 +2,13 @@
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import pandas as pd
 import torch
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -71,64 +72,102 @@ def _plot_experiment(
     save_path: Path,
 ) -> None:
     """Plot sensor data with predictions and true labels.
+    Exact same layout as your example with time indices."""
     
-    Args:
-        exp_id: Experiment ID
-        exp_data: DataFrame for single experiment
-        feature_cols: Feature columns to plot
-        y_pred_names: Predicted label names
-        y_true_names: True label names
-        timestamps: Time index
-        save_path: Path to save the plot
-    """
-    # Create color mapping
-    unique_labels = sorted(set(y_pred_names) | set(y_true_names))
-    cmap = plt.get_cmap("tab10")
-    color_map = {label: cmap(i % 10) for i, label in enumerate(unique_labels)}
+    # Get all labels EXCLUDING 'No Label'
+    all_labels = set(y_pred_names) | set(y_true_names)
+    labels = sorted([label for label in all_labels if label != 'No Label'])
     
-    # Create figure
-    fig, axes = plt.subplots(
-        4, 1, 
-        figsize=(14, 8), 
-        gridspec_kw={"height_ratios": [3, 1, 1, 0.5]}
-    )
-    ax_data, ax_pred, ax_true, ax_leg = axes
+    # Check if we have any labels to plot
+    if not labels:
+        print(f"No labels (excluding 'No Label') found for experiment {exp_id}")
+        return
     
-    # Plot sensor data
+    # Assign distinct base colors
+    base_colors = list(mcolors.TABLEAU_COLORS.values())[:len(labels)]
+    
+    # Set figure size - EXACT SAME
+    fig_width = 16
+    fig_height = 5
+    figsize = (fig_width, fig_height)
+
+    _, axs = plt.subplots(2, 1, figsize=figsize, sharex=True, height_ratios=[2, 1])
+
+    # Plot sensor data - Use indices for x-axis like your example
+    sensor_plotted = set()
     for col in feature_cols:
-        ax_data.plot(timestamps, exp_data[col].values, label=col, linewidth=0.8)
-    ax_data.set_title(f"Experiment {exp_id} — Sensor Data & Predictions")
-    ax_data.set_ylabel("Sensor Values")
-    ax_data.grid(True, alpha=0.3)
-    
-    # Plot predictions
-    for i in range(len(timestamps) - 1):
-        t_start, t_end = timestamps[i], timestamps[i + 1]
-        ax_pred.axvspan(t_start, t_end, color=color_map[y_pred_names[i]], alpha=0.3)
-    ax_pred.set_ylabel("Prediction")
-    ax_pred.set_yticks([])
-    
-    # Plot true labels
-    for i in range(len(timestamps) - 1):
-        t_start, t_end = timestamps[i], timestamps[i + 1]
-        ax_true.axvspan(t_start, t_end, color=color_map[y_true_names[i]], alpha=0.3)
-    ax_true.set_ylabel("True Label")
-    ax_true.set_xlabel("Time")
-    ax_true.set_yticks([])
-    
-    # Create legend
-    patches = [
-        mpatches.Patch(color=color, alpha=0.3, label=label)
-        for label, color in color_map.items()
-    ]
-    ax_leg.axis("off")
-    ax_leg.legend(handles=patches, loc="center", ncol=5, frameon=False)
-    
+        if col not in sensor_plotted:
+            axs[0].plot(range(len(exp_data)), exp_data[col].values, linewidth=0.8, label=col)
+            sensor_plotted.add(col)
+        else:
+            axs[0].plot(range(len(exp_data)), exp_data[col].values, linewidth=0.8)
+
+    axs[0].set_ylabel("Sensor Value")
+    axs[0].set_title(f"Sensor Signals – Experiment {exp_id}")
+    axs[0].grid(True, linestyle="--", alpha=0.5)
+    axs[0].legend(loc="center left", bbox_to_anchor=(1, 0.5), fontsize="small")
+    axs[0].margins(x=0.01)
+
+    # Prepare data for bar chart
+    categories, starts, ends, colors = [], [], [], []
+
+    for i, label in enumerate(labels):
+        # Create binary masks
+        mask_true = np.array([1 if y == label else 0 for y in y_true_names])
+        mask_pred = np.array([1 if y == label else 0 for y in y_pred_names])
+
+        base_color = base_colors[i]
+        true_color = mcolors.to_rgba(base_color, alpha=0.7)
+        pred_color = mcolors.to_rgba(base_color, alpha=0.3)
+
+        # Extract segments using indices (like your example)
+        def extract_segments(mask, category, color):
+            start = None
+            for j, val in enumerate(mask):
+                if val == 1 and start is None:
+                    start = j
+                elif val == 0 and start is not None:
+                    categories.append(category)
+                    starts.append(start)
+                    ends.append(j - 1)  # j-1 like your example
+                    colors.append(color)
+                    start = None
+            if start is not None:
+                categories.append(category)
+                starts.append(start)
+                ends.append(len(mask) - 1)  # len(mask)-1 like your example
+                colors.append(color)
+
+        extract_segments(mask_true, f"{label} True", true_color)
+        extract_segments(mask_pred, f"{label} Pred", pred_color)
+
+    # Plot horizontal bars
+    if categories:
+        axs[1].barh(
+            categories,
+            [e - s for s, e in zip(starts, ends)],
+            left=starts,
+            color=colors,
+            height=0.6,
+            edgecolor='none'  # Optional: for cleaner look
+        )
+    else:
+        axs[1].text(
+            0.5,
+            0.5,
+            "No Segments Found",
+            transform=axs[1].transAxes,
+            ha="center",
+            va="center",
+        )
+
+    axs[1].set_xlabel("Time Index")
+    axs[1].margins(x=0.01)
+
     plt.tight_layout()
     save_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(save_path, dpi=300, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
-
+    plt.close()
 
 def plot_predictions_vs_true_annot(
     model: torch.nn.Module,
