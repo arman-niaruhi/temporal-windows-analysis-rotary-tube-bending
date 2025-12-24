@@ -1,3 +1,4 @@
+import os 
 import time
 import random
 import shutil
@@ -5,6 +6,10 @@ import warnings
 from tqdm import tqdm
 from pathlib import Path
 from datetime import datetime
+import matplotlib.pyplot as plt
+import logging
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 
@@ -15,6 +20,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+import numpy as np
+from captum.attr import IntegratedGradients
 
 import mlflow
 import mlflow.pytorch
@@ -37,10 +45,15 @@ from src.pipeline.ml.context_extractor.utils.feature_importance_utils import (
 )
 
 
-def move_images_to_mlflow_artifacts(image_saver):
+def move_images_to_mlflow_artifacts(image_saver: OrganizedImageSaver)-> None:
     """
     Move entire image folder to MLflow experiment artifacts directory.
     Stores images in the same mlruns folder as the current run.
+    
+    Args:
+        image_saver (OrganizedImageSaver): Instance managing image saving.
+    Returns:
+        bool | None: True if images were logged, None if no images to log.
     """
     try:
         base_dir = image_saver.base_dir
@@ -48,7 +61,7 @@ def move_images_to_mlflow_artifacts(image_saver):
         # Get the current MLflow run info
         run = mlflow.active_run()
         if run is None:
-            print("✗ No active MLflow run")
+            logger.warning("No active MLflow run found. Cannot log images to MLflow artifacts.")
             return None
 
         if base_dir.exists():
@@ -56,16 +69,23 @@ def move_images_to_mlflow_artifacts(image_saver):
             shutil.rmtree(base_dir)
             return True
         else:
-            print(f"✗ Images folder not found at {base_dir}")
+            logger.warning(f"Image directory {base_dir} does not exist. Skipping MLflow logging.")
             return None
 
     except Exception as e:
-        print(f"✗ Error logging images to MLflow: {e}")
+        logger.error(f"Error logging images to MLflow: {e}")
         return None
 
 
 def save_experiment_description_as_text(EXPERIMENT_DESCRIPTION):
-    """Save experiment description as a text file in MLflow artifacts"""
+    """Save experiment description as a text file in MLflow artifacts
+    
+    Args:
+        EXPERIMENT_DESCRIPTION (str): Description of the experiment
+    
+    Returns:
+        None
+    """
     desc_path = Path("experiment_description.txt")
 
     with open(desc_path, "w") as f:
@@ -73,19 +93,44 @@ def save_experiment_description_as_text(EXPERIMENT_DESCRIPTION):
 
     mlflow.log_artifact(str(desc_path))
     desc_path.unlink()  # Delete temporary file
+    logger.info("Experiment description saved to MLflow artifacts.")
 
 
 def train_model(
-    X,
-    Y,
-    params,
-    sensor_names,
-    target_feature_names,
-    machine_part,
-    preprocessing_info,
-    annot_timesteps,
-    mandrel_extraction_annot_timesteps
-):
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    params: dict,
+    sensor_names: list[str],
+    target_feature_names: list[str],
+    machine_part: str,
+    preprocessing_info: dict,
+    annot_timesteps: list[int],
+    mandrel_extraction_annot_timesteps: list[int]
+)-> None:
+    """
+    Train Attention LSTM model with given data and parameters.
+        Logs training process and results to MLflow.
+        
+    Description:
+        Trains an Attention LSTM model on the provided data and logs the training process and results to MLflow.
+        This is the main structure and one of the most important functions to achieve the desired objective of ours which
+        is the importance analysis of the input timestamps and features to the output angles or cross cuts in output geometry.
+        
+    Args:
+        X (torch.Tensor): Input features tensor of shape (N_EXPERIMENTS, TIMESTEPS_IN, FEATURES_IN).
+        Y (torch.Tensor): Target features tensor of shape (N_CROSSCUT, PREDICTIONS_OUT, FEATURES_OUT).
+        params (dict): Training parameters including learning rate, batch size, etc.
+        sensor_names (list[str]): Names of the input sensor features.
+        target_feature_names (list[str]): Names of the target output features.
+        machine_part (str): Identifier for the machine part being modeled.
+        preprocessing_info (dict): Information about data preprocessing steps.
+        annot_timesteps (list[int]): Timesteps for annotations in plots.
+        mandrel_extraction_annot_timesteps (list[int]): Timesteps for mandrel extraction annotations.
+        
+    Returns:
+        None
+    """
+    logger.info("Starting model training...")
     if mlflow.active_run() is not None:
         mlflow.end_run()
         
@@ -173,7 +218,7 @@ def train_model(
         train_losses = []
         learning_rates = []
         
-        # NEW: Store all metrics history
+        # Store all metrics history
         metrics_history = {
             'mse': [], 'rmse': [], 'mae': [], 'r2': [], 
             'mape': [], 'max_error': [], 'evs': [], 'mbe': [], 'medae': []
@@ -369,8 +414,7 @@ def train_model(
         mlflow.log_metrics(metrics_to_log)
         mlflow.pytorch.log_model(model.cpu(), "model")
         
-        # ==================== PLOT ALL METRICS ====================
-        print("\nPlotting comprehensive metrics...")
+        logger.info("Model training completed and logged to MLflow.")
         plot_all_metrics(
             metrics_history=metrics_history,
             train_losses=train_losses,
@@ -380,11 +424,8 @@ def train_model(
             image_saver=image_saver,
         )
         
-        # ==================== FEATURE IMPORTANCE ANALYSIS ====================
-        print("\nStarting feature importance analysis...")
-
-        # Perform comprehensive feature importance analysis
-        combined_importance_df, all_importance_dfs, importance_paths = (
+        logger.info("Starting feature importance analysis...")
+        combined_importance_df, _, importance_paths = (
             analyze_feature_importance(
                 model=model,
                 X_val=X_val,
@@ -394,10 +435,9 @@ def train_model(
             )
         )
 
-        # Log feature importance to MLflow
         if combined_importance_df is not None:
             X_sample = plot_X[:1]  # take the first sample of the batch
-            # Use the corresponding sensor_data sample for plotting top subplot
+    
             sensor_data_sample = X_val[:1].cpu().numpy()
             save_integrated_gradients_combined(
                 model=model,
@@ -426,7 +466,7 @@ def train_model(
             combined_importance_df.to_csv("feature_importance_summary.csv", index=False)
             mlflow.log_artifact("feature_importance_summary.csv")
             Path("feature_importance_summary.csv").unlink()  # Delete temporary file
-        # Log images from the last epoch
+        
         
         with torch.no_grad():
             model.eval()
@@ -445,29 +485,34 @@ def train_model(
         move_images_to_mlflow_artifacts(image_saver)
         
 def save_integrated_gradients_combined(
-    model, X_sample,
-    sensor_data, sensor_names,
-    target_feature_names,
-    image_saver,
-    annot_timesteps=None,
-    mandrel_extraction_annot_timesteps=None,
-    figsize_combined=(25, 3),
-    figsize_individual=(25, 6)
+    model: torch.nn.Module, X_sample: torch.Tensor,
+    sensor_data: torch.Tensor, sensor_names: list[str],
+    target_feature_names: list[str],
+    image_saver: OrganizedImageSaver,
+    annot_timesteps: list[int] = None,
+    mandrel_extraction_annot_timesteps: list[int] = None,
+    figsize_combined: tuple[int, int] = (25, 3),
 ):
     """
     Computes and saves Integrated Gradients saliency maps:
     1) Combined: all target features in a single figure.
     2) Individual: each target feature in a separate figure with sensor data on top,
        aligned properly and saved in its own folder.
+       
+    Args:
+        model (torch.nn.Module): Trained model for which IG is computed.
+        X_sample (torch.Tensor): Input sample tensor of shape (1, TIMESTEPS, FEATURES).
+        sensor_data (torch.Tensor): Original sensor data for the sample of shape (1, TIMESTEPS, FEATURES).
+        sensor_names (list[str]): Names of the input sensor features.
+        target_feature_names (list[str]): Names of the target output features.
+        image_saver (OrganizedImageSaver): Instance managing image saving.
+        annot_timesteps (list[int], optional): Timesteps for annotations in plots. Defaults to None.
+        mandrel_extraction_annot_timesteps (list[int], optional): Timesteps for mandrel extraction annotations. Defaults to None.
+        figsize_combined (tuple[int, int], optional): Figure size for combined plot. Defaults to (25, 3).
+    
+    Returns:
+        None
     """
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from captum.attr import IntegratedGradients
-    import torch
-    import mlflow
-    import os
-
-
     model.eval()
     X_sample = X_sample.to(next(model.parameters()).device)
 
@@ -480,9 +525,6 @@ def save_integrated_gradients_combined(
     sample_data = sensor_data[-1, :, :]
     main_timesteps = sample_data.shape[0]
 
-    # -------------------------
-    # 1) Combined IG Figure
-    # -------------------------
     ig_maps = []
     import pandas as pd
     for idx in range(n_output_features):
@@ -498,11 +540,10 @@ def save_integrated_gradients_combined(
         ig_maps.append(attributions)
     
 
-    n_rows = n_output_features + 1  # top row: sensor data
+    n_rows = n_output_features + 1
     fig = plt.figure(figsize=(figsize_combined[0], figsize_combined[1] * n_rows), facecolor="white")
     gs = fig.add_gridspec(n_rows, 1, height_ratios=[2] + [1]*n_output_features, hspace=0.25)
 
-    # --- Top: Sensor data ---
     ax_main = fig.add_subplot(gs[0])
     colors = plt.cm.tab20(np.linspace(0, 1, len(cleaned_sensor_names)))
     for i, color in enumerate(colors):
@@ -560,9 +601,7 @@ def save_integrated_gradients_combined(
     plt.close(fig)
     mlflow.log_artifact(str(combined_path))
 
-    # -------------------------
     # 2) Individual IG Plots (aligned and saved in feature folders)
-    # -------------------------
     for idx in range(n_output_features):
         attributions = ig_maps[idx]
         target_name = target_feature_names[idx] if target_feature_names else f"Feature_{idx}"
@@ -605,7 +644,7 @@ def save_integrated_gradients_combined(
         handles, labels = ax_top.get_legend_handles_labels()
         
         # Create a more compact legend
-        legend = legend_ax.legend(handles, labels, 
+        legend_ax.legend(handles, labels, 
                                 loc='upper left',
                                 fontsize=9,  # Smaller font
                                 frameon=True,
@@ -663,17 +702,26 @@ def save_integrated_gradients_combined(
         plt.close(fig)
         mlflow.log_artifact(str(indiv_path))
 
-def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, epoch_times, image_saver):
+def plot_all_metrics(metrics_history: dict, train_losses: list[float], val_losses: list[float], learning_rates: list[float], epoch_times: list[float], image_saver: OrganizedImageSaver) -> None:
     """
     Create individual plots for each training metric.
-    """
-    import matplotlib.pyplot as plt
     
+    Args:
+        metrics_history (dict): Dictionary containing lists of metric values per epoch.
+        train_losses (list[float]): List of training loss values per epoch.
+        val_losses (list[float]): List of validation loss values per epoch.
+        learning_rates (list[float]): List of learning rates per epoch.
+        epoch_times (list[float]): List of epoch times.
+        image_saver (OrganizedImageSaver): Instance managing image saving.
+        
+    Returns:
+        None
+    """
     epochs = list(range(1, len(train_losses) + 1))
     saved_paths = []
     
     # 1. Loss curves (Train vs Val)
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, train_losses, label='Train Loss', color='blue', linewidth=2.5, marker='o', markersize=4)
     ax.plot(epochs, val_losses, label='Val Loss', color='red', linewidth=2.5, marker='s', markersize=4)
     ax.set_xlabel('Epoch', fontsize=14)
@@ -686,10 +734,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved Loss plot to {path}")
+    logger.info(f"Saved Loss plot to {path}")
     
     # 2. MSE
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, metrics_history['mse'], color='purple', linewidth=2.5, marker='o', markersize=4)
     ax.set_xlabel('Epoch', fontsize=14)
     ax.set_ylabel('MSE', fontsize=14)
@@ -700,10 +748,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved MSE plot to {path}")
+    logger.info(f"Saved MSE plot to {path}")
     
     # 3. RMSE
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, metrics_history['rmse'], color='darkviolet', linewidth=2.5, marker='o', markersize=4)
     ax.set_xlabel('Epoch', fontsize=14)
     ax.set_ylabel('RMSE', fontsize=14)
@@ -714,10 +762,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved RMSE plot to {path}")
+    logger.info(f"Saved RMSE plot to {path}")
     
     # 4. MAE
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, metrics_history['mae'], color='orange', linewidth=2.5, marker='o', markersize=4)
     ax.set_xlabel('Epoch', fontsize=14)
     ax.set_ylabel('MAE', fontsize=14)
@@ -728,10 +776,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved MAE plot to {path}")
+    logger.info(f"Saved MAE plot to {path}")
     
     # 5. MedAE
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, metrics_history['medae'], color='darkorange', linewidth=2.5, marker='o', markersize=4)
     ax.set_xlabel('Epoch', fontsize=14)
     ax.set_ylabel('MedAE', fontsize=14)
@@ -742,10 +790,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved MedAE plot to {path}")
+    logger.info(f"Saved MedAE plot to {path}")
     
     # 6. R² Score
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, metrics_history['r2'], color='green', linewidth=2.5, marker='o', markersize=4)
     ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5, linewidth=2, label='Perfect Score')
     ax.set_xlabel('Epoch', fontsize=14)
@@ -758,10 +806,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved R² plot to {path}")
+    logger.info(f"Saved R² plot to {path}")
     
     # 7. MAPE
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, metrics_history['mape'], color='brown', linewidth=2.5, marker='o', markersize=4)
     ax.set_xlabel('Epoch', fontsize=14)
     ax.set_ylabel('MAPE (%)', fontsize=14)
@@ -772,10 +820,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved MAPE plot to {path}")
+    logger.info(f"Saved MAPE plot to {path}")
     
     # 8. Max Error
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, metrics_history['max_error'], color='red', linewidth=2.5, marker='o', markersize=4)
     ax.set_xlabel('Epoch', fontsize=14)
     ax.set_ylabel('Max Error', fontsize=14)
@@ -786,10 +834,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved Max Error plot to {path}")
+    logger.info(f"Saved Max Error plot to {path}")
     
     # 9. EVS (Explained Variance Score)
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, metrics_history['evs'], color='teal', linewidth=2.5, marker='o', markersize=4)
     ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5, linewidth=2, label='Perfect Score')
     ax.set_xlabel('Epoch', fontsize=14)
@@ -802,10 +850,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved EVS plot to {path}")
+    logger.info(f"Saved EVS plot to {path}")
     
     # 10. MBE (Mean Bias Error)
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, metrics_history['mbe'], color='navy', linewidth=2.5, marker='o', markersize=4)
     ax.axhline(y=0, color='gray', linestyle='--', alpha=0.5, linewidth=2, label='Zero Bias')
     ax.set_xlabel('Epoch', fontsize=14)
@@ -818,10 +866,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved MBE plot to {path}")
+    logger.info(f"Saved MBE plot to {path}")
     
     # 11. Learning Rate
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, learning_rates, color='magenta', linewidth=2.5, marker='o', markersize=4)
     ax.set_xlabel('Epoch', fontsize=14)
     ax.set_ylabel('Learning Rate', fontsize=14)
@@ -833,10 +881,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved Learning Rate plot to {path}")
+    logger.info(f"Saved Learning Rate plot to {path}")
     
     # 12. Epoch Times
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
     ax.plot(epochs, epoch_times, color='cyan', linewidth=2.5, marker='o', markersize=4)
     ax.axhline(y=np.mean(epoch_times), color='red', linestyle='--', alpha=0.5, linewidth=2, 
                label=f'Avg: {np.mean(epoch_times):.2f}s')
@@ -850,7 +898,7 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     saved_paths.append(path)
-    print(f"✓ Saved Epoch Time plot to {path}")
+    logger.info(f"Saved Epoch Time plot to {path}")
     
     # 13. Summary text file
     summary_path = image_saver.base_dir / "metrics_summary.txt"
@@ -883,10 +931,10 @@ def plot_all_metrics(metrics_history, train_losses, val_losses, learning_rates, 
         f.write("="*60 + "\n")
     
     saved_paths.append(summary_path)
-    print(f"✓ Saved metrics summary to {summary_path}")
+    logger.info(f"Saved Metrics Summary to {summary_path}")
     
     # Log all artifacts to MLflow
     for path in saved_paths:
         mlflow.log_artifact(str(path))
     
-    print(f"\n✓ Total of {len(saved_paths)} metric files saved and logged to MLflow")
+    logger.info(f"Total of {len(saved_paths)} metric files saved and logged to MLflow")

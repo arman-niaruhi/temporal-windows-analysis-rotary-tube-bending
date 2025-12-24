@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import torch
 from torch.utils.data import Dataset
 from src.pipeline.ml.context_extractor.utils.data.data_resampler import (
@@ -11,9 +15,16 @@ from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 import json
 
 
-
 class LSTMPreprocessor:
-    def __init__(self, database_path, machine_part, annotation_json_path):
+    def __init__(
+        self, database_path: str, machine_part: str, annotation_json_path: str
+    ) -> None:
+        """Preprocessor for LSTM model data.
+        Args:
+            database_path: Path to the SQLite database.
+            machine_part: Machine part identifier.
+            annotation_json_path: Path to the JSON file with annotations.
+        """
         self.machine_par = machine_part
         self.sensor_df = None
         self.target_df = None
@@ -21,10 +32,17 @@ class LSTMPreprocessor:
         self.annotation_json_path = annotation_json_path
         self.database_path = database_path
 
-    def read_data(self, label_name):
+    def read_data(self, label_name: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Read sensor and target data from database and annotation JSON.
+        Args:
+            label_name: Target label to extract from annotations.
+        Returns:
+            sensor_df: DataFrame with sensor data.
+            target_df: DataFrame with target labels.
+        """
         loader = DataLoaderETL(self.database_path)
         dataframes = loader.load_all_data_from_sqlite()
-        sensors_df = dataframes['machine_and_movement']
+        sensors_df = dataframes["machine_and_movement"]
 
         with open(self.annotation_json_path, "r") as f:
             labels = json.load(f)
@@ -32,51 +50,72 @@ class LSTMPreprocessor:
         if label_name == "All":
             sensors_df.index = sensors_df["Time_[s]"]
             sensors_df.drop(columns=["Time_[s]"], inplace=True)
-            return sensors_df, dataframes['arc']
-        
-        label_windows = (
-            pd.DataFrame([
+            return sensors_df, dataframes["arc"]
+
+        label_windows = pd.DataFrame(
+            [
                 {
                     "Experiment_ID": int(exp_id),
                     "start": phase["start"],
-                    "end": phase["end"]
+                    "end": phase["end"],
                 }
                 for exp_id, phases in labels.items()
                 for phase in phases
                 if phase["label"] == label_name
-            ])
+            ]
         )
         df_label = (
-                sensors_df
-                .merge(label_windows, on="Experiment_ID", how="inner")
-                .query("`Time_[s]` >= start and `Time_[s]` <= end")
-                .drop(columns=["start", "end"])
-            )
+            sensors_df.merge(label_windows, on="Experiment_ID", how="inner")
+            .query("`Time_[s]` >= start and `Time_[s]` <= end")
+            .drop(columns=["start", "end"])
+        )
         df_label.index = df_label["Time_[s]"]
         df_label.drop(columns=["Time_[s]"], inplace=True)
-        return df_label, dataframes['arc']
+        logger.info("Data read complete.")
+        return df_label, dataframes["arc"]
 
-    def feature_selection(self, variance_threshold=0):
-        """Select features based on variance threshold."""
+    def feature_selection(self, variance_threshold: float = 0) -> pd.DataFrame:
+        """Select features based on variance threshold.
+        Args:
+            variance_threshold: Minimum variance required to keep a feature.
+        Returns:
+            sensor_df: DataFrame with selected features.
+        """
         if self.sensor_df is None:
-            raise ValueError("Data not loaded. Run read_data() first.")
-        self.sensor_df = self.sensor_df.loc[:, self.sensor_df.var() > variance_threshold]
+            logger.warning("sensor_df is None. Cannot perform feature selection.")
+            return
+        self.sensor_df = self.sensor_df.loc[
+            :, self.sensor_df.var() > variance_threshold
+        ]
         return self.sensor_df
 
-    def get_feature_cols(self):
+    def get_feature_cols(self) -> list[str]:
+        """Get the list of feature columns from sensor_df."""
         return self._feature_cols
-    
-    def get_dfs(self):
+
+    def get_dfs(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Get the sensor and target dataframes"""
         if self.sensor_df is None and self.target_df is None:
-            print("DataFrames not assigned!")
+            logger.warning("sensor_df and target_df are None")
             return
         return self.sensor_df, self.target_df
 
-    def group_and_pad(self, df, group_col="Experiment_ID", exclude_cols=None):
+    def group_and_pad(
+        self,
+        df: pd.DataFrame,
+        group_col: str = "Experiment_ID",
+        exclude_cols: list[str] = None,
+    ) -> np.ndarray:
         """
-        Groups a DataFrame by a column, pads with NaN to match the longest group, 
+        Groups a DataFrame by a column, pads with NaN to match the longest group,
         and returns a 3D numpy array with NaN replaced by 0.
+        
+        Args:
+            df: Input DataFrame to be grouped and padded.
+            group_col: Column name to group by.
+            exclude_cols: List of columns to exclude from padding.
+        Returns:
+            3D numpy array of shape (num_groups, max_group_length, num_features)
         """
         if exclude_cols is None:
             exclude_cols = [group_col]
@@ -87,35 +126,57 @@ class LSTMPreprocessor:
         for _, group in df.groupby(group_col):
             values = group.drop(columns=exclude_cols).values
             padded = np.full((max_len, num_features), np.nan)
-            padded[:values.shape[0], :] = values
+            padded[: values.shape[0], :] = values
             groups_list.append(padded)
 
         array_3d = np.array(groups_list, dtype=float)
         return np.nan_to_num(array_3d, nan=0.0)
 
-    def normalize_column(self, column_name):
-        """Normalize arbitrary column in target_df"""
+    def normalize_column(self, column_name: str) -> pd.DataFrame:
+        """Normalize arbitrary column in target_df
+        Args:
+            column_name: Name of the column to normalize.
+        Returns:
+            target_df: DataFrame with normalized column.
+        """
         if self.target_df is None or column_name not in self.target_df.columns:
-            print(f"Warning: target_df is None or column '{column_name}' does not exist.")
+            logger.warning(
+                f"target_df is None or {column_name} not in target_df columns."
+            )
             return
         scaler = MinMaxScaler(feature_range=(0, 1))
-        self.target_df[column_name] = scaler.fit_transform(self.target_df[[column_name]])
+        self.target_df[column_name] = scaler.fit_transform(
+            self.target_df[[column_name]]
+        )
         return self.target_df
-    
-    def normalize_angle(self, col="Angle[degree]ORDistance[mm]"):
-        """Normalize a specific target column for window algorithm."""
+
+    def normalize_angle(self, col: str = "Angle[degree]ORDistance[mm]") -> pd.DataFrame:
+        """Normalize a specific target column for window algorithm.
+        Args:
+            col: Name of the column to normalize.
+        Returns:
+            target_df: DataFrame with normalized column.
+        """
         return self.normalize_column(col)
-    
-    def prepare_rf_data(self, X, Y):
+
+    def prepare_rf_data(
+        self, X: np.ndarray, Y: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Prepares data for RandomForestRegressor:
         Flattens sequences and appends normalized angle as extra feature.
-        Returns X_rf, Y_rf as 2D arrays.
+        
+        Args:
+            X: Input features of shape (num_samples, seq_len, num_features).
+            Y: Target values of shape (num_samples, num_angles).
+        Returns:
+            X_rf: 2D array of shape (num_samples * num_angles, seq_len * num_features + 1).
+            Y_rf: 1D array of shape (num_samples * num_angles,).
         """
         X_rf = []
         Y_rf = []
 
-        num_samples, seq_len, num_features = X.shape
+        num_samples, _, _ = X.shape
         num_angles = Y.shape[1]
 
         for sample_idx in range(num_samples):
@@ -132,7 +193,7 @@ class LSTMPreprocessor:
 
 
 class ProcessDataset(Dataset):
-    def __init__(self, X: torch.Tensor, Y: torch.Tensor):
+    def __init__(self, X: torch.Tensor, Y: torch.Tensor) -> None:
         self.X = X.float()
         self.Y = Y.float()
 
@@ -144,6 +205,14 @@ class ProcessDataset(Dataset):
 
 
 def _normalize_experiment(group, n=46):
+    """Normalize experiment to have exactly n rows by truncating or padding with last row.
+    
+    Args:
+        group: DataFrame group corresponding to one experiment.
+        n: Desired number of rows.
+    Returns:
+        DataFrame with exactly n rows.
+    """
     if len(group) > n:
         # Just take the first 46 rows
         return group.iloc[:n].copy()
@@ -152,23 +221,33 @@ def _normalize_experiment(group, n=46):
         return group.copy()
 
 
-def prepare_data(input_path_param, preprocessing_param):
+def prepare_data(
+    input_path_param: dict, preprocessing_param: dict
+) -> tuple[torch.Tensor, torch.Tensor, list[str], list[str], list[int], list[int]]:
+    """Prepare data for LSTM model training.
+    Args:
+        input_path_param: Dict with input paths and machine part.
+        preprocessing_param: Dict with preprocessing parameters.
+    Returns:
+        X: Tensor of input features.
+        Y: Tensor of target values.
+        sensor_names: List of sensor feature names.
+        target_feature_names: List of target feature names.
+        annot_timesteps: List of annotation timesteps.
+        mandrel_extraction_annot_timesteps: List of mandrel extraction annotation timesteps.
+    """
     machine_part = input_path_param.get("machine_part", "")
     annotation_json_path = input_path_param.get("annotation_json_path")
     database_path = input_path_param.get("database_path")
-    preprocessor = LSTMPreprocessor(
-        database_path,
-        machine_part,
-        annotation_json_path
-    )
+    preprocessor = LSTMPreprocessor(database_path, machine_part, annotation_json_path)
     to_58_included = preprocessing_param.get("to_58_included", False)
     sensors_df, target_df = preprocessor.read_data(machine_part)
     ELIMINATED_COLUMNS = [
-                        "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]", 
-                        "COLLET_ROTATING_Movement_[mm]", 
-                        "BEND-DIE_VERTICAL_Movement_[mm]", 
-                        "PRESSURE-DIE_LATERAL_Movement_[mm]"
-                        ]
+        "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
+        "COLLET_ROTATING_Movement_[mm]",
+        "BEND-DIE_VERTICAL_Movement_[mm]",
+        "PRESSURE-DIE_LATERAL_Movement_[mm]",
+    ]
     sensors_df.drop(columns=ELIMINATED_COLUMNS, inplace=True)
     if input_path_param:
         target_df = target_df.reset_index(drop=True)
@@ -184,8 +263,6 @@ def prepare_data(input_path_param, preprocessing_param):
             r["Experiment_ID"] = exp_id
 
             out.append(r)
-
-        import pandas as pd
 
         target_df = pd.concat(out, ignore_index=True)
 
@@ -205,7 +282,7 @@ def prepare_data(input_path_param, preprocessing_param):
 
     columns = list(target_df.columns[1:])
     feature_idx_start, feature_idx_end = preprocessing_param.get("feature_indices")
-    target_feature_names = columns[feature_idx_start-1:feature_idx_end-1]
+    target_feature_names = columns[feature_idx_start - 1 : feature_idx_end - 1]
 
     if machine_part == "DECLAMPING":
         to_58_included = True
@@ -224,8 +301,19 @@ def prepare_data(input_path_param, preprocessing_param):
     Y = torch.from_numpy(Y_train_numpy).float()
     sensor_names = list(sensors_df.columns[:-1])
     annot_timesteps = preprocessing_param.get("annot_timesteps", None)
-    mandrel_extraction_annot_timesteps = preprocessing_param.get("mandrel_extraction_annot_timesteps", None)
+    mandrel_extraction_annot_timesteps = preprocessing_param.get(
+        "mandrel_extraction_annot_timesteps", None
+    )
     N = X.shape[1]
     annot_timesteps = [int((idx / 1743) * N) for idx in annot_timesteps]
-    mandrel_extraction_annot_timesteps = [int((idx / 1743) * N) for idx in mandrel_extraction_annot_timesteps]
-    return X, Y, sensor_names, target_feature_names, annot_timesteps, mandrel_extraction_annot_timesteps
+    mandrel_extraction_annot_timesteps = [
+        int((idx / 1743) * N) for idx in mandrel_extraction_annot_timesteps
+    ]
+    return (
+        X,
+        Y,
+        sensor_names,
+        target_feature_names,
+        annot_timesteps,
+        mandrel_extraction_annot_timesteps,
+    )

@@ -6,7 +6,13 @@ from matplotlib import rcParams
 
 
 class OrganizedImageSaver:
-    def __init__(self, base_dir="images", machine_part="All"):
+    def __init__(self, base_dir: str = "images", machine_part: str = "All"):
+        """Initialize the OrganizedImageSaver.
+
+        Args:
+            base_dir (str): Base directory for saving images.
+            machine_part (str): Machine part being analyzed.
+        """
         self.base_dir = Path(base_dir)
         self.machine_part = machine_part
 
@@ -27,23 +33,44 @@ class OrganizedImageSaver:
 
     def save_epoch_plots(
         self,
-        sensor_data,
-        feature_names,
-        output_feature_names,
-        pred_data,
-        loss_data,
-        attn_data,
-        epoch,
-        x_axis,
-        y_lim,
-        PREDICTIONS_OUT,
-        train_loss,
-        val_loss,
-        best_val_loss,
-        annot_timesteps,
-        mandrel_extraction_annot_timesteps
+        sensor_data: np.ndarray,
+        feature_names: list,
+        output_feature_names: list,
+        pred_data: tuple,
+        loss_data: tuple,
+        attn_data: dict,
+        epoch: int,
+        x_axis: np.ndarray,
+        y_lim: tuple,
+        PREDICTIONS_OUT: int,
+        train_loss: float,
+        val_loss: float,
+        best_val_loss: float,
+        annot_timesteps: list,
+        mandrel_extraction_annot_timesteps: list = None,
     ):
-        """Save each subplot as a separate image in organized folders"""
+        """Save each subplot as a separate image in organized folders
+        
+        Args:
+            sensor_data: Array of shape (n_samples, timesteps, n_features)
+            feature_names: List of sensor feature names
+            output_feature_names: List of target feature names
+            pred_data: Tuple (true_np, pred_np, idxs) for predictions
+            loss_data: Tuple (epochs_list, val_losses, train_losses) for loss plot
+            attn_data: Attention weights of shape (n_prediction_heads, timesteps)
+            epoch: Current epoch number
+            x_axis: X-axis values for prediction plots
+            y_lim: Y-axis limits for prediction plots
+            PREDICTIONS_OUT: Total number of predictions
+            train_loss: Training loss value for current epoch
+            val_loss: Validation loss value for current epoch
+            best_val_loss: Best validation loss so far
+            annot_timesteps: List of timesteps to annotate
+            mandrel_extraction_annot_timesteps: Optional list of timesteps for mandrel extraction annotation
+            
+        Returns:
+            Paths to saved images: (pred_path, loss_path, attn_path, csv_path)
+        """
 
         plt.style.use("tableau-colorblind10")
 
@@ -179,13 +206,13 @@ class OrganizedImageSaver:
 
     def plot_attention_lines_with_sensors(
         self,
-        sensor_data,
-        sensor_names,
-        attn_mean,
-        annot_timesteps=None,
-        mandrel_extraction_annot_timesteps=None,
-        sample_idx=-1,
-        figsize=(20, 10),
+        sensor_data: np.ndarray,
+        sensor_names: list,
+        attn_mean: np.ndarray,
+        annot_timesteps: list = None,
+        mandrel_extraction_annot_timesteps: list = None,
+        sample_idx: int = -1,
+        figsize: tuple=(20, 10),
     ):
         """
         Plots sensor data and ONE attention head as line plots in two subplots.
@@ -433,19 +460,29 @@ class OrganizedImageSaver:
 
     def plot_selected_features_with_attn_heatmap(
         self,
-        sensor_data,
-        sensor_names,
-        attn_mean,
-        attn_path,
-        annot_timesteps=None,
-        mandrel_extraction_annot_timesteps=None,
-        sample_idx=100,
-        figsize=(25, 12),
+        sensor_data: np.ndarray,
+        sensor_names: list,
+        attn_mean: np.ndarray,
+        attn_path: str,
+        annot_timesteps: list = None,
+        mandrel_extraction_annot_timesteps: list = None,
+        sample_idx: int = 100,
+        figsize: tuple = (25, 12),
     ):
         """
         Plots selected features with attention heatmap at the bottom.
         Includes legend for the top plot on the right side.
         Enhanced with beautiful styling and improved aesthetics.
+        
+        Args:
+            sensor_data: Array of shape (n_samples, timesteps, n_features)
+            sensor_names: List of sensor feature names
+            attn_mean: Attention weights of shape (n_prediction_heads, timesteps)
+            attn_path: Path to save the attention plot
+            annot_timesteps: Optional list of timesteps to annotate
+            mandrel_extraction_annot_timesteps: Optional list of timesteps for mandrel extraction annotation
+            sample_idx: Which sample to plot (default last sample)
+            figsize: Figure size tuple
         """
         # Set beautiful style parameters
         rcParams["font.family"] = "sans-serif"

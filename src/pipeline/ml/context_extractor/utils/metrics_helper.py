@@ -7,8 +7,16 @@ from sklearn.metrics import (
 import torch
 
 
-def compute_all_metrics(y_true, y_pred):
-    """Compute comprehensive metrics"""
+def compute_all_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
+    """Compute comprehensive metrics
+
+    Args:
+        y_true: Ground truth values (numpy array or torch tensor).
+        y_pred: Predicted values (numpy array or torch tensor).
+        
+    Returns:
+        A dictionary containing various computed metrics.
+    """
     y_true_np = y_true.cpu().numpy() if torch.is_tensor(y_true) else y_true
     y_pred_np = y_pred.cpu().numpy() if torch.is_tensor(y_pred) else y_pred
 
@@ -52,8 +60,15 @@ def compute_all_metrics(y_true, y_pred):
     return metrics
 
 
-def compute_epoch_metrics(y_true, y_pred):
-    """Compute comprehensive metrics for a single epoch"""
+def compute_epoch_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
+    """Compute comprehensive metrics for a single epoch
+    
+    Args:
+        y_true: Ground truth values (numpy array or torch tensor).
+        y_pred: Predicted values (numpy array or torch tensor).
+        Returns:
+        A dictionary containing various computed metrics.
+    """
     y_true_np = y_true.cpu().numpy() if torch.is_tensor(y_true) else y_true
     y_pred_np = y_pred.cpu().numpy() if torch.is_tensor(y_pred) else y_pred
 
