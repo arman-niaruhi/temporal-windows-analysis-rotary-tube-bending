@@ -1,22 +1,30 @@
 import logging
+import os
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# ---------------------------------------------------------------------
-# Logging configuration
-# ---------------------------------------------------------------------
+from src.pipeline.ml.classification.utils.model import LSTMSequenceClassifier
+from src.pipeline.preprocessing.loader import DataLoader
+
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------
-# Permutation Importance
-# ---------------------------------------------------------------------
-def permutation_importance_sequence(model, data_loader, device, n_repeats=10):
+def permutation_importance_sequence(model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device, n_repeats: int = 10):
     """
     Calculate permutation importance for sequence model with padding.
     Works directly with the DataLoader.
+    
+    Args:
+        model (LSTMSequenceClassifier): Trained sequence classification model.
+        data_loader (DataLoader): DataLoader providing the input data.
+        device (torch.device): Device to run computations on.
+        n_repeats (int): Number of permutation repeats for averaging.
+    
+    Returns:
+        importances (np.ndarray): Array of feature importance scores.
+        importance_std (np.ndarray): Standard deviation of importance scores.
     """
     model.eval()
 
@@ -97,13 +105,19 @@ def permutation_importance_sequence(model, data_loader, device, n_repeats=10):
     return np.array(importances), np.array(importance_std)
 
 
-# ---------------------------------------------------------------------
-# Gradient Importance
-# ---------------------------------------------------------------------
-def gradient_importance_sequence(model, data_loader, device, n_batches=10):
+def gradient_importance_sequence(model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device, n_batches: int = 10):
     """
     Calculate gradient-based importance for sequence model.
     Averages gradients over valid timesteps only.
+    
+    Args:
+        model (LSTMSequenceClassifier): Trained sequence classification model.
+        data_loader (DataLoader): DataLoader providing the input data.
+        device (torch.device): Device to run computations on.
+        n_batches (int): Number of batches to process for averaging.
+    
+    Returns:
+        importances (np.ndarray): Array of feature importance scores.
     """
     model.eval()
     logger.info("Calculating gradient-based importance")
@@ -145,12 +159,19 @@ def gradient_importance_sequence(model, data_loader, device, n_batches=10):
     return importances
 
 
-# ---------------------------------------------------------------------
-# Integrated Gradients
-# ---------------------------------------------------------------------
-def integrated_gradients_importance(model, data_loader, device, n_samples=50, steps=30):
+def integrated_gradients_importance(model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device, n_samples: int = 50, steps: int = 30):
     """
     Calculate integrated gradients importance for sequence model.
+    
+    Args:
+        model (LSTMSequenceClassifier): Trained sequence classification model.
+        data_loader (DataLoader): DataLoader providing the input data.
+        device (torch.device): Device to run computations on.
+        n_samples (int): Number of samples to process for averaging.
+        steps (int): Number of interpolation steps for integrated gradients.
+    
+    Returns:
+        importances (np.ndarray): Array of feature importance scores.
     """
     model.eval()
     logger.info("Calculating integrated gradients importance")
@@ -213,14 +234,20 @@ def integrated_gradients_importance(model, data_loader, device, n_samples=50, st
     return importances
 
 
-# ---------------------------------------------------------------------
-# Occlusion Importance
-# ---------------------------------------------------------------------
 def occlusion_importance(
-    model, data_loader, device, n_samples=100, occlusion_value=0.0
+    model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device, occlusion_value: float = 0.0
 ):
     """
     Occlusion-based importance.
+    
+    Args:
+        model (LSTMSequenceClassifier): Trained sequence classification model.
+        data_loader (DataLoader): DataLoader providing the input data.
+        device (torch.device): Device to run computations on.
+        occlusion_value (float): Value to use for occlusion.
+        
+    Returns:
+        importances (np.ndarray): Array of feature importance scores.   
     """
     model.eval()
     logger.info("Calculating baseline accuracy (occlusion)")
@@ -280,12 +307,18 @@ def occlusion_importance(
     return np.array(importances)
 
 
-# ---------------------------------------------------------------------
-# Dropout Importance
-# ---------------------------------------------------------------------
-def dropout_importance(model, data_loader, device, n_repeats=20, dropout_rate=0.5):
+def dropout_importance(model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device, n_repeats: int = 20, dropout_rate: float = 0.5):
     """
     Dropout-based importance.
+    
+    Args:
+        model (LSTMSequenceClassifier): Trained sequence classification model.
+        data_loader (DataLoader): DataLoader providing the input data.
+        device (torch.device): Device to run computations on.
+        n_repeats (int): Number of dropout repeats for averaging.
+        
+    Returns:
+        importances (np.ndarray): Array of feature importance scores.
     """
     model.eval()
     logger.info("Calculating dropout-based importance")
@@ -329,12 +362,17 @@ def dropout_importance(model, data_loader, device, n_repeats=20, dropout_rate=0.
     return np.array(importances)
 
 
-# ---------------------------------------------------------------------
-# Feature Ablation Importance
-# ---------------------------------------------------------------------
-def feature_ablation_importance(model, data_loader, device):
+def feature_ablation_importance(model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device):
     """
     Feature ablation importance.
+    
+    Args:
+        model (LSTMSequenceClassifier): Trained sequence classification model.
+        data_loader (DataLoader): DataLoader providing the input data.
+        device (torch.device): Device to run computations on.
+
+    Returns:
+        importances (np.ndarray): Array of feature importance scores.
     """
     model.eval()
     logger.info("Calculating baseline accuracy (ablation)")
@@ -395,9 +433,20 @@ def feature_ablation_importance(model, data_loader, device):
 
 
 def plot_feature_importance(
-    importances, std=None, feature_names=None, method_name="Permutation"
+    analyze_features_result_path: str, importances: np.ndarray, std: np.ndarray = None, feature_names: list = None, method_name: str = "Permutation"
 ):
-    """Plot feature importance with error bars."""
+    """Plot feature importance with error bars.
+    
+    Args:
+        analyze_features_result_path (str): Directory to save the plot.
+        importances (np.ndarray): Array of feature importance scores.
+        std (np.ndarray, optional): Standard deviation of importance scores. Defaults to None.
+        feature_names (list, optional): List of feature names. Defaults to None.
+        method_name (str, optional): Name of the importance method. Defaults to "Permutation".
+    
+    Returns:
+        None: Saves the plot to the specified directory.
+    """
     if feature_names is None:
         feature_names = [f"Feature {i}" for i in range(len(importances))]
 
@@ -418,8 +467,10 @@ def plot_feature_importance(
     plt.xlabel("Importance Score")
     plt.title(f"Feature Importance ({method_name} Method)")
     plt.tight_layout()
+    
+    store_path = os.path.join(analyze_features_result_path, f"feature_importance_{method_name.lower()}.png")
     plt.savefig(
-        f"feature_importance_{method_name.lower()}.png", dpi=300, bbox_inches="tight"
+        store_path, dpi=300, bbox_inches="tight"
     )
 
 
@@ -427,6 +478,12 @@ def compare_methods(method_dict, feature_names=None):
     """
     Compare multiple importance methods side by side.
     method_dict: {'Method Name': importance_array, ...}
+    
+    Args:
+        method_dict (dict): Dictionary mapping method names to importance arrays.
+        feature_names (list, optional): List of feature names. Defaults to None.
+    Returns:
+        None: Saves comparison plots to the current directory.
     """
     if feature_names is None:
         first_imp = list(method_dict.values())[0]

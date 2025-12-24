@@ -6,7 +6,7 @@ import logging
 
 from src.pipeline.ml.classification.utils.model import LSTMSequenceClassifier
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
-from src.pipeline.ml.classification.utils.classification_utils import (
+from src.pipeline.ml.classification.utils.preprocessing_utils import (
     ClassifierPreprocessor,
 )
 
@@ -22,6 +22,19 @@ def get_all_predictions(
     machine_part: str,
     exp_id: int,
 ):
+    """Get all predictions for a specific experiment.
+
+    Args:
+        Label: Target label for which predictions are made.
+        database_path: Path to the SQLite database.
+        annotation_json_path: Path to the JSON file with annotations.
+        eliminated_columns: List of columns to eliminate from the data.
+        models_path: Path to the directory containing trained models.
+        machine_part: Machine part identifier.
+        exp_id: Experiment ID to get predictions for.
+    Returns:
+        exp_data: DataFrame with sensor data for the experiment.
+    """
     loader = DataLoaderETL(database_path)
     dataframes = loader.load_all_data_from_sqlite()
     classifier_preprocessor = ClassifierPreprocessor(
@@ -44,17 +57,16 @@ def get_all_predictions(
     ).to(device)
 
     model_path = os.path.join(models_path, machine_part, Label, "activity_detector.pth")
-    
+
     try:
-        state_dict = torch.load(
-            model_path,
-            map_location=device
-        )
-        
+        state_dict = torch.load(model_path, map_location=device)
+
     except FileNotFoundError:
-        logger.error(f"Model file not found at {model_path}. Please ensure the model has been trained and the path is correct.")
-        raise
-    
+        logger.warning(
+            f"Model file not found at {model_path}. Please ensure the model has been trained and the path is correct."
+        )
+        return None, None, None
+
     model.load_state_dict(state_dict)
     model.eval()
 
@@ -76,33 +88,32 @@ def get_all_predictions(
 
 
 def inference_one_label_in_one(
-    exp_id,
-    database_path,
-    annotation_json_path,
-    eliminated_columns,
-    models_path,
-    labels,
-    machine_part,
-    get_all_predictions_fn,
+    exp_id: int,
+    database_path: str,
+    annotation_json_path: str,
+    eliminated_columns: list[str],
+    models_path: str,
+    labels: list[str],
+    machine_part: str,
+    get_all_predictions_fn: callable,
     figsize=(15, 10),
 ):
     """
     Plot sensor signals and true/predicted process segments for a single experiment.
 
-    Parameters
-    ----------
-    exp_id : int or str
-        Experiment ID to plot.
-    machine_part : str
-        Machine part passed to get_all_predictions.
-    labels : list of str
-        Ordered list of process labels.
-    get_all_predictions_fn : callable
-        Function with signature:
-        get_all_predictions_fn(Label, machine_part, exp_id)
-        -> (exp_data, mask_pred, mask_true)
-    figsize : tuple, optional
-        Figure size for the plot.
+    Args:
+        exp_id: Experiment ID to plot.
+        database_path: Path to the SQLite database.
+        annotation_json_path: Path to the JSON file with annotations.
+        eliminated_columns: List of columns to eliminate from the data.
+        models_path: Path to the directory containing trained models.
+        labels: List of target labels to plot.
+        machine_part: Machine part identifier.
+        get_all_predictions_fn: Function to get all predictions for a label.
+        figsize: Figure size for the plot.
+
+    Returns:
+        None
     """
     logger.info(f"Starting inference for Experiment ID: {exp_id} with labels: {labels}")
 
@@ -126,11 +137,7 @@ def inference_one_label_in_one(
             "mask_pred": mask_pred,
             "mask_true": mask_true,
         }
-
-    # --- Create figure ---
-    fig, axs = plt.subplots(2, 1, figsize=figsize, sharex=True)
-
-    # --- Top subplot: sensor signals ---
+    _, axs = plt.subplots(2, 1, figsize=figsize, sharex=True)
     sensor_plotted = set()
     for label in labels:
         exp_data = all_data[label]["exp_data"]
@@ -152,7 +159,6 @@ def inference_one_label_in_one(
     axs[0].grid(True, linestyle="--", alpha=0.5)
     axs[0].legend(loc="center left", bbox_to_anchor=(1, 0.5), fontsize="small")
 
-    # --- Bottom subplot: true vs predicted segments ---
     categories, starts, ends, colors = [], [], [], []
 
     for i, label in enumerate(labels):

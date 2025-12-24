@@ -102,7 +102,6 @@ class DataPreprocessPipeline:
             "lin1": df_lin1,
             "lin2": df_lin2,
             "arc": df_arc,
-            # "all_geometry_data": all_geometry_data,
             "linear": linear_df,
             "machine": df_machine,
             "sensor": df_sensor,
@@ -110,7 +109,7 @@ class DataPreprocessPipeline:
             "bending": df_bending,
         }
         loader.store_to_sqlite(
-            dataframes,
+            dataframes=dataframes,
             store_index_tables=[
                 "machine",
                 "sensor",

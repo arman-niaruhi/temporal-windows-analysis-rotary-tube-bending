@@ -3,7 +3,8 @@ import torch.nn as nn
 
 
 class MLPAttention(nn.Module):
-    def __init__(self, n_predictions, hidden_dim=128):
+    def __init__(self, n_predictions: int, hidden_dim: int = 128):
+        """Initialize MLPAttention."""
         super().__init__()
         self.n_predictions = n_predictions
         self.angle_embeddings = nn.Parameter(torch.randn(n_predictions, hidden_dim))
@@ -15,6 +16,15 @@ class MLPAttention(nn.Module):
         nn.init.xavier_uniform_(self.angle_embeddings)
 
     def forward(self, H):
+        """Forward pass for MLPAttention.
+
+        Args:
+            H: Input tensor of shape (batch_size, sequence_length, hidden_dim)
+
+        Returns:
+            contexts: Context vectors of shape (batch_size, n_predictions, hidden_dim)
+            attns: Attention weights of shape (batch_size, n_predictions, sequence_length)
+        """
         B, T, D = H.shape
         contexts, attns = [], []
         for a in range(self.n_predictions):
@@ -29,13 +39,24 @@ class MLPAttention(nn.Module):
 class AttentionLSTM(nn.Module):
     def __init__(
         self,
-        input_features,
-        n_predictions,
-        output_features=1,
-        hidden_dim=128,
-        lstm_layers=2,
-        dropout=0.3,
+        input_features: int,
+        n_predictions: int,
+        output_features: int = 1,
+        hidden_dim: int = 128,
+        lstm_layers: int = 2,
+        dropout: float = 0.3,
     ):
+        """Initialize AttentionLSTM model.
+
+        Args:
+            input_features: Number of input features.
+            n_predictions: Number of predictions to make.
+            output_features: Number of output features.
+            hidden_dim: Hidden dimension of the LSTM.
+            lstm_layers: Number of LSTM layers.
+            dropout: Dropout rate for LSTM layers.
+
+        """
         super().__init__()
         self.input_features = input_features
         self.n_predictions = n_predictions
