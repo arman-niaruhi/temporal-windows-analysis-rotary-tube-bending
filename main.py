@@ -18,8 +18,6 @@ from src.pipeline.ml.context_extractor.utils.seed_utils import enforce_reproduci
 from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import prepare_data
 from src.pipeline.ml.context_extractor.utils.training_utils import train_model
 
-from src.pipeline.dashboard.visualizer import StreamlitApp
-
 import json
 
 import logging
@@ -32,7 +30,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run different pipeline steps.")
     parser.add_argument(
         "step",
-        choices=["preprocess", "activity_recognition", "context_extraction", "dashboard"],
+        choices=["preprocess", "activity_recognition", "context_extraction"],
         help="Choose which pipeline step to run",
     )
     args = parser.parse_args()
@@ -262,13 +260,9 @@ def main():
             mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
         )
 
-    elif args.step == "dashboard":
-        vizualiser = StreamlitApp()
-        vizualiser.run()
 
 if __name__ == "__main__":
     main()
     # python main.py preprocess
     # python main.py activity_recognition
     # python main.py context_extraction
-    # streamlit run main.py dashboard
