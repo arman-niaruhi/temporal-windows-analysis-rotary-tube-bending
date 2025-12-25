@@ -99,20 +99,20 @@ class DataPreprocessPipeline:
         loader = DataLoader("data/processed/tube_geometry.db")
         dataframes = {
             "machine_and_movement": df_machine_and_movement,
-            "lin1": df_lin1,
-            "lin2": df_lin2,
+            # "lin1": df_lin1,
+            # "lin2": df_lin2,
             "arc": df_arc,
-            "linear": linear_df,
-            "machine": df_machine,
-            "sensor": df_sensor,
+            # "linear": linear_df,
+            # "machine": df_machine,
+            # "sensor": df_sensor,
             "movement": df_movement,
-            "bending": df_bending,
+            # "bending": df_bending,
         }
         loader.store_to_sqlite(
             dataframes=dataframes,
             store_index_tables=[
-                "machine",
-                "sensor",
+              # "machine",
+              # "sensor",
                 "machine_and_movement",
                 "movement",
             ],
