@@ -321,7 +321,7 @@ class OrganizedImageSaver:
                         color="black",
                         bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", lw=0.8),
                     )
-            if mandrel_extraction_annot_timesteps:
+            if mandrel_extraction_annot_timesteps and (self.machine_part == "All"):
                 ax_sensors.axvspan(
                     mandrel_extraction_annot_timesteps[0],
                     mandrel_extraction_annot_timesteps[1],
@@ -407,7 +407,7 @@ class OrganizedImageSaver:
                         color="black",
                         bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", lw=0.8),
                     )
-            if mandrel_extraction_annot_timesteps:
+            if mandrel_extraction_annot_timesteps and (self.machine_part == "All"):
                 ax_attention.axvspan(
                     mandrel_extraction_annot_timesteps[0],
                     mandrel_extraction_annot_timesteps[1],
@@ -564,7 +564,7 @@ class OrganizedImageSaver:
                     bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", lw=0.8),
                 )
 
-        if mandrel_extraction_annot_timesteps:
+        if mandrel_extraction_annot_timesteps and (self.machine_part == "All"):
             ax_main.axvspan(
                 mandrel_extraction_annot_timesteps[0],
                 mandrel_extraction_annot_timesteps[1],

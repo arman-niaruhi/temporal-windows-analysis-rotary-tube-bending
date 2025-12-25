@@ -10,111 +10,89 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def compute_attention_importance(
-    model: torch.nn.Module,
-    val_loader: torch.utils.data.DataLoader,
-    feature_names: list,
-    device,
-    output_dir: str = "images/04_feature_importance",
-):
-    """
-    Compute feature importance using attention weights from the LSTM model
-    Enhanced with comprehensive individual visualizations and explanations
-
-    Args:
-        model: Trained LSTM model with attention mechanism
-        val_loader: DataLoader for validation data
-        feature_names: List of feature names corresponding to input features
-        device: Device to run computations on (CPU or GPU)
-        output_dir: Directory to save output plots and data
-
-    Returns:
-        importance_df: DataFrame with feature importance scores
-        plot_paths: Dictionary with paths to saved plots
-        attention_data: Dictionary with additional attention statistics
-    """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
+def collect_attention_data(model, val_loader, device):
+    """Collect attention weights, predictions, and targets from the model."""
     model.eval()
     all_attention_weights = []
     all_predictions = []
     all_targets = []
 
-    logger.info("Computing attention-based feature importance...")
-
     with torch.no_grad():
         for Xb, Yb in tqdm(val_loader, desc="Attention Importance"):
             Xb, Yb = Xb.to(device), Yb.to(device)
-            pred, attn_weights = model(Xb)  # Get attention weights and predictions
-
+            pred, attn_weights = model(Xb)
+            
             # attn_weights shape: (batch, n_predictions, timesteps)
-            # Average across batches and prediction heads to get timestep importance
             mean_attn = attn_weights.mean(dim=(0, 1))  # Shape: (timesteps,)
             all_attention_weights.append(mean_attn.cpu())
             all_predictions.append(pred.cpu())
             all_targets.append(Yb.cpu())
+    
+    return all_attention_weights, all_predictions, all_targets
 
-    # Process collected data
-    if all_attention_weights:
-        global_attn = torch.stack(all_attention_weights).mean(dim=0)
-        timestep_attention = global_attn.numpy()
 
-        # Calculate prediction accuracy for context
-        predictions = torch.cat(all_predictions, dim=0)
-        targets = torch.cat(all_targets, dim=0)
-        mse = nn.MSELoss()(predictions, targets).item()
+def compute_attention_statistics(all_attention_weights, all_predictions, all_targets, feature_names):
+    """Compute statistics from collected attention data."""
+    if not all_attention_weights:
+        return {
+            'global_attn': None,
+            'timestep_attention': np.zeros(10),
+            'feature_importance': np.ones(len(feature_names)),
+            'mse': 0.0
+        }
+    
+    global_attn = torch.stack(all_attention_weights).mean(dim=0)
+    timestep_attention = global_attn.numpy()
+    
+    # Calculate MSE
+    predictions = torch.cat(all_predictions, dim=0)
+    targets = torch.cat(all_targets, dim=0)
+    mse = nn.MSELoss()(predictions, targets).item()
+    
+    # Calculate feature importance
+    base_importance = global_attn.mean().item()
+    feature_importance = base_importance * (1 + 0.1 * np.random.randn(len(feature_names)))
+    feature_importance = np.maximum(feature_importance, 0.001)
+    
+    return {
+        'global_attn': global_attn,
+        'timestep_attention': timestep_attention,
+        'feature_importance': feature_importance,
+        'mse': mse
+    }
 
-        # Enhanced feature importance calculation
-        base_importance = global_attn.mean().item()
 
-        # Create feature importance with some variation based on attention patterns
-        feature_importance = base_importance * (
-            1 + 0.1 * np.random.randn(len(feature_names))
-        )
-        feature_importance = np.maximum(
-            feature_importance, 0.001
-        )  # Ensure positive values
-
-    else:
-        feature_importance = np.ones(len(feature_names))
-        timestep_attention = np.zeros(10)  # Default timesteps
-        mse = 0.0
-
+def create_importance_dataframe(feature_names, feature_importance):
+    """Create and sort importance DataFrame."""
     importance_df = pd.DataFrame(
         {"Feature": feature_names, "Attention_Importance": feature_importance}
     ).sort_values("Attention_Importance", ascending=False)
+    return importance_df
 
-    # Save attention data
-    attention_data = {
+
+def create_attention_metadata(importance_df, timestep_attention, mse):
+    """Create metadata dictionary with attention statistics."""
+    return {
         "feature_importance": importance_df,
         "timestep_attention": timestep_attention,
         "statistics": {
             "mse": mse,
-            "attention_mean": (
-                float(np.mean(timestep_attention)) if len(timestep_attention) > 1 else 0
-            ),
-            "attention_std": (
-                float(np.std(timestep_attention)) if len(timestep_attention) > 1 else 0
-            ),
-            "attention_peak_step": (
-                int(np.argmax(timestep_attention)) if len(timestep_attention) > 1 else 0
-            ),
+            "attention_mean": float(np.mean(timestep_attention)) if len(timestep_attention) > 1 else 0,
+            "attention_std": float(np.std(timestep_attention)) if len(timestep_attention) > 1 else 0,
+            "attention_peak_step": int(np.argmax(timestep_attention)) if len(timestep_attention) > 1 else 0,
             "top_features": importance_df.head(10)["Feature"].tolist(),
         },
     }
 
-    plot_paths = {}
 
-    # PLOT 1: Feature Importance Bar Chart
+def plot_feature_importance_bar(importance_df, feature_names, output_path):
+    """Plot feature importance as horizontal bar chart."""
     plt.figure(figsize=(14, 10))
     top_features = min(20, len(feature_names))
     top_df = importance_df.head(top_features)
 
     colors = plt.cm.viridis(np.linspace(0.2, 0.8, len(top_df)))
-    plt.barh(
-        range(len(top_df)), top_df["Attention_Importance"], color=colors, alpha=0.8
-    )
+    plt.barh(range(len(top_df)), top_df["Attention_Importance"], color=colors, alpha=0.8)
 
     plt.yticks(range(len(top_df)), top_df["Feature"], fontsize=11)
     plt.xlabel("Attention Importance Score", fontsize=13, fontweight="bold")
@@ -128,62 +106,59 @@ def compute_attention_importance(
     plt.grid(axis="x", alpha=0.3, linestyle="--", linewidth=0.8)
 
     plt.tight_layout()
-    plot_paths["feature_importance"] = output_dir / "01_feature_importance_bars.png"
-    plt.savefig(
-        plot_paths["feature_importance"],
-        dpi=150,
-        bbox_inches="tight",
-        facecolor="white",
-    )
+    plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="white")
     plt.close()
 
-    # PLOT 2: Attention Distribution Over Time
+
+def plot_attention_time_distribution(timestep_attention, output_path):
+    """Plot attention distribution over time steps."""
+    if len(timestep_attention) <= 1:
+        return
+        
     plt.figure(figsize=(14, 8))
+    x_vals = np.arange(len(timestep_attention))
 
-    if len(timestep_attention) > 1:
-        x_vals = np.arange(len(timestep_attention))
+    # Create main plot with enhanced styling
+    plt.plot(
+        x_vals,
+        timestep_attention,
+        "o-",
+        color="#2E86AB",
+        linewidth=3,
+        markersize=8,
+        markerfacecolor="#A23B72",
+        markeredgecolor="#6D214F",
+        markeredgewidth=2,
+        label="Attention Weights",
+    )
 
-        # Create main plot with enhanced styling
+    # Highlight peak attention regions
+    peak_threshold = np.percentile(timestep_attention, 75)
+    peaks = np.where(timestep_attention > peak_threshold)[0]
+    plt.scatter(
+        peaks,
+        timestep_attention[peaks],
+        color="#F18F01",
+        s=150,
+        zorder=5,
+        label="High Attention Peaks",
+        edgecolors="#C73E1D",
+        linewidth=2,
+    )
+
+    # Add trend line
+    if len(timestep_attention) > 3:
+        z = np.polyfit(x_vals, timestep_attention, 2)
+        p = np.poly1d(z)
         plt.plot(
             x_vals,
-            timestep_attention,
-            "o-",
-            color="#2E86AB",
-            linewidth=3,
-            markersize=8,
-            markerfacecolor="#A23B72",
-            markeredgecolor="#6D214F",
-            markeredgewidth=2,
-            label="Attention Weights",
-        )
-
-        # Highlight peak attention regions
-        peak_threshold = np.percentile(timestep_attention, 75)
-        peaks = np.where(timestep_attention > peak_threshold)[0]
-        plt.scatter(
-            peaks,
-            timestep_attention[peaks],
-            color="#F18F01",
-            s=150,
-            zorder=5,
-            label="High Attention Peaks",
-            edgecolors="#C73E1D",
+            p(x_vals),
+            "--",
+            color="#C73E1D",
             linewidth=2,
+            alpha=0.7,
+            label="Trend Line",
         )
-
-        # Add trend line
-        if len(timestep_attention) > 3:
-            z = np.polyfit(x_vals, timestep_attention, 2)
-            p = np.poly1d(z)
-            plt.plot(
-                x_vals,
-                p(x_vals),
-                "--",
-                color="#C73E1D",
-                linewidth=2,
-                alpha=0.7,
-                label="Trend Line",
-            )
 
     plt.xlabel("Time Step", fontsize=13, fontweight="bold")
     plt.ylabel("Attention Weight", fontsize=13, fontweight="bold")
@@ -197,189 +172,120 @@ def compute_attention_importance(
     plt.grid(True, alpha=0.3, linestyle="-", linewidth=0.5)
 
     plt.tight_layout()
-    plot_paths["time_distribution"] = output_dir / "02_attention_time_distribution.png"
-    plt.savefig(
-        plot_paths["time_distribution"], dpi=150, bbox_inches="tight", facecolor="white"
-    )
+    plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="white")
     plt.close()
 
-    # PLOT 3: Attention Heatmap
-    if len(timestep_attention) > 1:
-        plt.figure(figsize=(16, 6))
 
-        # Create a more detailed heatmap
-        heatmap_data = np.tile(timestep_attention, (min(15, len(feature_names)), 1))
+def plot_attention_heatmap(timestep_attention, feature_names, output_path):
+    """Plot attention heatmap across time steps and features."""
+    if len(timestep_attention) <= 1:
+        return
+        
+    plt.figure(figsize=(16, 6))
 
-        im = plt.imshow(
-            heatmap_data,
-            aspect="auto",
-            cmap="YlOrRd",
-            interpolation="nearest",
-            extent=[0, len(timestep_attention) - 1, 0, min(15, len(feature_names)) - 1],
-        )
+    # Create a more detailed heatmap
+    heatmap_data = np.tile(timestep_attention, (min(15, len(feature_names)), 1))
 
-        plt.xlabel("Time Steps", fontsize=13, fontweight="bold")
-        plt.ylabel("Feature Representation", fontsize=13, fontweight="bold")
-        plt.title(
-            "Attention Pattern Heatmap\nVisualizing Attention Intensity Across Features and Time",
-            fontsize=15,
-            fontweight="bold",
-            pad=20,
-        )
-
-        # Add colorbar with better styling
-        cbar = plt.colorbar(im, shrink=0.8, pad=0.02)
-        cbar.set_label("Attention Weight", fontsize=12, fontweight="bold")
-        cbar.ax.tick_params(labelsize=10)
-
-        # Add feature labels on y-axis for some rows
-        feature_indices = np.linspace(0, min(15, len(feature_names)) - 1, 5, dtype=int)
-        feature_labels = [
-            feature_names[i] if i < len(feature_names) else f"Feature {i}"
-            for i in feature_indices
-        ]
-        plt.yticks(feature_indices, feature_labels, fontsize=9)
-
-        plt.tight_layout()
-        plot_paths["heatmap"] = output_dir / "03_attention_heatmap.png"
-        plt.savefig(
-            plot_paths["heatmap"], dpi=150, bbox_inches="tight", facecolor="white"
-        )
-        plt.close()
-
-    # PLOT 4: Cumulative Attention Distribution
-    if len(timestep_attention) > 1:
-        plt.figure(figsize=(14, 8))
-
-        cumulative_attention = np.cumsum(timestep_attention) / np.sum(
-            timestep_attention
-        )
-        plt.plot(
-            np.arange(len(timestep_attention)),
-            cumulative_attention,
-            "g-",
-            linewidth=4,
-            alpha=0.8,
-            label="Cumulative Attention",
-        )
-
-        # Mark important thresholds with annotations
-        threshold_colors = ["red", "orange", "purple"]
-        thresholds = [0.5, 0.8, 0.95]
-
-        for i, (threshold, color) in enumerate(zip(thresholds, threshold_colors)):
-            idx = np.where(cumulative_attention >= threshold)[0]
-            if len(idx) > 0:
-                step = idx[0]
-                plt.axvline(
-                    x=step,
-                    color=color,
-                    linestyle="--",
-                    alpha=0.8,
-                    linewidth=2,
-                    label=f"{threshold * 100:.0f}% attention by step {step}",
-                )
-
-                # Add annotation
-                plt.annotate(
-                    f"{threshold * 100:.0f}%",
-                    xy=(step, threshold),
-                    xytext=(10, 20 + i * 30),
-                    textcoords="offset points",
-                    fontsize=11,
-                    fontweight="bold",
-                    color=color,
-                    arrowprops=dict(arrowstyle="->", color=color, alpha=0.7),
-                )
-
-        plt.xlabel("Time Step", fontsize=13, fontweight="bold")
-        plt.ylabel("Cumulative Attention Fraction", fontsize=13, fontweight="bold")
-        plt.title(
-            "Cumulative Attention Distribution\nHow Quickly the Model Focuses Its Attention",
-            fontsize=15,
-            fontweight="bold",
-            pad=20,
-        )
-        plt.legend(fontsize=11, loc="lower right")
-        plt.grid(True, alpha=0.3, linestyle="-", linewidth=0.5)
-        plt.ylim(0, 1.05)
-
-        plt.tight_layout()
-        plot_paths["cumulative"] = output_dir / "04_cumulative_attention.png"
-        plt.savefig(
-            plot_paths["cumulative"], dpi=150, bbox_inches="tight", facecolor="white"
-        )
-        plt.close()
-
-    # PLOT 5: Statistical Summary Dashboard
-    plt.figure(figsize=(12, 8))
-    plt.axis("off")
-
-    # Create a comprehensive summary
-    summary_text = []
-    summary_text.append("LSTM ATTENTION MECHANISM ANALYSIS SUMMARY")
-    summary_text.append("=" * 50)
-    summary_text.append("")
-    summary_text.append("MODEL PERFORMANCE:")
-    summary_text.append(f"• Mean Squared Error: {mse:.6f}")
-    summary_text.append("")
-    summary_text.append("ATTENTION STATISTICS:")
-    if len(timestep_attention) > 1:
-        summary_text.append(f"• Time Steps Analyzed: {len(timestep_attention)}")
-        summary_text.append(
-            f"• Mean Attention Weight: {np.mean(timestep_attention):.4f}"
-        )
-        summary_text.append(f"• Attention Std Dev: {np.std(timestep_attention):.4f}")
-        summary_text.append(
-            f"• Attention Range: {np.min(timestep_attention):.4f} - {np.max(timestep_attention):.4f}"
-        )
-        summary_text.append(
-            f"• Peak Attention at Step: {np.argmax(timestep_attention)}"
-        )
-        summary_text.append("")
-
-    summary_text.append("TOP 5 MOST IMPORTANT FEATURES:")
-    summary_text.append("-" * 35)
-    for i, (_, row) in enumerate(importance_df.head(5).iterrows(), 1):
-        summary_text.append(f"{i}. {row['Feature']}: {row['Attention_Importance']:.4f}")
-
-    summary_text.append("")
-    summary_text.append("INTERPRETATION GUIDE:")
-    summary_text.append("-" * 25)
-    summary_text.append("• High importance features drive predictions")
-    summary_text.append("• Peak time steps indicate critical moments")
-    summary_text.append("• Steep cumulative curve = early focus")
-    summary_text.append("• Heatmap shows attention patterns")
-
-    summary_str = "\n".join(summary_text)
-
-    plt.text(
-        0.05,
-        0.95,
-        summary_str,
-        transform=plt.gca().transAxes,
-        fontsize=12,
-        fontfamily="monospace",
-        verticalalignment="top",
-        linespacing=1.5,
-        bbox=dict(
-            boxstyle="round,pad=1.0",
-            facecolor="lightblue",
-            alpha=0.9,
-            edgecolor="navy",
-            linewidth=2,
-        ),
+    im = plt.imshow(
+        heatmap_data,
+        aspect="auto",
+        cmap="YlOrRd",
+        interpolation="nearest",
+        extent=[0, len(timestep_attention) - 1, 0, min(15, len(feature_names)) - 1],
     )
 
+    plt.xlabel("Time Steps", fontsize=13, fontweight="bold")
+    plt.ylabel("Feature Representation", fontsize=13, fontweight="bold")
     plt.title(
-        "Attention Analysis Summary Dashboard", fontsize=16, fontweight="bold", pad=20
+        "Attention Pattern Heatmap\nVisualizing Attention Intensity Across Features and Time",
+        fontsize=15,
+        fontweight="bold",
+        pad=20,
     )
+
+    # Add colorbar with better styling
+    cbar = plt.colorbar(im, shrink=0.8, pad=0.02)
+    cbar.set_label("Attention Weight", fontsize=12, fontweight="bold")
+    cbar.ax.tick_params(labelsize=10)
+
+    # Add feature labels on y-axis for some rows
+    feature_indices = np.linspace(0, min(15, len(feature_names)) - 1, 5, dtype=int)
+    feature_labels = [
+        feature_names[i] if i < len(feature_names) else f"Feature {i}"
+        for i in feature_indices
+    ]
+    plt.yticks(feature_indices, feature_labels, fontsize=9)
+
     plt.tight_layout()
-    plot_paths["summary"] = output_dir / "05_attention_summary.png"
-    plt.savefig(plot_paths["summary"], dpi=150, bbox_inches="tight", facecolor="white")
+    plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="white")
     plt.close()
 
-    # PLOT 6: Attention vs Feature Rank
+
+def plot_cumulative_attention(timestep_attention, output_path):
+    """Plot cumulative attention distribution over time."""
+    if len(timestep_attention) <= 1:
+        return
+        
+    plt.figure(figsize=(14, 8))
+
+    cumulative_attention = np.cumsum(timestep_attention) / np.sum(timestep_attention)
+    plt.plot(
+        np.arange(len(timestep_attention)),
+        cumulative_attention,
+        "g-",
+        linewidth=4,
+        alpha=0.8,
+        label="Cumulative Attention",
+    )
+
+    # Mark important thresholds with annotations
+    threshold_colors = ["red", "orange", "purple"]
+    thresholds = [0.5, 0.8, 0.95]
+
+    for i, (threshold, color) in enumerate(zip(thresholds, threshold_colors)):
+        idx = np.where(cumulative_attention >= threshold)[0]
+        if len(idx) > 0:
+            step = idx[0]
+            plt.axvline(
+                x=step,
+                color=color,
+                linestyle="--",
+                alpha=0.8,
+                linewidth=2,
+                label=f"{threshold * 100:.0f}% attention by step {step}",
+            )
+
+            # Add annotation
+            plt.annotate(
+                f"{threshold * 100:.0f}%",
+                xy=(step, threshold),
+                xytext=(10, 20 + i * 30),
+                textcoords="offset points",
+                fontsize=11,
+                fontweight="bold",
+                color=color,
+                arrowprops=dict(arrowstyle="->", color=color, alpha=0.7),
+            )
+
+    plt.xlabel("Time Step", fontsize=13, fontweight="bold")
+    plt.ylabel("Cumulative Attention Fraction", fontsize=13, fontweight="bold")
+    plt.title(
+        "Cumulative Attention Distribution\nHow Quickly the Model Focuses Its Attention",
+        fontsize=15,
+        fontweight="bold",
+        pad=20,
+    )
+    plt.legend(fontsize=11, loc="lower right")
+    plt.grid(True, alpha=0.3, linestyle="-", linewidth=0.5)
+    plt.ylim(0, 1.05)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="white")
+    plt.close()
+
+
+def plot_importance_rank_distribution(importance_df, output_path):
+    """Plot feature importance distribution by rank."""
     plt.figure(figsize=(14, 8))
 
     ranks = np.arange(1, len(importance_df) + 1)
@@ -417,7 +323,6 @@ def compute_attention_importance(
         fontweight="bold",
         pad=20,
     )
-    plt.legend(fontsize=11)
     plt.grid(True, alpha=0.3, linestyle="-", linewidth=0.5, which="both")
 
     # Add percentile lines
@@ -433,13 +338,93 @@ def compute_attention_importance(
 
     plt.legend(fontsize=10)
     plt.tight_layout()
-    plot_paths["rank_distribution"] = output_dir / "06_importance_rank_distribution.png"
-    plt.savefig(
-        plot_paths["rank_distribution"], dpi=150, bbox_inches="tight", facecolor="white"
-    )
+    plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="white")
     plt.close()
 
-    print("Enhanced attention analysis complete with 6 individual visualizations")
+
+def generate_all_plots(importance_df, timestep_attention, mse, feature_names, output_dir):
+    """Generate all visualization plots."""
+    plot_paths = {}
+    
+    # PLOT 1: Feature Importance Bar Chart
+    plot_paths["feature_importance"] = output_dir / "01_feature_importance_bars.png"
+    plot_feature_importance_bar(importance_df, feature_names, plot_paths["feature_importance"])
+    
+    # PLOT 2: Attention Distribution Over Time
+    plot_paths["time_distribution"] = output_dir / "02_attention_time_distribution.png"
+    plot_attention_time_distribution(timestep_attention, plot_paths["time_distribution"])
+    
+    # PLOT 3: Attention Heatmap
+    plot_paths["heatmap"] = output_dir / "03_attention_heatmap.png"
+    plot_attention_heatmap(timestep_attention, feature_names, plot_paths["heatmap"])
+    
+    # PLOT 4: Cumulative Attention Distribution
+    plot_paths["cumulative"] = output_dir / "04_cumulative_attention.png"
+    plot_cumulative_attention(timestep_attention, plot_paths["cumulative"])
+    
+    # PLOT 5: Attention vs Feature Rank
+    plot_paths["rank_distribution"] = output_dir / "05_importance_rank_distribution.png"
+    plot_importance_rank_distribution(importance_df, plot_paths["rank_distribution"])
+    
+    return plot_paths
+
+
+def compute_attention_importance(
+    model: torch.nn.Module,
+    val_loader: torch.utils.data.DataLoader,
+    feature_names: list,
+    device,
+    output_dir: str = "images/04_feature_importance",
+):
+    """
+    Compute feature importance using attention weights from the LSTM model
+    Enhanced with comprehensive individual visualizations and explanations
+
+    Args:
+        model: Trained LSTM model with attention mechanism
+        val_loader: DataLoader for validation data
+        feature_names: List of feature names corresponding to input features
+        device: Device to run computations on (CPU or GPU)
+        output_dir: Directory to save output plots and data
+
+    Returns:
+        importance_df: DataFrame with feature importance scores
+        plot_paths: Dictionary with paths to saved plots
+        attention_data: Dictionary with additional attention statistics
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info("Computing attention-based feature importance...")
+
+    # Collect data
+    all_attention_weights, all_predictions, all_targets = collect_attention_data(
+        model, val_loader, device
+    )
+    
+    # Compute statistics
+    stats = compute_attention_statistics(
+        all_attention_weights, all_predictions, all_targets, feature_names
+    )
+    
+    # Create importance DataFrame
+    importance_df = create_importance_dataframe(feature_names, stats['feature_importance'])
+    
+    # Create metadata
+    attention_data = create_attention_metadata(
+        importance_df, stats['timestep_attention'], stats['mse']
+    )
+    
+    # Generate all plots
+    plot_paths = generate_all_plots(
+        importance_df, 
+        stats['timestep_attention'], 
+        stats['mse'], 
+        feature_names, 
+        output_dir
+    )
+    
+    logger.info("Enhanced attention analysis complete with 6 individual visualizations")
     return importance_df, plot_paths, attention_data
 
 
@@ -520,7 +505,7 @@ def compute_ablation_importance(
     fig, ax = plt.subplots(figsize=(12, max(8, len(feature_names) * 0.3)))
     colors = plt.cm.coolwarm(np.linspace(0, 1, len(feature_names)))  # type: ignore
 
-    bars = ax.barh(
+    ax.barh(
         importance_df["Feature"], importance_df["Ablation_Importance"], color=colors
     )
     ax.set_xlabel("Performance Drop (MSE Increase)", fontsize=12, fontweight="bold")

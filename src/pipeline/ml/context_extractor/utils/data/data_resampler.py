@@ -86,11 +86,7 @@ def resample_experiment_fast(group, n=46, agg_metric="mean"):
                 abs_vals = np.abs(values)
                 probs = abs_vals / (abs_vals.sum() + 1e-12)
                 row_data[f"{col}_entropy"] = entropy(probs + 1e-12)
-
-            # -------------------------------------------------------
-            # NEW ADVANCED METRICS
-            # -------------------------------------------------------
-
+                
             elif agg_metric == "slope":
                 # linear regression slope and intercept
                 t_norm = t - t.mean()
