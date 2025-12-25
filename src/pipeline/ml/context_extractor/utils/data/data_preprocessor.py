@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -7,8 +8,8 @@ from torch.utils.data import Dataset
 from src.pipeline.ml.context_extractor.utils.data.data_resampler import (
     resample_experiment_ultrafast,
 )
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from sklearn.preprocessing import MinMaxScaler
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
@@ -32,10 +33,12 @@ class LSTMPreprocessor:
         self.annotation_json_path = annotation_json_path
         self.database_path = database_path
 
-    def read_data(self, label_name: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def read_data(self, label_name: str):
         """Read sensor and target data from database and annotation JSON.
+        
         Args:
             label_name: Target label to extract from annotations.
+            
         Returns:
             sensor_df: DataFrame with sensor data.
             target_df: DataFrame with target labels.
@@ -74,16 +77,18 @@ class LSTMPreprocessor:
         logger.info("Data read complete.")
         return df_label, dataframes["arc"]
 
-    def feature_selection(self, variance_threshold: float = 0) -> pd.DataFrame:
+    def feature_selection(self, variance_threshold: float = 0):
         """Select features based on variance threshold.
+        
         Args:
             variance_threshold: Minimum variance required to keep a feature.
+            
         Returns:
             sensor_df: DataFrame with selected features.
         """
         if self.sensor_df is None:
             logger.warning("sensor_df is None. Cannot perform feature selection.")
-            return
+            raise FileNotFoundError
         self.sensor_df = self.sensor_df.loc[
             :, self.sensor_df.var() > variance_threshold
         ]
@@ -91,20 +96,23 @@ class LSTMPreprocessor:
 
     def get_feature_cols(self) -> list[str]:
         """Get the list of feature columns from sensor_df."""
+        if not self._feature_cols:
+            raise ValueError("Feature columns are not set. Call set_feature_cols() first.")
         return self._feature_cols
 
-    def get_dfs(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def get_dfs(self):
         """Get the sensor and target dataframes"""
-        if self.sensor_df is None and self.target_df is None:
-            logger.warning("sensor_df and target_df are None")
-            return
+        if self.sensor_df is None:
+            raise ValueError("sensor_df is None. Load data first.")
+        if self.target_df is None:
+            raise ValueError("target_df is None. Load data first.")
         return self.sensor_df, self.target_df
 
     def group_and_pad(
         self,
         df: pd.DataFrame,
         group_col: str = "Experiment_ID",
-        exclude_cols: list[str] = None,
+        exclude_cols: Optional[list[str]] = None,
     ) -> np.ndarray:
         """
         Groups a DataFrame by a column, pads with NaN to match the longest group,
@@ -114,11 +122,13 @@ class LSTMPreprocessor:
             df: Input DataFrame to be grouped and padded.
             group_col: Column name to group by.
             exclude_cols: List of columns to exclude from padding.
+            
         Returns:
             3D numpy array of shape (num_groups, max_group_length, num_features)
         """
         if exclude_cols is None:
             exclude_cols = [group_col]
+
         groups_list = []
         max_len = df.groupby(group_col).size().max()
         num_features = df.shape[1] - len(exclude_cols)
@@ -133,17 +143,23 @@ class LSTMPreprocessor:
         return np.nan_to_num(array_3d, nan=0.0)
 
     def normalize_column(self, column_name: str) -> pd.DataFrame:
-        """Normalize arbitrary column in target_df
+        """
+        Normalize arbitrary column in target_df
+        
         Args:
             column_name: Name of the column to normalize.
+            
         Returns:
             target_df: DataFrame with normalized column.
         """
-        if self.target_df is None or column_name not in self.target_df.columns:
-            logger.warning(
-                f"target_df is None or {column_name} not in target_df columns."
+        if self.target_df is None:
+            raise ValueError("target_df is None. Load target data first.")
+
+        if column_name not in self.target_df.columns:
+            raise ValueError(
+                f"Column '{column_name}' not found in target_df. "
+                f"Available columns: {list(self.target_df.columns)}"
             )
-            return
         scaler = MinMaxScaler(feature_range=(0, 1))
         self.target_df[column_name] = scaler.fit_transform(
             self.target_df[[column_name]]
@@ -154,6 +170,7 @@ class LSTMPreprocessor:
         """Normalize a specific target column for window algorithm.
         Args:
             col: Name of the column to normalize.
+            
         Returns:
             target_df: DataFrame with normalized column.
         """
@@ -169,6 +186,7 @@ class LSTMPreprocessor:
         Args:
             X: Input features of shape (num_samples, seq_len, num_features).
             Y: Target values of shape (num_samples, num_angles).
+            
         Returns:
             X_rf: 2D array of shape (num_samples * num_angles, seq_len * num_features + 1).
             Y_rf: 1D array of shape (num_samples * num_angles,).
@@ -210,14 +228,13 @@ def _normalize_experiment(group, n=46):
     Args:
         group: DataFrame group corresponding to one experiment.
         n: Desired number of rows.
+        
     Returns:
         DataFrame with exactly n rows.
     """
     if len(group) > n:
-        # Just take the first 46 rows
         return group.iloc[:n].copy()
     else:
-        # Already 46 rows
         return group.copy()
 
 
@@ -225,9 +242,11 @@ def prepare_data(
     input_path_param: dict, preprocessing_param: dict
 ) -> tuple[torch.Tensor, torch.Tensor, list[str], list[str], list[int], list[int]]:
     """Prepare data for LSTM model training.
+    
     Args:
         input_path_param: Dict with input paths and machine part.
         preprocessing_param: Dict with preprocessing parameters.
+        
     Returns:
         X: Tensor of input features.
         Y: Tensor of target values.
@@ -241,6 +260,8 @@ def prepare_data(
     database_path = input_path_param.get("database_path")
     preprocessor = LSTMPreprocessor(database_path, machine_part, annotation_json_path)
     to_58_included = preprocessing_param.get("to_58_included", False)
+    if machine_part == "De-Clamping":
+        to_58_included = True
     sensors_df, target_df = preprocessor.read_data(machine_part)
     ELIMINATED_COLUMNS = [
         "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
@@ -263,7 +284,8 @@ def prepare_data(
             r["Experiment_ID"] = exp_id
 
             out.append(r)
-
+            
+        import pandas as pd
         target_df = pd.concat(out, ignore_index=True)
 
         sensors_df = sensors_df.reset_index()
