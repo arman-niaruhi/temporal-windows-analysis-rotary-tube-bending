@@ -22,8 +22,7 @@ def collect_attention_data(model, val_loader, device):
             Xb, Yb = Xb.to(device), Yb.to(device)
             pred, attn_weights = model(Xb)
             
-            # attn_weights shape: (batch, n_predictions, timesteps)
-            mean_attn = attn_weights.mean(dim=(0, 1))  # Shape: (timesteps,)
+            mean_attn = attn_weights.mean(dim=(0, 1))  
             all_attention_weights.append(mean_attn.cpu())
             all_predictions.append(pred.cpu())
             all_targets.append(Yb.cpu())
@@ -44,12 +43,10 @@ def compute_attention_statistics(all_attention_weights, all_predictions, all_tar
     global_attn = torch.stack(all_attention_weights).mean(dim=0)
     timestep_attention = global_attn.numpy()
     
-    # Calculate MSE
     predictions = torch.cat(all_predictions, dim=0)
     targets = torch.cat(all_targets, dim=0)
     mse = nn.MSELoss()(predictions, targets).item()
     
-    # Calculate feature importance
     base_importance = global_attn.mean().item()
     feature_importance = base_importance * (1 + 0.1 * np.random.randn(len(feature_names)))
     feature_importance = np.maximum(feature_importance, 0.001)
@@ -118,7 +115,6 @@ def plot_attention_time_distribution(timestep_attention, output_path):
     plt.figure(figsize=(14, 8))
     x_vals = np.arange(len(timestep_attention))
 
-    # Create main plot with enhanced styling
     plt.plot(
         x_vals,
         timestep_attention,
@@ -132,7 +128,6 @@ def plot_attention_time_distribution(timestep_attention, output_path):
         label="Attention Weights",
     )
 
-    # Highlight peak attention regions
     peak_threshold = np.percentile(timestep_attention, 75)
     peaks = np.where(timestep_attention > peak_threshold)[0]
     plt.scatter(
@@ -146,7 +141,6 @@ def plot_attention_time_distribution(timestep_attention, output_path):
         linewidth=2,
     )
 
-    # Add trend line
     if len(timestep_attention) > 3:
         z = np.polyfit(x_vals, timestep_attention, 2)
         p = np.poly1d(z)
@@ -183,7 +177,6 @@ def plot_attention_heatmap(timestep_attention, feature_names, output_path):
         
     plt.figure(figsize=(16, 6))
 
-    # Create a more detailed heatmap
     heatmap_data = np.tile(timestep_attention, (min(15, len(feature_names)), 1))
 
     im = plt.imshow(
@@ -203,12 +196,10 @@ def plot_attention_heatmap(timestep_attention, feature_names, output_path):
         pad=20,
     )
 
-    # Add colorbar with better styling
     cbar = plt.colorbar(im, shrink=0.8, pad=0.02)
     cbar.set_label("Attention Weight", fontsize=12, fontweight="bold")
     cbar.ax.tick_params(labelsize=10)
 
-    # Add feature labels on y-axis for some rows
     feature_indices = np.linspace(0, min(15, len(feature_names)) - 1, 5, dtype=int)
     feature_labels = [
         feature_names[i] if i < len(feature_names) else f"Feature {i}"
@@ -238,7 +229,6 @@ def plot_cumulative_attention(timestep_attention, output_path):
         label="Cumulative Attention",
     )
 
-    # Mark important thresholds with annotations
     threshold_colors = ["red", "orange", "purple"]
     thresholds = [0.5, 0.8, 0.95]
 
@@ -255,7 +245,6 @@ def plot_cumulative_attention(timestep_attention, output_path):
                 label=f"{threshold * 100:.0f}% attention by step {step}",
             )
 
-            # Add annotation
             plt.annotate(
                 f"{threshold * 100:.0f}%",
                 xy=(step, threshold),
@@ -302,7 +291,6 @@ def plot_importance_rank_distribution(importance_df, output_path):
         label="Feature Importance",
     )
 
-    # Highlight top features
     top_n = min(10, len(importance_df))
     plt.scatter(
         ranks[:top_n],
@@ -325,7 +313,6 @@ def plot_importance_rank_distribution(importance_df, output_path):
     )
     plt.grid(True, alpha=0.3, linestyle="-", linewidth=0.5, which="both")
 
-    # Add percentile lines
     for percentile in [25, 50, 75]:
         value = np.percentile(importance_values, percentile)
         plt.axhline(
@@ -346,23 +333,18 @@ def generate_all_plots(importance_df, timestep_attention, mse, feature_names, ou
     """Generate all visualization plots."""
     plot_paths = {}
     
-    # PLOT 1: Feature Importance Bar Chart
     plot_paths["feature_importance"] = output_dir / "01_feature_importance_bars.png"
     plot_feature_importance_bar(importance_df, feature_names, plot_paths["feature_importance"])
     
-    # PLOT 2: Attention Distribution Over Time
     plot_paths["time_distribution"] = output_dir / "02_attention_time_distribution.png"
     plot_attention_time_distribution(timestep_attention, plot_paths["time_distribution"])
     
-    # PLOT 3: Attention Heatmap
     plot_paths["heatmap"] = output_dir / "03_attention_heatmap.png"
     plot_attention_heatmap(timestep_attention, feature_names, plot_paths["heatmap"])
     
-    # PLOT 4: Cumulative Attention Distribution
     plot_paths["cumulative"] = output_dir / "04_cumulative_attention.png"
     plot_cumulative_attention(timestep_attention, plot_paths["cumulative"])
     
-    # PLOT 5: Attention vs Feature Rank
     plot_paths["rank_distribution"] = output_dir / "05_importance_rank_distribution.png"
     plot_importance_rank_distribution(importance_df, plot_paths["rank_distribution"])
     
@@ -397,25 +379,20 @@ def compute_attention_importance(
 
     logger.info("Computing attention-based feature importance...")
 
-    # Collect data
     all_attention_weights, all_predictions, all_targets = collect_attention_data(
         model, val_loader, device
     )
     
-    # Compute statistics
     stats = compute_attention_statistics(
         all_attention_weights, all_predictions, all_targets, feature_names
     )
     
-    # Create importance DataFrame
     importance_df = create_importance_dataframe(feature_names, stats['feature_importance'])
     
-    # Create metadata
     attention_data = create_attention_metadata(
         importance_df, stats['timestep_attention'], stats['mse']
     )
     
-    # Generate all plots
     plot_paths = generate_all_plots(
         importance_df, 
         stats['timestep_attention'], 
@@ -455,7 +432,6 @@ def compute_ablation_importance(
     model.eval()
     criterion = nn.MSELoss()
 
-    # Get baseline performance
     print("Computing baseline performance...")
     baseline_loss = 0.0
     n_batches = 0
@@ -473,7 +449,6 @@ def compute_ablation_importance(
     baseline_loss /= n_batches
     print(f"Baseline MSE: {baseline_loss:.6f}")
 
-    # Ablate each feature
     importance_scores = []
 
     print("Computing ablation importance...")
@@ -485,7 +460,6 @@ def compute_ablation_importance(
             for Xb, Yb in val_loader:
                 Xb, Yb = Xb.to(device), Yb.to(device)
 
-                # Ablate the feature (set to zero)
                 Xb_ablated = Xb.clone()
                 Xb_ablated[:, :, feat_idx] = 0
 
@@ -494,16 +468,15 @@ def compute_ablation_importance(
                 n_batches += 1
 
         ablated_loss /= n_batches
-        importance = ablated_loss - baseline_loss  # How much worse performance gets
+        importance = ablated_loss - baseline_loss  
         importance_scores.append(importance)
 
     importance_df = pd.DataFrame(
         {"Feature": feature_names, "Ablation_Importance": importance_scores}
     ).sort_values("Ablation_Importance", ascending=False)
 
-    # Plot
     fig, ax = plt.subplots(figsize=(12, max(8, len(feature_names) * 0.3)))
-    colors = plt.cm.coolwarm(np.linspace(0, 1, len(feature_names)))  # type: ignore
+    colors = plt.cm.coolwarm(np.linspace(0, 1, len(feature_names)))  
 
     ax.barh(
         importance_df["Feature"], importance_df["Ablation_Importance"], color=colors
@@ -549,7 +522,6 @@ def compute_permutation_importance(
     model.eval()
     criterion = nn.MSELoss()
 
-    # Get baseline performance
     print("Computing baseline performance...")
     baseline_loss = 0.0
     n_batches = 0
@@ -566,7 +538,6 @@ def compute_permutation_importance(
 
     baseline_loss /= n_batches
 
-    # Compute importance for each feature
     importances = []
 
     print("Computing permutation importance...")
@@ -578,7 +549,6 @@ def compute_permutation_importance(
             for Xb, Yb in val_loader:
                 Xb, Yb = Xb.to(device), Yb.to(device)
 
-                # Permute feature across samples
                 Xb_perm = Xb.clone()
                 perm_indices = torch.randperm(Xb.size(0))
                 Xb_perm[:, :, feat_idx] = Xb[perm_indices, :, feat_idx]
@@ -591,12 +561,10 @@ def compute_permutation_importance(
         importance = permuted_loss - baseline_loss
         importances.append(importance)
 
-    # Create DataFrame
     importance_df = pd.DataFrame(
         {"Feature": feature_names, "Permutation_Importance": importances}
     ).sort_values("Permutation_Importance", ascending=False)
 
-    # Plot
     fig, ax = plt.subplots(figsize=(12, max(8, len(feature_names) * 0.3)))
     colors = plt.cm.coolwarm(np.linspace(0, 1, len(feature_names)))
     bars = ax.barh(
@@ -646,7 +614,6 @@ def analyze_feature_importance(
     importance_dfs = {}
     additional_data = {}
 
-    # 1. Attention-based Importance (Best for your architecture)
     try:
         logger.info("[1/3] Computing attention-based importance...")
         attn_df, attn_path, attn_data = compute_attention_importance(
@@ -662,7 +629,6 @@ def analyze_feature_importance(
 
         traceback.print_exc()
 
-    # 3. Permutation Importance (Reliable and interpretable)
     try:
         logger.info("[2/3] Computing permutation importance...")
         perm_df, perm_path = compute_permutation_importance(
@@ -677,7 +643,6 @@ def analyze_feature_importance(
 
         traceback.print_exc()
 
-    # 4. Ablation Importance (Most reliable)
     try:
         logger.info("[3/3] Computing ablation importance...")
         ablation_df, ablation_path = compute_ablation_importance(
@@ -692,13 +657,12 @@ def analyze_feature_importance(
 
         traceback.print_exc()
 
-    # Create comparison table if multiple methods succeeded
     successful_methods = [
         method for method in importance_dfs.keys() if importance_dfs[method] is not None
     ]
     if len(successful_methods) > 1:
         comparison_data = []
-        for feature in feature_names[:10]:  # Top 10 features by first method
+        for feature in feature_names[:10]:  
             row = {"Feature": feature}
             for method in successful_methods:
                 df = importance_dfs[method]

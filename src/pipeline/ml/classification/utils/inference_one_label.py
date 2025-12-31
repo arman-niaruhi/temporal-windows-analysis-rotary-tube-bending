@@ -49,7 +49,7 @@ def get_all_predictions(
     sensors_df = classifier_preprocessor.assign_one_label(target_label=label)
     sensors_df = classifier_preprocessor.normalize_and_encode_labels()
     feature_cols = classifier_preprocessor.get_feature_cols()
-    input_size = len(feature_cols) # type: ignore
+    input_size = len(feature_cols) 
     hidden_size = model_config["hidden_size"]
     num_layers = model_config["num_layers"]
     num_classes = 2
@@ -72,18 +72,14 @@ def get_all_predictions(
     model.load_state_dict(state_dict)
     model.eval()
 
-    # --- Select a random experiment ---
     exp_data = sensors_df[sensors_df["Experiment_ID"] == str(exp_id)]
-    # --- Features ---
     X = torch.tensor(exp_data[feature_cols].values, dtype=torch.float32).to(device)
-    X = X.unsqueeze(0)  # [1, seq_len, num_features]
+    X = X.unsqueeze(0)  
 
-    # --- Model predictions ---
     with torch.no_grad():
         outputs = model(X)
         y_pred = torch.argmax(outputs, dim=-1).squeeze(0).cpu().numpy()
 
-    # Example boolean masks
     mask_decalmping_pred = y_pred == 0
     mask_declamping_true = exp_data["Label_encoded"].values == 0
     return exp_data, mask_decalmping_pred, mask_declamping_true
@@ -99,7 +95,7 @@ def inference_one_label_in_one(
     labels: list[str],
     machine_part: str,
     save_dir_path: str,
-    get_all_predictions_fn: callable,  # type: ignore
+    get_all_predictions_fn: callable,  
     figsize=(15, 10),
 ):
     """
@@ -120,7 +116,6 @@ def inference_one_label_in_one(
         None
     """
     
-    # --- Input validation ---
     if not isinstance(exp_id, int):
         raise TypeError("exp_id must be an int")
 
@@ -146,7 +141,7 @@ def inference_one_label_in_one(
 
     if not isinstance(labels, (list, tuple)) or len(labels) == 0:
         raise ValueError("labels must be a non-empty list of label names")
-    if not all(isinstance(l, str) for l in labels):  # noqa: E741
+    if not all(isinstance(l, str) for l in labels):  
         raise TypeError("all labels must be strings")
 
     if not isinstance(machine_part, str) or not machine_part:
@@ -161,10 +156,8 @@ def inference_one_label_in_one(
 
     logger.info(f"Starting inference for Experiment ID: {exp_id} with labels: {labels}")
 
-    # Assign distinct base colors
-    base_colors = list(mcolors.TABLEAU_COLORS.values())[: len(labels)] # type: ignore
+    base_colors = list(mcolors.TABLEAU_COLORS.values())[: len(labels)] 
 
-    # --- Load all data upfront ---
     all_data = {}
     for label in labels:
         exp_data, mask_pred, mask_true = get_all_predictions_fn(
@@ -176,18 +169,17 @@ def inference_one_label_in_one(
             model_config=model_config,
             machine_part=machine_part,
             exp_id=exp_id,
-        )  # type: ignore
+        )  
         all_data[label] = {
             "exp_data": exp_data,
             "mask_pred": mask_pred,
             "mask_true": mask_true,
         }
-    # Set wider and shorter figure size - adjust width and height as needed
-    fig_width = 16  # Increased from likely smaller default
-    fig_height = 5  # Reduced height - adjust based on your needs
+    fig_width = 16  
+    fig_height = 5  
     figsize = (fig_width, fig_height)
 
-    _, axs = plt.subplots(2, 1, figsize=figsize, sharex=True, height_ratios=[2, 1])  # Add height_ratios for better proportion
+    _, axs = plt.subplots(2, 1, figsize=figsize, sharex=True, height_ratios=[2, 1])  
 
     sensor_plotted = set()
     for label in labels:
@@ -210,8 +202,7 @@ def inference_one_label_in_one(
     axs[0].grid(True, linestyle="--", alpha=0.5)
     axs[0].legend(loc="center left", bbox_to_anchor=(1, 0.5), fontsize="small")
 
-    # Adjust margins to make better use of the wider plot
-    axs[0].margins(x=0.01)  # Reduce horizontal margins
+    axs[0].margins(x=0.01)  
 
     categories, starts, ends, colors = [], [], [], []
 
@@ -223,7 +214,6 @@ def inference_one_label_in_one(
         true_color = mcolors.to_rgba(base_color, alpha=0.7)
         pred_color = mcolors.to_rgba(base_color, alpha=0.3)
 
-        # Helper to extract segments
         def extract_segments(mask, category, color):
             start = None
             for j, val in enumerate(mask):
@@ -263,7 +253,6 @@ def inference_one_label_in_one(
         )
 
     axs[1].set_xlabel("Time Index")
-    # Adjust second subplot margins too
     axs[1].margins(x=0.01)
 
     plt.tight_layout()

@@ -127,7 +127,6 @@ class ClassifierPreprocessor:
             if not active_labels:
                 return "No Label"
 
-            # Priority logic for overlapping labels
             if "Bending" in active_labels and "Mandrel Extraction" in active_labels:
                 return "Mandrel Extraction"
 
@@ -157,7 +156,6 @@ class ClassifierPreprocessor:
             if not active_labels:
                 return "No Label"
 
-            # Filter to target label if specified
             if target_label is not None:
                 return target_label if target_label in active_labels else "No Label"
 
@@ -180,7 +178,6 @@ class ClassifierPreprocessor:
 
         self.sensors_df = self.sensors_df.copy()
 
-        # Find all unique labels except "No Label"
         unique_labels = [
             lbl for lbl in self.sensors_df["Label"].unique() if lbl != "No Label"
         ]
@@ -190,13 +187,11 @@ class ClassifierPreprocessor:
                 "No valid labels found — dataset only contains 'No Label'."
             )
 
-        # Choose the dominant non-"No Label" class
         label_counts = self.sensors_df["Label"].value_counts()
         target_label = label_counts[label_counts.index != "No Label"].idxmax()
 
         logger.info(f"Keeping only label: {target_label}")
 
-        # Replace all other labels with "No Label"
         self.sensors_df["Label"] = self.sensors_df["Label"].apply(
             lambda lbl: lbl if lbl == target_label else "No Label"
         )
@@ -217,7 +212,6 @@ class ClassifierPreprocessor:
             ["Experiment_ID", "Label"]
         )
 
-        # Convert features to numeric and fill NaNs
         self.sensors_df[self._feature_cols] = self.sensors_df[self._feature_cols].apply(
             pd.to_numeric, errors="coerce"
         )
@@ -225,7 +219,6 @@ class ClassifierPreprocessor:
             self._feature_cols
         ].fillna(0.0)
 
-        # Encode labels
         self.sensors_df["Label_encoded"] = LabelEncoder().fit_transform(
             self.sensors_df["Label"]
         )
@@ -235,7 +228,7 @@ class ClassifierPreprocessor:
 
     def split_experiments(
         self,
-        experiment_groups: List[List[int]],
+        experiment_groups,
         test_ratio: float = 0.1,
         val_ratio: float = 0.2,
         seed: int = 42,
@@ -260,27 +253,22 @@ class ClassifierPreprocessor:
         sensor_df = self.sensors_df.copy()
         sensor_df["Experiment_ID"] = sensor_df["Experiment_ID"].astype(int)
 
-        # Shuffle experiment groups as units
         np.random.seed(seed)
         shuffled_groups = experiment_groups.copy()
         np.random.shuffle(shuffled_groups)
 
-        # Calculate split sizes
         n_total_groups = len(shuffled_groups)
         n_test_groups = int(test_ratio * n_total_groups)
         n_val_groups = int(val_ratio * n_total_groups)
 
-        # Assign groups to splits
         test_groups = shuffled_groups[:n_test_groups]
         val_groups = shuffled_groups[n_test_groups : n_test_groups + n_val_groups]
         train_groups = shuffled_groups[n_test_groups + n_val_groups :]
 
-        # Flatten experiment IDs for each split
         train_exps = [eid for group in train_groups for eid in group]
         val_exps = [eid for group in val_groups for eid in group]
         test_exps = [eid for group in test_groups for eid in group]
 
-        # Filter DataFrame by experiment IDs
         train_df = sensor_df[sensor_df["Experiment_ID"].isin(train_exps)].copy()
         val_df = sensor_df[sensor_df["Experiment_ID"].isin(val_exps)].copy()
         test_df = sensor_df[sensor_df["Experiment_ID"].isin(test_exps)].copy()
@@ -362,7 +350,6 @@ class ClassifierPreprocessor:
         mlb = MultiLabelBinarizer()
         encoded = mlb.fit_transform(self.sensors_df["Labels"])
 
-        # Add one column per label
         for label, col in zip(mlb.classes_, encoded.T):
             self.sensors_df[f"Label_{label}"] = col
 

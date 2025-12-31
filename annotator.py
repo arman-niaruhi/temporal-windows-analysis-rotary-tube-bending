@@ -20,7 +20,6 @@ from PyQt5.QtCore import Qt
 
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 
-# Constants
 LABELS = ["Clamping", "Bending", "Mandrel Extraction", "De-Clamping"]
 LABEL_COLORS = {
     "Clamping": "#1f77b4",
@@ -37,7 +36,6 @@ class Annotator(QWidget):
         self.setGeometry(100, 100, 1200, 800)
         self.setStyleSheet("background-color: #2b2b2b; color: white;")
 
-        # Variables
         self.df = None
         self.labels = []
         self.current_exp = None
@@ -59,12 +57,10 @@ class Annotator(QWidget):
         self._set_status(f"Data loaded with {len(all_experiments)} experiments.")
 
     def _setup_gui(self):
-        main_layout = QVBoxLayout(self)  # Main vertical layout
+        main_layout = QVBoxLayout(self)  
 
-        # Top part: horizontal split (plot left, controls right)
         top_layout = QHBoxLayout()
 
-        # Left: plot area
         plot_frame = QVBoxLayout()
         self.figure = plt.Figure(figsize=(8, 6))
         self.ax = self.figure.add_subplot(111)
@@ -76,7 +72,6 @@ class Annotator(QWidget):
         plot_frame.addWidget(self.hide_btn)
         top_layout.addLayout(plot_frame, 4)
 
-        # Right: control panel
         control_frame = QVBoxLayout()
 
         self.exp_selector = QComboBox()
@@ -99,7 +94,6 @@ class Annotator(QWidget):
         self.load_json_btn.clicked.connect(self._load_json)
         control_frame.addWidget(self.load_json_btn)
 
-        # Instructions
         instr_group = QGroupBox("Keyboard Shortcuts")
         instr_layout = QVBoxLayout()
         instr_label = QLabel(
@@ -115,10 +109,8 @@ class Annotator(QWidget):
 
         top_layout.addLayout(control_frame, 1)
 
-        # Add top layout to main vertical layout
         main_layout.addLayout(top_layout)
 
-        # Status bar at the bottom
         self.status_label = QLabel("Ready")
         self.status_label.setStyleSheet("background-color: #1f1f1f; padding: 4px;")
         main_layout.addWidget(self.status_label)
@@ -147,7 +139,6 @@ class Annotator(QWidget):
                 (line,) = self.ax.plot(exp_df[col], label=col)
                 self.lines_by_col[col] = line
                 lines.append(line)
-        # Draw annotations
         for lbl in self.labels:
             if lbl["Experiment_ID"] == self.current_exp:
                 start, end = lbl["start"], lbl["end"]
@@ -183,7 +174,7 @@ class Annotator(QWidget):
 
         self.figure.subplots_adjust(
             bottom=0.25
-        )  # leave more space for multi-line legend
+        )  
         leg = self.ax.legend(
             handles,
             labels,
@@ -194,7 +185,6 @@ class Annotator(QWidget):
             fontsize=8,
         )
 
-        # Connect pick events for interactivity
         self.legend_map.clear()
         if self.pick_cid:
             self.figure.canvas.mpl_disconnect(self.pick_cid)
@@ -345,7 +335,6 @@ class Annotator(QWidget):
             )
         dlg.setWindowTitle("Delete Annotation")
         dlg.show()
-        # User can select an item to delete
         dlg.itemDoubleClicked.connect(
             lambda item: self._remove_selected(item, dlg, exp_labels)
         )
