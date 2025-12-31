@@ -29,7 +29,6 @@ from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 
 logger = logging.getLogger(__name__)
 
-# Constants
 VALID_LABELS = ["All", "Clamping", "Bending", "Mandrel Extraction", "De-Clamping"]
 VALID_MACHINE_PARTS = ["machine_and_movement", "movement"]
 EXCLUDED_COLUMNS = ["Experiment_ID", "Label", "Label_encoded"]
@@ -286,7 +285,6 @@ def training_pipeline(
     logger.info("Starting machine activity recognition training pipeline...")
     logger.info(f"Label: {label}, Machine part: {machine_part}")
 
-    # Validate inputs
     _validate_inputs(
         annotation_json_path,
         database_path,
@@ -296,10 +294,8 @@ def training_pipeline(
         pipeline_config,
     )
 
-    # Load experiment groups
     experiment_groups = _load_experiment_groups(experiment_ids_path)
 
-    # Prepare data
     train_dataset, val_dataset, test_dataset, feature_cols, sensors_df = _prepare_data(
         database_path,
         annotation_json_path,
@@ -309,25 +305,21 @@ def training_pipeline(
         experiment_groups,
     )
 
-    # Create data loaders
     dataloader_config = pipeline_config.get("dataloader_config", {})
     batch_size = dataloader_config.get("batch_size", 8)
     train_loader, val_loader, test_loader = _create_data_loaders(
         train_dataset, val_dataset, test_dataset, batch_size
     )
 
-    # Model configuration
     model_config = pipeline_config.get("model_config", {})
     input_size = len(feature_cols)
     hidden_size = model_config.get("hidden_size", 64)
     num_layers = model_config.get("num_layers", 2)
     num_classes = len(train_dataset.unique_labels)
 
-    # Initialize model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = _initialize_model(input_size, hidden_size, num_layers, num_classes, device)
 
-    # Train or load model
     idx_to_label = {v: k for k, v in train_dataset.label_to_idx.items()}
     model_path = f"{model_path_root}/{machine_part}/{label}"
     model = _train_or_load_model(
@@ -366,7 +358,6 @@ def _compute_importance_scores(
     """
     all_importances = {}
 
-    # Permutation importance
     logger.info("Computing permutation importance...")
     perm_importances, perm_std = permutation_importance_sequence(
         model, test_loader, device, n_repeats=10
@@ -376,7 +367,6 @@ def _compute_importance_scores(
         result_path, perm_importances, perm_std, feature_names, "Permutation"
     )
 
-    # Gradient importance
     logger.info("Computing gradient importance...")
     grad_importances = gradient_importance_sequence(
         model, test_loader, device, n_batches=10
@@ -386,7 +376,6 @@ def _compute_importance_scores(
         result_path, grad_importances, None, feature_names, "Gradient"
     )
 
-    # Integrated gradients
     logger.info("Computing integrated gradients...")
     intgrad_importances = integrated_gradients_importance(
         model, test_loader, device, n_samples=50, steps=30
@@ -396,7 +385,6 @@ def _compute_importance_scores(
         result_path, intgrad_importances, None, feature_names, "IntegratedGradients"
     )
 
-    # Occlusion importance
     logger.info("Computing occlusion importance...")
     occlusion_importances = occlusion_importance(
         model, test_loader, device, occlusion_value=0.0
@@ -406,7 +394,6 @@ def _compute_importance_scores(
         result_path, occlusion_importances, None, feature_names, "Occlusion"
     )
 
-    # Ablation importance
     logger.info("Computing ablation importance...")
     ablation_importances = feature_ablation_importance(model, test_loader, device)
     all_importances["Ablation"] = ablation_importances
@@ -414,7 +401,6 @@ def _compute_importance_scores(
         result_path, ablation_importances, None, feature_names, "Ablation"
     )
 
-    # Dropout importance
     logger.info("Computing dropout importance...")
     dropout_importances = dropout_importance(
         model, test_loader, device, n_repeats=20, dropout_rate=0.5
@@ -429,7 +415,7 @@ def _compute_importance_scores(
 
 def analyze_features(
     analyze_features_result_path: str,
-    model: LSTMSequenceClassifier,
+    model,
     sensors_df,
     test_loader: DataLoader,
     device: torch.device,
@@ -453,19 +439,15 @@ def analyze_features(
     """
     logger.info("Starting feature importance analysis...")
 
-    # Extract feature names
     feature_names = [col for col in sensors_df.columns if col not in EXCLUDED_COLUMNS]
 
-    # Compute importance scores
     all_importances = _compute_importance_scores(
         model, test_loader, device, analyze_features_result_path, feature_names
     )
 
-    # Compare methods
     logger.info("Comparing importance methods...")
     compare_methods(analyze_features_result_path, all_importances, feature_names)
 
-    # Save all results
     output_file = (
         Path(analyze_features_result_path) / "feature_importance_all_methods.npz"
     )

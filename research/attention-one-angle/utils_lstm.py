@@ -5,11 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# =========================
-# Visualization Method
-# =========================
 def plot_importance(X_sample, scores=None, target=None, attn_weights=None, top_n=3, target_angle = 1):
-    # Ensure X_sample is a tensor
     if isinstance(X_sample, np.ndarray):
         X_sample = torch.tensor(X_sample, dtype=torch.float32)
     elif isinstance(X_sample, pd.DataFrame):
@@ -19,17 +15,12 @@ def plot_importance(X_sample, scores=None, target=None, attn_weights=None, top_n
     num_features = X_sample.shape[1]
     seq_len = X_sample.shape[0]
 
-    # =========================
-    # Feature Plot
-    # =========================
     fig, (ax1, ax2, ax3) = plt.subplots(
         3, 1, figsize=(15, 10), gridspec_kw={"height_ratios": [3, 1, 1]}
     )
 
-    # Colors for features
     colors = plt.cm.tab10(np.linspace(0, 1, min(10, num_features)))
 
-    # Plot all features (normalized + offset)
     for i in range(num_features):
         data = X_sample[:, i].numpy()
         norm_data = (data - np.min(data)) / (np.max(data) - np.min(data) + 1e-8)
@@ -46,9 +37,6 @@ def plot_importance(X_sample, scores=None, target=None, attn_weights=None, top_n
     ax1.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
     ax1.grid(True, alpha=0.3)
 
-    # =========================
-    # Highlight Highest Attention
-    # =========================
     if attn_weights is not None:
         attn_weights_np = attn_weights.numpy()
         max_idx = np.argmax(attn_weights_np)
@@ -62,18 +50,12 @@ def plot_importance(X_sample, scores=None, target=None, attn_weights=None, top_n
             label="Highest Attention Area",
         )
 
-    # =========================
-    # Attention Plot
-    # =========================
     if attn_weights is not None:
         ax2.plot(attn_weights.numpy(), color="red", linewidth=2)
         ax2.set_title("Attention Weights Over Time")
         ax2.set_ylabel("Attention")
         ax2.grid(True, alpha=0.3)
 
-    # =========================
-    # Target Plot
-    # =========================
     if target is not None:
         if isinstance(target, pd.DataFrame):
             targets_plot = target.values
@@ -95,19 +77,15 @@ def plot_importance(X_sample, scores=None, target=None, attn_weights=None, top_n
     plt.tight_layout()
     plt.show()
 
-    # =========================
-    # Sliding Window Importance Highlight (optional)
-    # =========================
     if scores is not None:
         top_indices = np.argsort([sc for _, _, sc in scores])[-top_n:][::-1]
         top_windows = [scores[i] for i in top_indices]
         
         
         
-# Modified model with better stability
 class LSTMAttentionModel(nn.Module):
     def __init__(
-        self, input_size=17, hidden_size=32, num_layers=1, output_size=4, dropout=0.3  # Reduced hidden size, increased dropout
+        self, input_size=17, hidden_size=32, num_layers=1, output_size=4, dropout=0.3  
     ):
         super(LSTMAttentionModel, self).__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout if num_layers > 1 else 0)
@@ -115,7 +93,6 @@ class LSTMAttentionModel(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.fc = nn.Linear(hidden_size, output_size)
         
-        # Initialize weights properly
         self._init_weights()
 
     def _init_weights(self):
@@ -123,24 +100,22 @@ class LSTMAttentionModel(nn.Module):
             if 'weight' in name:
                 nn.init.xavier_uniform_(param)
             elif 'bias' in name:
-                nn.init.constant_(param, 0.0)  # Zero bias for stability
+                nn.init.constant_(param, 0.0)  
 
     def forward(self, x):
         lstm_out, _ = self.lstm(x)
-        attn_scores = torch.softmax(self.attention(lstm_out), dim=1)      # (batch, seq_len, 1)
-        context = torch.sum(attn_scores * lstm_out, dim=1)                # weighted sum over timesteps
+        attn_scores = torch.softmax(self.attention(lstm_out), dim=1)      
+        context = torch.sum(attn_scores * lstm_out, dim=1)                
         out = self.fc(context)   
         return out, attn_scores.squeeze(-1)
 
 
-# Training function with enhanced stability and tqdm progress tracking
 def train_model(model, X, y, epochs=500, lr=0.0001, batch_size=16, print_every=50):
     criterion = nn.MSELoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     
     dataset_size = X.shape[0]
     
-    # Create tqdm progress bar for epochs
     epoch_pbar = tqdm(range(epochs), desc="Training", unit="epoch")
     
     for epoch in epoch_pbar:
@@ -148,11 +123,10 @@ def train_model(model, X, y, epochs=500, lr=0.0001, batch_size=16, print_every=5
         permutation = torch.randperm(dataset_size)
         epoch_loss = 0.0
         
-        # Create tqdm progress bar for batches within each epoch
         batch_pbar = tqdm(range(0, dataset_size, batch_size), 
                          desc=f"Epoch {epoch+1}/{epochs}", 
                          unit="batch",
-                         leave=False)  # Don't leave batch progress bars after completion
+                         leave=False)  
         
         for i in batch_pbar:
             indices = permutation[i:i+batch_size]
@@ -163,26 +137,22 @@ def train_model(model, X, y, epochs=500, lr=0.0001, batch_size=16, print_every=5
             output, _ = model(X_batch)
             loss = criterion(output, y_batch)
             
-            # Check for NaN before backprop
             if torch.isnan(loss):
                 print("NaN loss detected, skipping batch")
                 continue
                 
             loss.backward()
             
-            # Gradient clipping
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
             
             optimizer.step()
             
             epoch_loss += loss.item() * X_batch.size(0)
             
-            # Update batch progress bar description with current loss
             batch_pbar.set_postfix({"batch_loss": f"{loss.item():.6f}"})
         
         avg_loss = epoch_loss / dataset_size
         
-        # Update epoch progress bar description with average loss
         epoch_pbar.set_postfix({"avg_loss": f"{avg_loss:.8f}"})
     
 
@@ -190,9 +160,6 @@ def train_model(model, X, y, epochs=500, lr=0.0001, batch_size=16, print_every=5
 
 
 
-# =========================
-# Evaluation Method
-# =========================
 def evaluate_model(model, X, y):
     model.eval()
     criterion = nn.MSELoss()
@@ -205,9 +172,6 @@ def evaluate_model(model, X, y):
     return output, attn_weights, loss.item()
 
 
-# =========================
-# Sliding Window Importance
-# =========================
 def sliding_window_importance(
     model, X_sample, y_target=None, window_size=5, stride=1
 ):
@@ -227,7 +191,6 @@ def sliding_window_importance(
 
     importance_scores = []
 
-    # Reduce window size if seq_len is smaller
     if seq_len < window_size:
         window_size = seq_len
         stride = 1
@@ -235,10 +198,9 @@ def sliding_window_importance(
     for start in range(0, seq_len - window_size + 1, stride):
         end = start + window_size
         X_masked = X_sample.clone()
-        X_masked[start:end, :] = 0.0  # Mask window
+        X_masked[start:end, :] = 0.0  
         with torch.no_grad():
             masked_pred, _ = model(X_masked.unsqueeze(0))
-        # Normalized difference
         score = torch.norm((baseline_pred - masked_pred) / (baseline_pred + 1e-8)).item()
         importance_scores.append((start, end, score))
 

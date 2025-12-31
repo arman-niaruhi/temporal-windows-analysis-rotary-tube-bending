@@ -37,7 +37,6 @@ class WindowImportanceCalculator:
         self.rf = rf
         self.num_features = num_features
 
-    # ---------------- Helper Functions ----------------
     def _predict_with_mask(
         self, x_input: np.ndarray, start: int, end: int
     ) -> np.ndarray:
@@ -68,7 +67,6 @@ class WindowImportanceCalculator:
             diffs.append(np.linalg.norm(y_pred_full - y_pred_noisy))
         return np.mean(diffs)
 
-    # ---------------- Importance Methods ----------------
     def compute_occlusion_importance(self, x_with_angle, windows) -> np.ndarray:
         """
         Compute occlusion-based window importance by masking windows.
@@ -141,7 +139,6 @@ class WindowImportanceCalculator:
 
         for w, (start, end) in enumerate(windows):
             for f in range(num_features):
-                # compute indices for this feature in the current window
                 idxs = np.arange(start + f, end, num_features)
                 if np.all(x_with_angle[0, idxs] == 0):
                     continue
@@ -156,7 +153,7 @@ class WindowImportanceCalculator:
         Rows correspond to features, columns correspond to windows.
         """
         explainer = shap.TreeExplainer(self.rf)
-        shap_values = explainer.shap_values(x_with_angle)[0]  # shape: (1, seq_len)
+        shap_values = explainer.shap_values(x_with_angle)[0]  
         num_features = self.num_features
         num_windows = len(windows)
         

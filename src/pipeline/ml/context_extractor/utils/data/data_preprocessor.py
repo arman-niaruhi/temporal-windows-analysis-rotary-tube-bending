@@ -176,39 +176,6 @@ class LSTMPreprocessor:
         """
         return self.normalize_column(col)
 
-    def prepare_rf_data(
-        self, X: np.ndarray, Y: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Prepares data for RandomForestRegressor:
-        Flattens sequences and appends normalized angle as extra feature.
-        
-        Args:
-            X: Input features of shape (num_samples, seq_len, num_features).
-            Y: Target values of shape (num_samples, num_angles).
-            
-        Returns:
-            X_rf: 2D array of shape (num_samples * num_angles, seq_len * num_features + 1).
-            Y_rf: 1D array of shape (num_samples * num_angles,).
-        """
-        X_rf = []
-        Y_rf = []
-
-        num_samples, _, _ = X.shape
-        num_angles = Y.shape[1]
-
-        for sample_idx in range(num_samples):
-            for angle_idx in range(num_angles):
-                x_seq = X[sample_idx].flatten()
-                degree = angle_idx / (num_angles - 1)  # normalized angle
-                x_with_angle = np.append(x_seq, degree)
-                X_rf.append(x_with_angle)
-                Y_rf.append(Y[sample_idx, angle_idx])
-
-        X_rf = np.array(X_rf)
-        Y_rf = np.array(Y_rf)
-        return X_rf, Y_rf
-
 
 class ProcessDataset(Dataset):
     def __init__(self, X: torch.Tensor, Y: torch.Tensor) -> None:
@@ -275,12 +242,10 @@ def prepare_data(
 
         out = []
         for exp_id, g in target_df.groupby("Experiment_ID"):
-            # Drop grouping column before processing
             g_clean = g.drop(columns=["Experiment_ID"])
 
             r = _normalize_experiment(g_clean, n=46)
 
-            # Reattach group ID after processing
             r["Experiment_ID"] = exp_id
 
             out.append(r)
@@ -310,7 +275,6 @@ def prepare_data(
         to_58_included = True
 
     if to_58_included:
-        # Subset the dataframes
         sensors_df = sensors_df[sensors_df["Experiment_ID"] >= 58]
         target_df = target_df[target_df["Experiment_ID"] >= 58]
 

@@ -11,9 +11,6 @@ import plotly.graph_objs as go
 import plotly.express as px
 import os
 
-# ------------------------------
-# Data Visualizer Class
-# ------------------------------
 class DataVisualizer:
     def __init__(self):
         self.loader = DataLoader("data/processed/tube_geometry.db")
@@ -100,7 +97,6 @@ class DataVisualizer:
 
         numeric_cols = [col for col in experiment_df.columns if col != "Experiment_ID"]
 
-        # --- User selects sensors ---
         selected_sensors = st.multiselect(
             f"Select sensors for {df_name}",
             options=numeric_cols,
@@ -108,15 +104,13 @@ class DataVisualizer:
             key=f"{df_name}_sensors",
         )
 
-        # --- Determine proper x-axis ---
         if "Time_[s]" in experiment_df.columns:
             x_axis = experiment_df["Time_[s]"]
         elif "Angle[degree]ORDistance[mm]" in experiment_df.columns:
             x_axis = experiment_df["Angle[degree]ORDistance[mm]"]
         else:
-            x_axis = experiment_df.index  # fallback if no proper column
+            x_axis = experiment_df.index  
 
-        # --- X-axis zoom slider ---
         x_min, x_max = float(x_axis.min()), float(x_axis.max())
         x_start, x_end = st.slider(
             f"X-axis range ({df_name})",
@@ -127,12 +121,10 @@ class DataVisualizer:
             key=f"{df_name}_xrange",
         )
 
-        # --- Filter dataframe for selected x-axis range ---
         mask = (x_axis >= x_start) & (x_axis <= x_end)
         filtered_df = experiment_df.loc[mask]
         filtered_x = x_axis[mask]
 
-        # --- Optional title/labels ---
         col1, col2, col3 = st.columns([2, 2, 2])
         with col1:
             x_label = st.text_input(
@@ -149,7 +141,6 @@ class DataVisualizer:
                 key=f"{df_name}_title",
             )
 
-        # --- Plotting ---
         plt.rcParams.update(
             {
                 "figure.figsize": (12, 5),
@@ -172,13 +163,11 @@ class DataVisualizer:
                 filtered_x, filtered_df[col], label=col, color=palette[i], linewidth=2
             )
 
-        # --- Axes and title ---
         ax.set_xlabel(x_label, fontsize=14, fontweight="bold")
         ax.set_ylabel(y_label, fontsize=14, fontweight="bold")
         ax.set_title(title, fontsize=16, fontweight="bold")
         ax.grid(True, linestyle="--", linewidth=0.7, alpha=0.7)
 
-        # --- Legend outside plot with smaller font ---
         ax.legend(
             loc="center left",
             bbox_to_anchor=(1.01, 0.5),
@@ -187,13 +176,10 @@ class DataVisualizer:
             ncol=1,
         )
 
-        # --- Tight layout to prevent clipping ---
         plt.tight_layout()
 
-        # --- Display plot ---
         st.pyplot(fig, dpi=300)
 
-        # --- Save plot button ---
         save_folder = "results/saved_plots"
         os.makedirs(save_folder, exist_ok=True)
         if st.button(f"Save Plot as PDF: {df_name}"):

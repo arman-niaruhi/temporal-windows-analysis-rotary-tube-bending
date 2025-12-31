@@ -16,7 +16,6 @@ class DataLoader:
             db_path (str): Path to SQLite database file.
         """
         self.db_path = db_path
-        # Ensure the directory exists
         db_dir = Path(db_path).parent
         db_dir.mkdir(parents=True, exist_ok=True)
 
@@ -50,14 +49,11 @@ class DataLoader:
                 print(f"Skipped {table_name}: not a valid DataFrame.")
                 continue
 
-            # Decide whether to store the index as a column
             index = table_name in store_index_tables
 
-            # Save DataFrame to SQLite
             df.to_sql(table_name, conn, index=index, if_exists="replace")
             print(f"Saved table '{table_name}' with shape {df.shape} to SQLite.")
 
-            # Create indexes on all columns
             for col in df.columns:
                 index_name = f"idx_{table_name}_{col}"
                 try:
