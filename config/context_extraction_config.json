@@ -4,12 +4,12 @@
     },
     "input_path_param": {
         "database_path": "data/processed/tube_geometry.db",
-        "machine_part": "De-Clamping",
+        "machine_part": "All",
         "annotation_json_path": "data/ml/machine-and-movement_complete.json"
     },
     "preprocessing_param": {
         "to_58_excluded": false,
-        "seperate_test_set": false,
+        "seperate_test_set": true,
         "random_seed": 42,
         "agg_mertic": "mean",
         "window_num": 200,
@@ -29,13 +29,20 @@
         ]
     },
     "training_param": {
+        "train": false,
         "hidden_dim": 32,
         "lstm_layers": 1,
         "dropout": 0.2,
-        "lr": 0.005,
-        "weight_decay": 5e-3,
+        "lr": 0.0005,
+        "weight_decay": 5e-4,
         "batch_size": 8,
         "max_epochs": 300,
         "model_path": "models/context_extraction"
+    },
+    "occlusion_param":{
+        "occluded_window_size": 10,
+        "occluded_stride": 10,
+        "number_of_samples": 20,
+        "top_k_windows_to_plot": 10
     }
 }

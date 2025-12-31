@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 import streamlit as st
-from mlflow.tracking import MlflowClient
+import shutil
 from src.pipeline.dashboard.visualizer_utils import DataVisualizer
 from src.pipeline.ml.classification.utils.plot_utils import (
     plot_predictions_vs_true_annot,
@@ -18,9 +18,6 @@ from src.pipeline.dashboard.context_extractor_utils import (
 MLFLOW_TRACKING_URI = "mlruns"
 
 
-# ------------------------------
-# Streamlit App Class
-# ------------------------------
 class StreamlitApp:
     def __init__(self):
         self.visualizer = DataVisualizer()
@@ -28,6 +25,8 @@ class StreamlitApp:
         self.experiment_ids = self.visualizer.loader.load_experiment_ids_from_sqlite()
 
     def run(self):
+        if "run_refresh_counter" not in st.session_state:
+            st.session_state.run_refresh_counter = 0
         page = st.sidebar.selectbox(
             "Choose Page", ["Plots", "Tables", "Matplotlib",
                             "Activity Recognition Inference", "Context Extraction Inference" ]
@@ -50,12 +49,10 @@ class StreamlitApp:
             "Select Datasets", df_names, default=df_names
         )
 
-        # --- Load data ---
         dfs, loaded_dfs = self.visualizer.load_experiment_data(
             int(experiment_id), selected_df_names
         )
 
-        # --- Pages ---
         if page == "Plots":
             st.title("Interactive Plotly Plots")
             if dfs:
@@ -89,7 +86,6 @@ class StreamlitApp:
                 
         elif page == "Activity Recognition Inference":
             st.title(page)
-            # User selections
             dataset = st.selectbox(
                 "Select Dataset",
                 options=["movement", "machine_and_movement"]
@@ -137,7 +133,7 @@ class StreamlitApp:
             
             image_files = sorted(
                 analyze_image_dir_path.glob("*.png")
-            )  # adjust extension if needed
+            )  
 
             if image_files:
                 st.image(
@@ -148,50 +144,65 @@ class StreamlitApp:
                 st.warning("No images found in the selected directory.")
             
         
-        # Updated Context Extraction Inference page section
         elif page == "Context Extraction Inference":
             st.title(page)
             
-            # Sidebar for experiment and run selection
             with st.sidebar:
                 st.header("Experiment Configuration")
                 
 
-                # Browse runs for the experiment using MLflow
                 run_info_list = get_experiment_runs()
                 
                 if run_info_list:  
-                    # Create selectbox with display names
                     display_names = [r['display'] for r in run_info_list]
                     selected_display = st.selectbox("Select Run", display_names)
                     
-                    # Get the corresponding run ID and name
                     selected_idx = display_names.index(selected_display)
                     run_id = run_info_list[selected_idx]['id']
                     run_name = run_info_list[selected_idx]['name']
-                    
-                    # Display run details
+                    run_path = os.path.join(
+                        MLFLOW_TRACKING_URI,
+                        "665463947744551178",
+                        run_id
+                    )
+
                     with st.expander("Run Details"):
                         st.text(f"Run ID: {run_id}")
                         st.text(f"Run Name: {run_name}")
-                        if run_info_list[selected_idx]['start_time']:
-                            from datetime import datetime
-                            start_time = datetime.fromtimestamp(run_info_list[selected_idx]['start_time'] / 1000)
-                            st.text(f"Start Time: {start_time}")
+
+                        st.divider()
+
+                        confirm_delete = st.checkbox(
+                            "I understand this will permanently delete the run folder",
+                            key=f"confirm_delete_{run_id}"
+                        )
+
+                        if st.button("🗑️ Delete Run Folder", disabled=not confirm_delete):
+                            try:
+                                if os.path.exists(run_path):
+                                    shutil.rmtree(run_path)
+                                    st.success(f"Run folder deleted:\n{run_path}")
+                                else:
+                                    st.warning("Run folder does not exist")
+
+                                st.session_state.run_refresh_counter = (
+                                    st.session_state.get("run_refresh_counter", 0) + 1
+                                )
+
+                            except Exception as e:
+                                st.error(f"Failed to delete run folder: {e}")
+
                     
                 else:
                     run_id = None
                     run_name = None
                 
-                # Video options
                 st.header("Video Options")
                 fps = st.slider("Frames per second (FPS)", 1, 30, 5)
             
-            # Main content area
             if run_name and run_id:
                 st.header(f"Experiment: 665463947744551178 | Run: {run_name}")
                 
-                # Construct the run path using run_id (MLflow stores by run_id)
                 run_path = os.path.join(MLFLOW_TRACKING_URI, "665463947744551178", run_id, "artifacts")
                 summary_txt_path = os.path.join(run_path, "experiment_description.txt")
     
@@ -202,10 +213,8 @@ class StreamlitApp:
                         
                 if os.path.exists(run_path):
                     with st.spinner(f"Searching for PNG images in {run_path}..."):
-                        # Find PNG images with special rules
                         all_pngs, attention_line_images = find_png_images_with_rules(run_path)
                         
-                        # Display regular images
                         if all_pngs: 
                             for img_path in sorted(all_pngs):
                                 try:
@@ -220,24 +229,19 @@ class StreamlitApp:
                                 except Exception as e:
                                     st.error(f"Error loading {img_path}: {e}")
                         
-                        # Handle attention lines video
                         if attention_line_images:
                             st.subheader("🎬 Attention Lines Animation")
                             
-                            # Sort images by angle number
                             sorted_angles = sorted(attention_line_images.items(), key=lambda x: x[0])
                             image_paths = [path for _, path in sorted_angles]
                         
                             
-                            # Create video from images
                             video_path = create_video_from_images(image_paths, run_path, fps)
                             
                             if video_path and os.path.exists(video_path):
-                                # Display video
                                 video_file = open(video_path, 'rb')
                                 video_bytes = video_file.read()
                                 
-                                # Download video button
                                 st.download_button(
                                     label="📥 Download Video",
                                     data=video_bytes,
@@ -245,12 +249,10 @@ class StreamlitApp:
                                     mime="video/mp4"
                                 )
                                 
-                                # Clean up temp file
                                 os.remove(video_path)
                             else:
                                 st.error("Failed to create video")
                             
-                            # Show individual images as well
                             with st.expander("Show Individual Angle Images"):
                                 cols = st.columns(4)
                                 for idx, (angle_num, img_path) in enumerate(sorted_angles):
@@ -263,7 +265,6 @@ class StreamlitApp:
                         else:
                             st.info("No attention lines images found")
                         
-                        # Download option for all regular images
                         if all_pngs and st.button("Download All Regular Images as ZIP"):
                             import zipfile
                             from io import BytesIO
@@ -282,7 +283,6 @@ class StreamlitApp:
                                 mime="application/zip"
                             )
                         
-                        # Show all image paths
                         if all_pngs or attention_line_images:
                             with st.expander("Show All Image Paths"):
                                 if all_pngs:
@@ -303,4 +303,3 @@ if __name__ == "__main__":
     vizualiser = StreamlitApp()
     vizualiser.run()
 
-# streamlit run dashboard_app.py

@@ -72,7 +72,6 @@ class LSTMSequenceClassifier(nn.Module):
         batch_size, seq_len = x.size(0), x.size(1)
         num_directions = 2 if self.bidirectional else 1
 
-        # Initialize hidden states
         h0 = torch.zeros(
             self.num_layers * num_directions,
             batch_size,
@@ -86,10 +85,8 @@ class LSTMSequenceClassifier(nn.Module):
             device=x.device,
         )
 
-        # LSTM forward pass
-        out, _ = self.lstm(x, (h0, c0))  # (batch, seq_len, hidden_size * num_directions)
+        out, _ = self.lstm(x, (h0, c0))  
 
-        # Apply fully connected layer to each timestep
         out_reshaped = out.reshape(-1, out.size(2))
         logits_reshaped = self.fc(out_reshaped)
         logits = logits_reshaped.reshape(batch_size, seq_len, self.num_classes)
@@ -110,7 +107,6 @@ class LSTMSequenceClassifier(nn.Module):
         self, batch_data: tuple, device: torch.device
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Extract and move batch data to device."""
-        # Handle datasets with or without mask (mask ignored for now)
         if len(batch_data) == 3:
             X_batch, y_batch, _ = batch_data
         else:
@@ -146,7 +142,6 @@ class LSTMSequenceClassifier(nn.Module):
             optimizer.zero_grad()
             outputs = self(X_batch)
 
-            # Flatten for loss calculation
             outputs_flat = outputs.view(-1, self.num_classes)
             y_batch_flat = y_batch.view(-1)
 
@@ -154,13 +149,11 @@ class LSTMSequenceClassifier(nn.Module):
             loss.backward()
             optimizer.step()
 
-            # Track metrics only for valid (non-padded) timesteps
             valid_mask = y_batch_flat != -1
             num_valid = valid_mask.sum().item()
             total_samples += num_valid
             train_loss += loss.item() * num_valid
 
-            # Collect predictions
             preds = torch.argmax(outputs_flat, dim=1).detach().cpu().numpy()
             y_true = y_batch_flat.cpu().numpy()
             valid_indices = y_true != -1
@@ -342,7 +335,6 @@ class LSTMSequenceClassifier(nn.Module):
         Returns:
             Dictionary containing training history, validation history, and run_id
         """
-        # Setup
         os.makedirs(model_path, exist_ok=True)
         model_name = os.path.join(model_path, "activity_detector.pth")
         summary_path = os.path.join(model_path, "experiment_summary.txt")
@@ -362,16 +354,13 @@ class LSTMSequenceClassifier(nn.Module):
         best_val_loss = np.inf
         counter = 0
 
-        # Initialize metric histories
         train_history = {"loss": [], "acc": [], "precision": [], "recall": [], "f1": []}
         val_history = {"loss": [], "acc": [], "precision": [], "recall": [], "f1": []}
 
-        # Start MLflow tracking
         mlflow.set_experiment(experiment_name)
         with mlflow.start_run(run_name=run_name) as run:
             run_id = run.info.run_id
 
-            # Log parameters
             mlflow.log_params(
                 {
                     "input_size": self.input_size,
@@ -388,11 +377,9 @@ class LSTMSequenceClassifier(nn.Module):
                 }
             )
 
-            # Training loop
             epoch_bar = tqdm(range(num_epochs), desc="Training", leave=True, colour="blue")
             
             for epoch in epoch_bar:
-                # Train
                 train_loss, y_train_true, y_train_pred = self._train_epoch(
                     train_loader, criterion, optimizer, device, epoch, num_epochs
                 )
@@ -400,7 +387,6 @@ class LSTMSequenceClassifier(nn.Module):
                     y_train_true, y_train_pred
                 )
 
-                # Validate
                 val_loss, y_val_true, y_val_pred = self._validate_epoch(
                     val_loader, criterion, device
                 )
@@ -408,7 +394,6 @@ class LSTMSequenceClassifier(nn.Module):
                     y_val_true, y_val_pred
                 )
 
-                # Save histories
                 train_history["loss"].append(train_loss)
                 train_history["acc"].append(train_acc)
                 train_history["precision"].append(train_prec)
@@ -421,7 +406,6 @@ class LSTMSequenceClassifier(nn.Module):
                 val_history["recall"].append(val_rec)
                 val_history["f1"].append(val_f1)
 
-                # Log to MLflow
                 mlflow.log_metrics(
                     {
                         "train_loss": train_loss,
@@ -438,7 +422,6 @@ class LSTMSequenceClassifier(nn.Module):
                     step=epoch,
                 )
 
-                # Save confusion matrix periodically
                 if idx_to_label and ((epoch % save_confusion_every == 0) or (epoch == num_epochs - 1)):
                     fig_path = self._save_confusion_matrix(
                         y_val_true, y_val_pred, idx_to_label, epoch, model_path
@@ -446,7 +429,6 @@ class LSTMSequenceClassifier(nn.Module):
                     if fig_path:
                         mlflow.log_artifact(fig_path)
 
-                # Update progress bar
                 epoch_bar.set_postfix(
                     {
                         "train_loss": f"{train_loss:.4f}",
@@ -458,7 +440,6 @@ class LSTMSequenceClassifier(nn.Module):
                     }
                 )
 
-                # Early stopping
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     counter = 0
@@ -469,19 +450,16 @@ class LSTMSequenceClassifier(nn.Module):
                         logger.info("\n⏹ Early stopping triggered!")
                         break
 
-            # Load best model
             if os.path.exists(model_name):
                 best_state = torch.load(model_name, map_location=device, weights_only=True)
                 self.load_state_dict(best_state)
                 logger.info(f"Training complete. Best model loaded from: {model_name}")
 
-            # Log model to MLflow
             try:
                 mlflow.pytorch.log_model(self, artifact_path="model")
             except Exception as e:
                 logger.error(f"Failed to log model to MLflow: {e}")
 
-            # Save experiment summary
             try:
                 self.save_experiment_summary(
                     file_path=summary_path,

@@ -39,7 +39,6 @@ class DataExtractor:
                 experiment_data,
             ) in experiments_process_and_results.items():
                 df = experiment_data[machine_part].copy()
-                # Always move or insert Experiment_ID as the first column
                 if "Experiment_ID" in df.columns:
                     cols = ["Experiment_ID"] + [
                         col for col in df.columns if col != "Experiment_ID"

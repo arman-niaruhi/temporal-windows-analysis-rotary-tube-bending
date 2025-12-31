@@ -24,7 +24,7 @@ def plot_window_curve(
     max_imp = np.max(importance_clean) if np.max(importance_clean) > 0 else 1.0
 
     for start, end, imp in zip(window_starts, window_ends, importance_clean):
-        alpha = 0.1 + 0.5 * (imp / max_imp)  # scale alpha for visibility
+        alpha = 0.1 + 0.5 * (imp / max_imp)  
         ax2.fill_between([start, end], 0, imp, color="black", alpha=alpha)
 
     ax1.set_xlabel("Timestep")

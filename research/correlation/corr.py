@@ -2,19 +2,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dtw import accelerated_dtw
 
-# Create a sample signal with repeated patterns and noise
 np.random.seed(42)
 t = np.linspace(0, 40*np.pi, 4000)
 signal = np.sin(t) + 0.3*np.sin(3*t) + 0.2*np.random.randn(len(t))
 
-# Marked region (the reference)
 start, end = 1000, 1200
 ref_segment = signal[start:end]
 window_size = len(ref_segment)
 
-# Compare this segment to other parts using DTW distance
 distances = []
-indices = range(0, len(signal) - window_size, 50)  # step = 50 for speed
+indices = range(0, len(signal) - window_size, 50)  
 for i in indices:
     window = signal[i:i + window_size]
     dist, _, _, _ = accelerated_dtw(ref_segment, window, dist='euclidean')
@@ -22,10 +19,8 @@ for i in indices:
 
 distances = np.array(distances)
 
-# Find the most similar region(s)
 best_idx = indices[np.argmin(distances)]
 
-# --- Plot ---
 plt.figure(figsize=(12, 6))
 plt.subplot(2, 1, 1)
 plt.plot(signal, label="Signal")

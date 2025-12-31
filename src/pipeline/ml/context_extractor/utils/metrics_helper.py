@@ -72,38 +72,28 @@ def compute_epoch_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
     y_true_np = y_true.cpu().numpy() if torch.is_tensor(y_true) else y_true
     y_pred_np = y_pred.cpu().numpy() if torch.is_tensor(y_pred) else y_pred
 
-    # Flatten for overall metrics
     y_true_flat = y_true_np.flatten()
     y_pred_flat = y_pred_np.flatten()
 
-    # Basic metrics
     mse = mean_squared_error(y_true_flat, y_pred_flat)
     mae = mean_absolute_error(y_true_flat, y_pred_flat)
     r2 = r2_score(y_true_flat, y_pred_flat)
 
-    # Additional metrics
     rmse = np.sqrt(mse)
 
     epsilon = 1e-8
-    # Use mean of absolute values as denominator to avoid division by near-zero
     denominator = np.abs(y_true_flat) + epsilon
-    # Alternative: use max(absolute_value, epsilon) for each element
-    # denominator = np.maximum(np.abs(y_true_flat), epsilon)
 
     mape = np.mean(np.abs((y_true_flat - y_pred_flat) / denominator)) * 100
 
-    # Max Error
     max_error = np.max(np.abs(y_true_flat - y_pred_flat))
 
-    # Explained Variance Score (similar to R² but different calculation)
     from sklearn.metrics import explained_variance_score
 
     evs = explained_variance_score(y_true_flat, y_pred_flat)
 
-    # Mean Bias Error (shows if model systematically over/under predicts)
     mbe = np.mean(y_pred_flat - y_true_flat)
 
-    # Median Absolute Error (more robust to outliers than MAE)
     from sklearn.metrics import median_absolute_error
 
     medae = median_absolute_error(y_true_flat, y_pred_flat)

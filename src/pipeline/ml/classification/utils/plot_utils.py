@@ -12,7 +12,6 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-  # Test experiments
 TEST_EXPERIMENT_IDS = [
     2, 3, 22, 23, 40, 54, 83, 85, 110, 112, 119, 120, 121, 122, 123,
     178, 179, 182, 183, 211, 212, 213, 255, 258, 261, 271, 272, 273,
@@ -41,16 +40,13 @@ def _predict_experiment(
     """
     model.eval()
     
-    # Prepare input
     X = torch.tensor(exp_data[feature_cols].values, dtype=torch.float32).to(device)
     X = X.unsqueeze(0)
     
-    # Predict
     with torch.no_grad():
         outputs = model(X)
         y_pred = torch.argmax(outputs, dim=-1).squeeze(0).cpu().numpy()
     
-    # Convert to label names
     y_pred_names = [idx_to_label[p] for p in y_pred]
     y_true = exp_data["Label"].values
     y_true_names = [
@@ -74,26 +70,21 @@ def _plot_experiment(
     """Plot sensor data with predictions and true labels.
     Exact same layout as your example with time indices."""
     
-    # Get all labels EXCLUDING 'No Label'
     all_labels = set(y_pred_names) | set(y_true_names)
     labels = sorted([label for label in all_labels if label != 'No Label'])
     
-    # Check if we have any labels to plot
     if not labels:
         print(f"No labels (excluding 'No Label') found for experiment {exp_id}")
         return
     
-    # Assign distinct base colors
     base_colors = list(mcolors.TABLEAU_COLORS.values())[:len(labels)]
     
-    # Set figure size - EXACT SAME
     fig_width = 16
     fig_height = 5
     figsize = (fig_width, fig_height)
 
     _, axs = plt.subplots(2, 1, figsize=figsize, sharex=True, height_ratios=[2, 1])
 
-    # Plot sensor data - Use indices for x-axis like your example
     sensor_plotted = set()
     for col in feature_cols:
         if col not in sensor_plotted:
@@ -108,11 +99,9 @@ def _plot_experiment(
     axs[0].legend(loc="center left", bbox_to_anchor=(1, 0.5), fontsize="small")
     axs[0].margins(x=0.01)
 
-    # Prepare data for bar chart
     categories, starts, ends, colors = [], [], [], []
 
     for i, label in enumerate(labels):
-        # Create binary masks
         mask_true = np.array([1 if y == label else 0 for y in y_true_names])
         mask_pred = np.array([1 if y == label else 0 for y in y_pred_names])
 
@@ -120,7 +109,6 @@ def _plot_experiment(
         true_color = mcolors.to_rgba(base_color, alpha=0.7)
         pred_color = mcolors.to_rgba(base_color, alpha=0.3)
 
-        # Extract segments using indices (like your example)
         def extract_segments(mask, category, color):
             start = None
             for j, val in enumerate(mask):
@@ -129,19 +117,18 @@ def _plot_experiment(
                 elif val == 0 and start is not None:
                     categories.append(category)
                     starts.append(start)
-                    ends.append(j - 1)  # j-1 like your example
+                    ends.append(j - 1)  
                     colors.append(color)
                     start = None
             if start is not None:
                 categories.append(category)
                 starts.append(start)
-                ends.append(len(mask) - 1)  # len(mask)-1 like your example
+                ends.append(len(mask) - 1)  
                 colors.append(color)
 
         extract_segments(mask_true, f"{label} True", true_color)
         extract_segments(mask_pred, f"{label} Pred", pred_color)
 
-    # Plot horizontal bars
     if categories:
         axs[1].barh(
             categories,
@@ -149,7 +136,7 @@ def _plot_experiment(
             left=starts,
             color=colors,
             height=0.6,
-            edgecolor='none'  # Optional: for cleaner look
+            edgecolor='none'  
         )
     else:
         axs[1].text(
@@ -208,18 +195,15 @@ def plot_predictions_vs_true_annot(
         try:
             logger.info(f"Plotting predictions for Experiment ID: {exp_id}")
             
-            # Get experiment data
             exp_data = sensor_df[sensor_df["Experiment_ID"] == str(exp_id)]
             if exp_data.empty:
                 logger.warning(f"No data found for Experiment ID {exp_id}")
                 continue
             
-            # Predict
             y_pred_names, y_true_names, timestamps = _predict_experiment(
                 model, exp_data, feature_cols, idx_to_label, device
             )
             
-            # Plot
             save_path = output_dir / f"labeled_timestamps_{exp_id}.png"
             _plot_experiment(
                 exp_id, exp_data, feature_cols, 

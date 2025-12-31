@@ -16,7 +16,6 @@ class OrganizedImageSaver:
         self.base_dir = Path(base_dir)
         self.machine_part = machine_part
 
-        # Create main folders
         self.predictions_dir = self.base_dir / "01_predictions"
         self.loss_dir = self.base_dir / "02_loss"
         self.attention_dir = self.base_dir / "03_attention"
@@ -33,7 +32,7 @@ class OrganizedImageSaver:
 
     def save_epoch_plots(
         self,
-        sensor_data: np.ndarray,
+        sensor_data,
         feature_names: list,
         output_feature_names: list,
         pred_data: tuple,
@@ -78,7 +77,6 @@ class OrganizedImageSaver:
         num_samples = len(idxs)
         n_features = true_np.shape[-1]
 
-        # Horizontal layout: one row per sample, one column per feature
         nrows = num_samples
         ncols = n_features
 
@@ -118,19 +116,15 @@ class OrganizedImageSaver:
                 ax.set_ylim(*y_lim)
                 ax.grid(True, linestyle=":", alpha=0.55)
 
-                # Row labels (left-most column)
                 if feat == 0:
                     ax.set_ylabel(f"Sample {row_i}", fontsize=12, weight="bold")
 
-                # Column labels (top row)
                 if row_i == 0:
                     ax.set_title(output_feature_names[feat], fontsize=13, weight="bold")
 
-                # Legend only once per row
                 if feat == n_features - 1:
                     ax.legend(fontsize=9, loc="upper right")
 
-        # Common labels
         fig_pred.suptitle(
             f"Predictions – Epoch {epoch} ({num_samples} samples × {n_features} features)",
             fontsize=16,
@@ -146,7 +140,6 @@ class OrganizedImageSaver:
         fig_pred.savefig(pred_path, dpi=180, bbox_inches="tight")
         plt.close(fig_pred)
 
-        # 2. LOSS PLOT
         fig_loss = plt.figure(figsize=(10, 7))
         ax_loss = fig_loss.add_subplot(111)
 
@@ -185,7 +178,6 @@ class OrganizedImageSaver:
         fig_loss.savefig(loss_path, dpi=150, bbox_inches="tight")
         plt.close(fig_loss)
 
-        # 3. ATTENTION HEATMAP
         attn_mean = attn_data
         attn_path = self.attention_dir / f"attention_epoch_{epoch:04d}.png"
         self.plot_selected_features_with_attn_heatmap(
@@ -226,20 +218,16 @@ class OrganizedImageSaver:
             sample_idx: Which sample to plot (default -1 for last sample)
             figsize: Figure size tuple
         """
-        # Set beautiful style parameters
         rcParams["font.family"] = "sans-serif"
         rcParams["font.size"] = 10
 
-        # Remove '_mean' from all feature names
         cleaned_feature_names = [name.replace("_mean", "") for name in sensor_names]
 
-        # Get the data for the selected sample
         sample_data = sensor_data[sample_idx, :, :]
         main_timesteps = sample_data.shape[0]
         n_attention_heads = attn_mean.shape[0]
         attn_timesteps = attn_mean.shape[1]
 
-        # Resize attention if needed to match sensor timesteps
         if attn_timesteps != main_timesteps:
             print(f"Resizing attention from {attn_timesteps} to {main_timesteps} timesteps")
             attn_data_resized = np.zeros((n_attention_heads, main_timesteps))
@@ -252,9 +240,9 @@ class OrganizedImageSaver:
             attn_data = attn_mean
 
         time_steps = np.arange(main_timesteps)
-        colors_sensors = plt.cm.tab20(np.linspace(0, 1, len(cleaned_feature_names)))
+        cmap = plt.get_cmap("tab20")
+        colors_sensors = cmap(np.linspace(0, 1, len(cleaned_feature_names)))
         
-        # Prepare annotation labels if needed
         annot_labels = None
         if annot_timesteps and (self.machine_part == "All"):
             annot_labels = [
@@ -266,16 +254,13 @@ class OrganizedImageSaver:
 
         saved_paths = []
 
-        # Create a separate plot for EACH attention head
         for angle_idx in range(n_attention_heads):
-            # Create figure with two subplots (vertical layout)
             fig = plt.figure(figsize=figsize, facecolor="white")
             fig.clf()
             gs = fig.add_gridspec(2, 1, height_ratios=[1, 1], hspace=0.3)
             ax_sensors = fig.add_subplot(gs[0])
             ax_attention = fig.add_subplot(gs[1])
 
-            # --- SUBPLOT 1: SENSOR DATA (same for all plots) ---
             for i, (feature_name, color) in enumerate(zip(cleaned_feature_names, colors_sensors)):
                 ax_sensors.plot(
                     time_steps,
@@ -289,13 +274,11 @@ class OrganizedImageSaver:
                     markevery=max(1, main_timesteps // 20),
                 )
 
-            # Style sensor plot
             ax_sensors.set_xlabel("Time Step", fontsize=12, fontweight="bold", labelpad=10)
             ax_sensors.set_ylabel("Sensor Value", fontsize=12, fontweight="bold", labelpad=10)
             ax_sensors.grid(True, alpha=0.2, linestyle="--", linewidth=0.8, color="gray")
             ax_sensors.set_axisbelow(True)
 
-            # Remove top and right spines
             ax_sensors.spines["top"].set_visible(False)
             ax_sensors.spines["right"].set_visible(False)
             ax_sensors.spines["left"].set_linewidth(1.2)
@@ -303,7 +286,6 @@ class OrganizedImageSaver:
             ax_sensors.spines["left"].set_color("#333333")
             ax_sensors.spines["bottom"].set_color("#333333")
 
-            # Add annotations if provided
             if annot_labels:
                 for ts, label in zip(annot_timesteps, annot_labels):
                     ax_sensors.axvline(
@@ -340,7 +322,6 @@ class OrganizedImageSaver:
                 pad=15,
             )
 
-            # Add legend
             legend_sensors = ax_sensors.legend(
                 bbox_to_anchor=(1.02, 1),
                 loc="upper left",
@@ -356,8 +337,6 @@ class OrganizedImageSaver:
             legend_sensors.get_frame().set_facecolor("white")
             legend_sensors.get_frame().set_linewidth(1.2)
 
-            # --- SUBPLOT 2: SINGLE ATTENTION HEAD ---
-            # Reverse the angle index for display (so last head = angle_1)
             display_angle = angle_idx + 1
             
             # Use red color for all attention plots
@@ -375,13 +354,11 @@ class OrganizedImageSaver:
                 markevery=max(1, main_timesteps // 20),
             )
 
-            # Style attention plot
             ax_attention.set_xlabel("Time Step", fontsize=12, fontweight="bold", labelpad=10)
             ax_attention.set_ylabel("Attention Weight", fontsize=12, fontweight="bold", labelpad=10)
             ax_attention.grid(True, alpha=0.2, linestyle="--", linewidth=0.8, color="gray")
             ax_attention.set_axisbelow(True)
 
-            # Remove top and right spines
             ax_attention.spines["top"].set_visible(False)
             ax_attention.spines["right"].set_visible(False)
             ax_attention.spines["left"].set_linewidth(1.2)
@@ -389,7 +366,6 @@ class OrganizedImageSaver:
             ax_attention.spines["left"].set_color("#333333")
             ax_attention.spines["bottom"].set_color("#333333")
 
-            # Add annotations if provided
             if annot_labels:
                 for ts, label in zip(annot_timesteps, annot_labels):
                     ax_attention.axvline(
@@ -425,7 +401,6 @@ class OrganizedImageSaver:
                 pad=15,
             )
 
-            # Add legend
             legend_attention = ax_attention.legend(
                 loc="upper right",
                 frameon=True,
@@ -438,7 +413,6 @@ class OrganizedImageSaver:
             legend_attention.get_frame().set_facecolor("white")
             legend_attention.get_frame().set_linewidth(1.2)
 
-            # Overall title
             fig.suptitle(
                 f"Final Epoch - Angle {display_angle} Analysis",
                 fontsize=16,
@@ -448,7 +422,6 @@ class OrganizedImageSaver:
 
             plt.tight_layout()
 
-            # Save the figure
             line_path = self.attention_lines_dir / f"attention_angle_{display_angle:02d}.png"
             fig.savefig(line_path, dpi=150, bbox_inches="tight")
             plt.close(fig)
@@ -484,31 +457,25 @@ class OrganizedImageSaver:
             sample_idx: Which sample to plot (default last sample)
             figsize: Figure size tuple
         """
-        # Set beautiful style parameters
         rcParams["font.family"] = "sans-serif"
         rcParams["font.size"] = 10
 
-        # Remove '_mean' from all feature names
         cleaned_feature_names = [name.replace("_mean", "") for name in sensor_names]
 
-        # Create figure with subplots
         fig = plt.figure(figsize=figsize, facecolor="white")
         fig.clf()
         gs = fig.add_gridspec(2, 1, height_ratios=[2, 1], hspace=0.25, wspace=0.3)
         ax_main = fig.add_subplot(gs[0])
         ax_heatmap = fig.add_subplot(gs[1])
 
-        # Get the data for the selected sample
         sample_data = sensor_data[-1, :, :]
         main_timesteps = sample_data.shape[0]
         n_attention_heads = attn_mean.shape[0]
         attn_timesteps = attn_mean.shape[1]
 
-        # --- MAIN PLOT WITH LEGEND ---
-        # Use a sophisticated color palette
-        colors = plt.cm.tab20(np.linspace(0, 1, len(cleaned_feature_names)))
+        cmap = plt.get_cmap("tab20")
+        colors = cmap(np.linspace(0, 1, len(cleaned_feature_names)))
 
-        # Plot each feature with enhanced styling
         for i, (feature_name, color) in enumerate(zip(cleaned_feature_names, colors)):
             ax_main.plot(
                 sample_data[:, i],
@@ -519,15 +486,13 @@ class OrganizedImageSaver:
                 marker="o",
                 markersize=3,
                 markevery=max(1, main_timesteps // 20),
-            )  # Smart marker placement
+            )  
 
-        # Style main plot
         ax_main.set_xlabel("Time Step", fontsize=12, fontweight="bold", labelpad=10)
         ax_main.set_ylabel("Feature Value", fontsize=12, fontweight="bold", labelpad=10)
         ax_main.grid(True, alpha=0.2, linestyle="--", linewidth=0.8, color="gray")
         ax_main.set_axisbelow(True)
 
-        # Remove top and right spines for cleaner look
         ax_main.spines["top"].set_visible(False)
         ax_main.spines["right"].set_visible(False)
         ax_main.spines["left"].set_linewidth(1.2)
@@ -541,16 +506,14 @@ class OrganizedImageSaver:
                 "Start-Bending",
                 "Start-Declamping",
                 "End-Declamping",
-            ]  # Optional short labels
+            ]  
 
         
             for ts, label in zip(annot_timesteps, annot_labels):
-                # Vertical line for visibility
                 ax_main.axvline(
                     ts, color="black", linestyle="--", linewidth=1.2, alpha=0.7
                 )
 
-                # Annotated text placed slightly above the data region
                 ax_main.annotate(
                     label,
                     xy=(ts, sample_data[:, :].max()),  # anchor at top of plot
@@ -579,7 +542,6 @@ class OrganizedImageSaver:
             "Sensor Data Over Time", fontsize=14, fontweight="bold", pad=15
         )
 
-        # Add legend with enhanced styling
         legend = ax_main.legend(
             bbox_to_anchor=(1.02, 1),
             loc="upper left",
@@ -594,8 +556,6 @@ class OrganizedImageSaver:
         legend.get_frame().set_facecolor("white")
         legend.get_frame().set_linewidth(1.2)
 
-        # --- ATTENTION HEATMAP ---
-        # Ensure heatmap has exactly the same number of timesteps as main plot
         if attn_timesteps != main_timesteps:
             print(
                 f"Resizing attention from {attn_timesteps} to {main_timesteps} timesteps"
@@ -609,23 +569,20 @@ class OrganizedImageSaver:
         else:
             attn_data = attn_mean
 
-        # Create enhanced heatmap
         im = ax_heatmap.imshow(
             attn_data,
             aspect="auto",
-            cmap="magma",  # More visually appealing colormap
+            cmap="magma",  
             interpolation="bilinear",
             extent=[0, main_timesteps - 1, 0, n_attention_heads - 1],
         )
 
-        # Style heatmap
         ax_heatmap.set_xlabel("Time Step", fontsize=12, fontweight="bold", labelpad=10)
         ax_heatmap.set_ylabel(
             "Attention Head", fontsize=9, fontweight="bold", labelpad=10
         )
 
         ax_heatmap.set_yticks(np.arange(n_attention_heads))
-        # Reverse the label order
         ax_heatmap.set_yticklabels(
             [f"{i + 1}" for i in reversed(range(n_attention_heads))], fontsize=5
         )
@@ -636,7 +593,6 @@ class OrganizedImageSaver:
             "Attention Head Intensity", fontsize=14, fontweight="bold", pad=15
         )
 
-        # Remove spines for cleaner look
         ax_heatmap.spines["top"].set_visible(False)
         ax_heatmap.spines["right"].set_visible(False)
         ax_heatmap.spines["left"].set_linewidth(1.2)
@@ -644,20 +600,16 @@ class OrganizedImageSaver:
         ax_heatmap.spines["left"].set_color("#333333")
         ax_heatmap.spines["bottom"].set_color("#333333")
 
-        # Add colorbar with enhanced styling
         cbar = plt.colorbar(im, ax=ax_heatmap, shrink=0.9, pad=0.02)
         cbar.set_label("Attention Weight", fontsize=11, fontweight="bold", labelpad=10)
         cbar.ax.tick_params(labelsize=9)
         cbar.outline.set_linewidth(1.2)
 
-        # Fine-tune layout
         plt.tight_layout()
 
-        # Get positions for alignment
         pos_main = ax_main.get_position()
         pos_heat = ax_heatmap.get_position()
 
-        # Make heatmap width match main plot width
         ax_heatmap.set_position(
             [pos_heat.x0, pos_heat.y0, pos_main.width, pos_heat.height]
         )
@@ -665,7 +617,6 @@ class OrganizedImageSaver:
         fig.savefig(attn_path, dpi=150, bbox_inches="tight")
         plt.close(fig)
 
-        # Reposition colorbar to align properly
         cbar.ax.set_position(
             [pos_main.x0 + pos_main.width + 0.02, pos_heat.y0, 0.015, pos_heat.height]
         )

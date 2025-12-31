@@ -1,7 +1,6 @@
 import argparse
 import os
 from src.logging.logging_config import setup_logging
-setup_logging()
 from src.pipeline.preprocessing.data_preprecessor import DataPreprocessPipeline
 from src.pipeline.ml.classification.utils.plot_utils import (
     plot_predictions_vs_true_annot,
@@ -26,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
+    setup_logging()
     activity_recognition_config_path = "config/machine_activity_recognition.json"
     parser = argparse.ArgumentParser(description="Run different pipeline steps.")
     parser.add_argument(
@@ -252,17 +252,15 @@ def main():
             X=X,
             Y=Y,
             params=config.get("training_param"),
+            occlusion_params= config.get("occlusion_param"),
             sensor_names=sensor_names,
             target_feature_names=target_feature_names,
             machine_part=machine_part,
             preprocessing_info=config.get("preprocessing_param"),
             annot_timesteps=annot_timesteps,
             mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
-        )
+            )
 
 
 if __name__ == "__main__":
     main()
-    # python main.py preprocess
-    # python main.py activity_recognition
-    # python main.py context_extraction

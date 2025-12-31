@@ -21,7 +21,6 @@ class DataTransformer:
         df_bending: pd.DataFrame,
     ) -> None:
 
-        # Save as attributes
         self.df_arc = df_arc
         self.df_lin1 = df_lin1
         self.df_lin2 = df_lin2
@@ -66,16 +65,12 @@ class DataTransformer:
         if experiment_ids is None:
             df_arc, df_lin1, df_lin2 = self.df_arc, self.df_lin1, self.df_lin2
         else:
-            # Filter each DataFrame by experiment_ids
             df_arc = self.df_arc[self.df_arc["Experiment_ID"].isin(experiment_ids)]
             df_lin1 = self.df_lin1[self.df_lin1["Experiment_ID"].isin(experiment_ids)]
             df_lin2 = self.df_lin2[self.df_lin2["Experiment_ID"].isin(experiment_ids)]
 
-        # Combine lin1 and lin2
-        # TODO
         linear_df = pd.concat([df_lin1, df_lin2], axis=0)
 
-        # Combine arc, lin1, and lin2
         all_geometry_data = pd.concat([df_arc, df_lin1, df_lin2], axis=1)
 
         return df_arc, df_lin1, df_lin2, linear_df, all_geometry_data
@@ -100,7 +95,6 @@ class DataTransformer:
                 self.df_sensor,
             )
         else:
-            # Filter each DataFrame by experiment_ids
             df_machine = self.df_machine[
                 self.df_machine["Experiment_ID"].isin(experiment_ids)
             ]
@@ -111,10 +105,8 @@ class DataTransformer:
                 self.df_sensor["Experiment_ID"].isin(experiment_ids)
             ]
 
-        # Remove 'Experiment_ID' from movement
         df_movement_wo_experiment = df_movement.drop(columns=["Experiment_ID"])
 
-        # Combine machine and movement
         df_machine_and_movement = pd.concat(
             [df_machine, df_movement_wo_experiment], axis=1
         )
@@ -207,14 +199,12 @@ class DataTransformer:
         ]:
             df = getattr(self, df_name)
 
-            # Check if the column exists
             if "Time_[s]" in df.columns:
                 df["Time_[s]"] = df["Time_[s]"].astype(float)
                 df.set_index("Time_[s]", inplace=True)
 
             df["Experiment_ID"] = pd.to_numeric(df["Experiment_ID"], errors="coerce")
 
-            # Columns to convert (exclude Experiment_ID and Time_[s])
             sensor_cols = [
                 col for col in df.columns if col not in ["Experiment_ID", "Time_[s]"]
             ]
@@ -228,7 +218,6 @@ class DataTransformer:
                 except Exception:
                     continue
 
-            # Update the DataFrame back to self
             setattr(self, df_name, df)
 
     @log_function
@@ -247,7 +236,7 @@ class DataTransformer:
             None: The method modifies the DataFrame attributes of the class directly.
         """
         for attr_name in normalized_table:
-            df = getattr(self, attr_name).copy()  # Make a copy to avoid SettingWithCopyWarning
+            df = getattr(self, attr_name).copy()  
 
             numeric_cols = df.select_dtypes(include="number").columns.difference(
                 ["Experiment_ID", "Angle[degree]ORDistance[mm]"]
@@ -257,7 +246,6 @@ class DataTransformer:
                 logger.info(f"No numeric columns to normalize in '{attr_name}'.")
                 continue
 
-            # Normalize per Experiment_ID
             df.loc[:, numeric_cols] = df.groupby("Experiment_ID")[numeric_cols].transform(
                 lambda x: (x - x.min()) / (x.max() - x.min()) if x.max() != x.min() else 0
             )
@@ -297,7 +285,6 @@ class DataTransformer:
         ]:
             df = getattr(self, attr_name)
 
-            # Select numeric columns excluding 'Experiment_ID' and 'Angle[degree]ORDistance[mm]'
             numeric_cols = df.select_dtypes(include="number").columns.difference(
                 ["Experiment_ID", "Angle[degree]ORDistance[mm]"]
             )
@@ -306,7 +293,6 @@ class DataTransformer:
                 logger.info(f"No numeric columns to process in '{attr_name}'.")
                 continue
 
-            # Find columns that are completely NaN
             nan_cols = df.columns[df.isna().all()].tolist()
 
             if nan_cols:
@@ -349,7 +335,6 @@ class DataTransformer:
 
             df = getattr(self, attr_name)
 
-            # Select numeric columns excluding 'Experiment_ID' and 'Angle[degree]ORDistance[mm]'
             numeric_cols = df.select_dtypes(include="number").columns.difference(
                 ["Experiment_ID", "Angle[degree]ORDistance[mm]"]
             )
@@ -362,18 +347,14 @@ class DataTransformer:
 
             corr_matrix = df[numeric_cols].corr()
 
-            # Save correlation matrix as CSV
             csv_path = os.path.join(output_dir, f"{attr_name}_correlation.csv")
             corr_matrix.to_csv(csv_path)
             logger.info(f"Saved correlation matrix for '{attr_name}' to '{csv_path}'.")
 
-            # Compute average absolute correlation per column
             abs_corr = corr_matrix.abs()
-            # Ignore self-correlation
             abs_corr.values[[range(len(abs_corr))] * 2] = 0
             avg_corr = abs_corr.mean().sort_values()
 
-            # Save least correlated columns to CSV
             least_corr_path = os.path.join(
                 output_dir, f"{attr_name}_least_correlated.csv"
             )
@@ -385,7 +366,6 @@ class DataTransformer:
                 f"Top 5 least correlated columns in '{attr_name}':\n{avg_corr.head()}"
             )
 
-            # Save heatmap plot
             plt.figure(figsize=(10, 8))
             sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", cbar=True)
             plt.title(f"Correlation Matrix: {attr_name}", fontsize=14)

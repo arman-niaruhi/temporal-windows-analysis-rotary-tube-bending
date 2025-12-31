@@ -51,15 +51,9 @@ class DataPreprocessPipeline:
         Returns:
             None: The pipeline updates and saves the DataFrames to the SQLite database.
         """
-        # -----------------------------
-        # 1. Extraction
-        # -----------------------------
         extractor = DataExtractor()
         dfs = extractor.get_all_bending_setups()
 
-        # -----------------------------
-        # 2. Transformation
-        # -----------------------------
         transformer = DataTransformer(**dfs)
         transformer.check_quality()
         if failed_experiment:
@@ -76,7 +70,7 @@ class DataPreprocessPipeline:
                     df_name=tabel_name, column_name=column_name
                 )
 
-        if normalized_tables:  # shorthand for len(normalized_tables) > 0
+        if normalized_tables:  
             transformer.normalize_data(normalized_table=normalized_tables)
 
         if nan_handler:
@@ -93,26 +87,15 @@ class DataPreprocessPipeline:
         )
         df_bending = transformer.get_bending_setup()
 
-        # -----------------------------
-        # 3. Loading
-        # -----------------------------
         loader = DataLoader("data/processed/tube_geometry.db")
         dataframes = {
             "machine_and_movement": df_machine_and_movement,
-            # "lin1": df_lin1,
-            # "lin2": df_lin2,
             "arc": df_arc,
-            # "linear": linear_df,
-            # "machine": df_machine,
-            # "sensor": df_sensor,
             "movement": df_movement,
-            # "bending": df_bending,
         }
         loader.store_to_sqlite(
             dataframes=dataframes,
             store_index_tables=[
-              # "machine",
-              # "sensor",
                 "machine_and_movement",
                 "movement",
             ],

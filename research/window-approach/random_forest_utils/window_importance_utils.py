@@ -46,7 +46,6 @@ class WindowImportance:
         self.num_features = num_features
         self.rf_preprocessor = WindowAlgPreprocessor(sensors_path, target_path)
 
-        # Load and preprocess
         self.sensors_df, self.target_df = self.rf_preprocessor.read_data()
         self.sensors_df = self.rf_preprocessor.feature_selection()
         self.rf_preprocessor.normalize_angle()
@@ -60,7 +59,6 @@ class WindowImportance:
 
         self.calculator = WindowImportanceCalculator(rf, num_features)
 
-    # ---------------- Helper Methods ----------------
     def _prepare_input(
         self, sample_idx: int, angle_idx: int
     ) -> Tuple[np.ndarray, float]:
@@ -81,7 +79,6 @@ class WindowImportance:
             for w in range(num_windows)
         ]
 
-    # ---------------- Main Interface ----------------
     def analyze_experiment(
         self,
         experiment_id: int,
@@ -104,7 +101,6 @@ class WindowImportance:
         seq_len = self.X.shape[1]
         windows = self._compute_windows(seq_len, patch_size, stride)
 
-        # Compute importance
         if method == "Occlusion":
             importance = self.calculator.compute_occlusion_importance(x_with_angle, windows)
         elif method == "SHAP":
@@ -114,7 +110,6 @@ class WindowImportance:
         else:
             raise ValueError(f"Unknown method: {method}")
 
-        # Plot either curve or heatmap
         if heatmap:
             if method == "Occlusion":
                 errors = self.calculator.compute_occlusion_importance_matrix(x_with_angle, windows)
@@ -140,7 +135,6 @@ class WindowImportance:
                 title=f"{method} Curve",
             )
 
-    # ---------------- Interactive Widget ----------------
     def interactive_window_plot(self):
         importance_methods = ["Occlusion", "SHAP", "Noise"]
 

@@ -48,7 +48,6 @@ def permutation_importance_sequence(model: LSTMSequenceClassifier, data_loader: 
     baseline_accuracy = correct / total
     logger.info("Baseline accuracy: %.4f", baseline_accuracy)
 
-    # Number of features
     for X_batch, _, _ in data_loader:
         num_features = X_batch.shape[2]
         break
@@ -107,20 +106,22 @@ def permutation_importance_sequence(model: LSTMSequenceClassifier, data_loader: 
 
 def gradient_importance_sequence(model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device, n_batches: int = 10):
     """
-    Calculate gradient-based importance for sequence model.
-    Averages gradients over valid timesteps only.
+    Calculate Gradient × Input importance for a sequence model.
+    Averages contributions over valid timesteps only.
     
     Args:
         model (LSTMSequenceClassifier): Trained sequence classification model.
-        data_loader (DataLoader): DataLoader providing the input data.
+        data_loader (DataLoader): DataLoader providing input sequences.
         device (torch.device): Device to run computations on.
         n_batches (int): Number of batches to process for averaging.
     
     Returns:
         importances (np.ndarray): Array of feature importance scores.
     """
+    import numpy as np
+
     model.eval()
-    logger.info("Calculating gradient-based importance")
+    logger.info("Calculating Gradient × Input importance")
 
     all_gradients = []
     batch_count = 0
@@ -137,24 +138,27 @@ def gradient_importance_sequence(model: LSTMSequenceClassifier, data_loader: Dat
         outputs = model(X_batch)
         model.zero_grad()
 
+        # Valid timesteps mask
         valid_mask = (y_batch != -1) & (mask_batch == 1)
         loss = outputs[valid_mask].max(dim=-1)[0].sum()
         loss.backward()
 
-        gradients = X_batch.grad.abs()
+        # Gradient × Input
+        gradients = X_batch.grad  # shape: [batch, seq_len, features]
+        grad_x_input = (gradients * X_batch).detach()  # element-wise product
 
         for i in range(X_batch.shape[0]):
             valid_indices = torch.where(valid_mask[i])[0]
             if len(valid_indices) > 0:
-                grad_mean = (
-                    gradients[i, valid_indices, :].mean(dim=0).detach().cpu().numpy()
-                )
+                # Average over valid timesteps
+                grad_mean = grad_x_input[i, valid_indices, :].mean(dim=0).cpu().numpy()
                 all_gradients.append(grad_mean)
 
         batch_count += 1
 
+    # Average over all samples
     importances = np.mean(all_gradients, axis=0)
-    logger.info("Gradient importance computed")
+    logger.info("Gradient × Input importance computed")
 
     return importances
 
@@ -450,7 +454,6 @@ def plot_feature_importance(
     if feature_names is None:
         feature_names = [f"Feature {i}" for i in range(len(importances))]
 
-    # Sort by importance
     sorted_idx = np.argsort(importances)[::-1]
     sorted_importances = importances[sorted_idx]
     sorted_names = [feature_names[i] for i in sorted_idx]
@@ -489,14 +492,12 @@ def compare_methods(analyze_features_result_path, method_dict, feature_names=Non
         first_imp = list(method_dict.values())[0]
         feature_names = [f"Feature {i}" for i in range(len(first_imp))]
 
-    # Normalize all methods to [0, 1]
     normalized_methods = {}
     for method_name, importances in method_dict.items():
         imp_min, imp_max = importances.min(), importances.max()
         normalized = (importances - imp_min) / (imp_max - imp_min + 1e-10)
         normalized_methods[method_name] = normalized
 
-    # Create comparison plot
     x = np.arange(len(feature_names))
     width = 0.8 / len(method_dict)
 
@@ -521,7 +522,6 @@ def compare_methods(analyze_features_result_path, method_dict, feature_names=Non
         output_file, dpi=300, bbox_inches="tight"
     )
 
-    # Create heatmap
     importance_matrix = np.array([imp for imp in normalized_methods.values()])
 
     fig, ax = plt.subplots(figsize=(12, len(method_dict) * 1.2))
@@ -544,7 +544,6 @@ def compare_methods(analyze_features_result_path, method_dict, feature_names=Non
     output_file = Path(analyze_features_result_path) / "feature_importance_heatmap.png"
     plt.savefig(output_file, dpi=300, bbox_inches="tight")
 
-    # Correlation between methods
     if len(method_dict) > 1:
         method_names = list(method_dict.keys())
         n_methods = len(method_names)

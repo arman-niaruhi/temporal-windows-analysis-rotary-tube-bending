@@ -21,7 +21,7 @@ class WindowAlgPreprocessor(BasePreprocessor):
         for sample_idx in range(num_samples):
             for angle_idx in range(num_angles):
                 x_seq = X[sample_idx].flatten()
-                degree = angle_idx / (num_angles - 1)  # normalized angle
+                degree = angle_idx / (num_angles - 1)  
                 x_with_angle = np.append(x_seq, degree)
                 X_rf.append(x_with_angle)
                 Y_rf.append(Y[sample_idx, angle_idx])

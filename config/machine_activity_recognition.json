@@ -26,9 +26,9 @@
       "patience": 3
     }
   },
-  "analytics":false,
+  "analytics":true,
   "show_result_properties":{
-    "store_plots": false,
+    "store_plots": true,
     "store_plots_path": "results/activity_recognition" 
   },
   "inference_one_label_in_one":{

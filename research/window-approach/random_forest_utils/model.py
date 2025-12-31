@@ -58,7 +58,7 @@ class RandomForestTrainer:
 
     def save_model(self, path):
         """Save the trained model to disk."""
-        os.makedirs(os.path.dirname(path), exist_ok=True)  # make sure folder exists
+        os.makedirs(os.path.dirname(path), exist_ok=True)  
         joblib.dump(self.model, path)
 
     def load_model(self, path=None):
@@ -69,7 +69,7 @@ class RandomForestTrainer:
         return self.model
     
     def predict_by_experiment_angle(self, sample_idx, X, Y):
-        y_true = Y[sample_idx]  # Shape: (num_angles, 3)
+        y_true = Y[sample_idx]  
         y_pred = []
         num_angles = Y.shape[1]
         output_size = Y.shape[2]
@@ -81,14 +81,9 @@ class RandomForestTrainer:
             y_hat = self.model.predict(x_with_angle.reshape(1, -1))
             y_pred.append(y_hat.flatten())
 
-        y_pred = np.array(y_pred)  # Shape: (num_angles, 3)
+        y_pred = np.array(y_pred)  
 
-        # ---------- Print comparison ----------
-        # print(f"Comparing predictions for sample {sample_idx}:")
-        # for angle_idx in range(num_angles):
-        #     print(f"Angle {angle_idx:2d}: True={y_true[angle_idx]}, Pred={y_pred[angle_idx]}")
 
-        # ---------- Optional: plot comparison ----------
         plt.figure(figsize=(12, 5))
         for dim in range(output_size):
             plt.plot(range(num_angles), y_true[:, dim], label=f'True dim {dim}')
