@@ -229,14 +229,17 @@ def main():
                 )
 
     elif args.step == "context_extraction":
+        # Read the context extraction json config (this could be changed base on the needs) and extract the data
         extraction_configuration_path = "config/context_extraction_config.json"
         with open(extraction_configuration_path, "r") as f:
             config = json.load(f)
-        enforce_reproducibility(seed=config.get("general_setting").get("seed"))
         input_path_param = config.get("input_path_param")
         preprocessing_param = config.get("preprocessing_param")
         machine_part = input_path_param.get("machine_part")
-
+            
+        # Seeding for reproducibility
+        enforce_reproducibility(seed=config.get("general_setting").get("seed"))
+        
         (
             X,
             Y,
@@ -247,7 +250,6 @@ def main():
         ) = prepare_data(
             input_path_param=input_path_param, preprocessing_param=preprocessing_param
         )
-
         train_model(
             X=X,
             Y=Y,
