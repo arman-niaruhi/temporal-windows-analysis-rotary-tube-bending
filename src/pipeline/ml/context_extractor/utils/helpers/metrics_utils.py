@@ -6,28 +6,42 @@ from sklearn.metrics import (
 )
 import torch
 
+from sklearn.metrics import explained_variance_score
+from sklearn.metrics import median_absolute_error
+
 
 def compute_all_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
-    """Compute comprehensive metrics
+    """
+    Compute a comprehensive set of metrics for model evaluation.
+
+    Supports per-prediction, per-feature, and overall metrics.
+    Converts torch tensors to numpy arrays if necessary.
 
     Args:
-        y_true: Ground truth values (numpy array or torch tensor).
-        y_pred: Predicted values (numpy array or torch tensor).
-        
+        y_true: Ground truth values (torch tensor or numpy array)
+        y_pred: Predicted values (torch tensor or numpy array)
+
     Returns:
-        A dictionary containing various computed metrics.
+        dict: Contains metrics including MSE, RMSE, MAE, R2, max_error,
+              mean_error, std_error, per-prediction/per-feature metrics,
+              and residuals.
     """
+
+    # Ensure numpy arrays for metric computation
     y_true_np = y_true.cpu().numpy() if torch.is_tensor(y_true) else y_true
     y_pred_np = y_pred.cpu().numpy() if torch.is_tensor(y_pred) else y_pred
 
+    # Overall metrics
     mse = mean_squared_error(y_true_np.flatten(), y_pred_np.flatten())
     rmse = np.sqrt(mse)
     mae = mean_absolute_error(y_true_np.flatten(), y_pred_np.flatten())
     r2 = r2_score(y_true_np.flatten(), y_pred_np.flatten())
 
+    # Per-prediction metrics (mean across batch and time)
     per_pred_mse = np.mean((y_true_np - y_pred_np) ** 2, axis=(0, 2))
     per_pred_mae = np.mean(np.abs(y_true_np - y_pred_np), axis=(0, 2))
 
+    # Per-feature metrics (if multi-feature output)
     if y_true_np.ndim == 3 and y_true_np.shape[2] > 1:
         per_feature_mse = np.mean((y_true_np - y_pred_np) ** 2, axis=(0, 1))
         per_feature_mae = np.mean(np.abs(y_true_np - y_pred_np), axis=(0, 1))
@@ -35,11 +49,13 @@ def compute_all_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
         per_feature_mse = None
         per_feature_mae = None
 
+    # Additional error statistics
     max_error = np.max(np.abs(y_true_np - y_pred_np))
     mean_error = np.mean(y_pred_np - y_true_np)
     std_error = np.std(y_pred_np - y_true_np)
     residuals = y_pred_np - y_true_np
 
+    # Aggregate metrics in dictionary
     metrics = {
         "mse": float(mse),
         "rmse": float(rmse),
@@ -53,6 +69,7 @@ def compute_all_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
         "residuals": residuals,
     }
 
+    # Include per-feature metrics if applicable
     if per_feature_mse is not None:
         metrics["per_feature_mse"] = per_feature_mse.tolist()
         metrics["per_feature_mae"] = per_feature_mae.tolist()
@@ -61,41 +78,51 @@ def compute_all_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
 
 
 def compute_epoch_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
-    """Compute comprehensive metrics for a single epoch
-    
-    Args:
-        y_true: Ground truth values (numpy array or torch tensor).
-        y_pred: Predicted values (numpy array or torch tensor).
-        Returns:
-        A dictionary containing various computed metrics.
     """
+    Compute standard regression metrics for a single epoch.
+
+    Metrics include:
+    - MSE, RMSE, MAE, R2, MAPE
+    - Max error, Explained Variance Score (EVS)
+    - Mean bias error (MBE), Median Absolute Error (MedAE)
+
+    Args:
+        y_true: Ground truth values (torch tensor or numpy array)
+        y_pred: Predicted values (torch tensor or numpy array)
+
+    Returns:
+        dict: Dictionary of computed metrics
+    """
+
+    # Convert tensors to numpy arrays
     y_true_np = y_true.cpu().numpy() if torch.is_tensor(y_true) else y_true
     y_pred_np = y_pred.cpu().numpy() if torch.is_tensor(y_pred) else y_pred
 
+    # Flatten for overall metrics
     y_true_flat = y_true_np.flatten()
     y_pred_flat = y_pred_np.flatten()
 
+    # Basic regression metrics
     mse = mean_squared_error(y_true_flat, y_pred_flat)
     mae = mean_absolute_error(y_true_flat, y_pred_flat)
     r2 = r2_score(y_true_flat, y_pred_flat)
-
     rmse = np.sqrt(mse)
 
+    # Mean Absolute Percentage Error (avoid division by zero)
     epsilon = 1e-8
     denominator = np.abs(y_true_flat) + epsilon
-
     mape = np.mean(np.abs((y_true_flat - y_pred_flat) / denominator)) * 100
 
+    # Maximum absolute error
     max_error = np.max(np.abs(y_true_flat - y_pred_flat))
 
-    from sklearn.metrics import explained_variance_score
-
+    # Explained Variance Score
     evs = explained_variance_score(y_true_flat, y_pred_flat)
 
+    # Mean Bias Error
     mbe = np.mean(y_pred_flat - y_true_flat)
 
-    from sklearn.metrics import median_absolute_error
-
+    # Median Absolute Error
     medae = median_absolute_error(y_true_flat, y_pred_flat)
 
     return {
