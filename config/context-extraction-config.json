@@ -1,34 +1,34 @@
 {
-    "general_setting": {
-        "seed":42
+    "generalSetting": {
+        "seed": 42
     },
-    "input_path_param": {
+    "inputPathParams": {
         "database_path": "data/processed/tube_geometry.db",
-        "machine_part": "All",
+        "machine_part": "De-Clamping",
         "annotation_json_path": "data/ml/machine-and-movement_complete.json"
     },
-    "preprocessing_param": {
-        "to_58_excluded": false,
+    "preprocessingParams": {
+        "to_58_excluded": true,
         "seperate_test_set": true,
         "random_seed": 42,
-        "agg_mertic": "mean",
-        "window_num": 200,
+        "agg_metric": "mean",
+        "window_num": 100,
+        "feature_indices": [
+            1,
+            5
+        ],
         "annot_timesteps": [
             150,
             340,    
             820,
             1280
         ],
-        "feature_indices": [
-            1,
-            5
-        ],
         "mandrel_extraction_annot_timesteps":[
             650, 
             820
         ]
     },
-    "training_param": {
+    "trainingParams": {
         "train": false,
         "hidden_dim": 32,
         "lstm_layers": 1,
@@ -36,13 +36,11 @@
         "lr": 0.0005,
         "weight_decay": 5e-4,
         "batch_size": 8,
-        "max_epochs": 300,
+        "max_epochs": 1,
         "model_path": "models/context_extraction"
     },
-    "occlusion_param":{
-        "occluded_window_size": 10,
-        "occluded_stride": 10,
-        "number_of_samples": 20,
-        "top_k_windows_to_plot": 10
+    "occlusionParams":{
+        "occlusion_window_size": 50,
+        "occlusion_stride": 50
     }
 }

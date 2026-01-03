@@ -1,5 +1,9 @@
 import argparse
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
+import json
 import os
+
 from src.logging.logging_config import setup_logging
 from src.pipeline.preprocessing.data_preprecessor import DataPreprocessPipeline
 from src.pipeline.ml.classification.utils.plot_utils import (
@@ -13,11 +17,10 @@ from src.pipeline.ml.classification.utils.inference_one_label import (
     get_all_predictions,
     inference_one_label_in_one,
 )
-from src.pipeline.ml.context_extractor.utils.seed_utils import enforce_reproducibility
+from src.pipeline.ml.context_extractor.utils.helpers.seed_utils import enforce_reproducibility
 from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import prepare_data
-from src.pipeline.ml.context_extractor.utils.training_utils import train_model
+from src.pipeline.ml.context_extractor.utils.training_pipeline_utils import train_model
 
-import json
 
 import logging
 
@@ -229,17 +232,59 @@ def main():
                 )
 
     elif args.step == "context_extraction":
-        # Read the context extraction json config (this could be changed base on the needs) and extract the data
-        extraction_configuration_path = "config/context_extraction_config.json"
-        with open(extraction_configuration_path, "r") as f:
+        # ============================================================
+        # Load schema and config and validate the config json entries and extract the required parameters
+        # ============================================================
+        with open("config/context-extraction-config.json", "r") as f:
             config = json.load(f)
-        input_path_param = config.get("input_path_param")
-        preprocessing_param = config.get("preprocessing_param")
-        machine_part = input_path_param.get("machine_part")
+        with open("config/context-extraction-config-schema.json", "r") as f:
+            schema = json.load(f)
             
-        # Seeding for reproducibility
-        enforce_reproducibility(seed=config.get("general_setting").get("seed"))
+        def get_schema_description(schema_part, path):
+            """Traverse schema to find 'description' for a given path."""
+            for key in path:
+                if 'properties' in schema_part and key in schema_part['properties']:
+                    schema_part = schema_part['properties'][key]
+                else:
+                    return None
+            return schema_part.get('description')
+
+        try:
+            validate(instance=config, schema=schema)
+            logging.info("Configuration json is valid!")
+        except ValidationError as e:
+            path_list = list(e.path)
+            description = get_schema_description(schema, path_list)
+            
+            if description:
+                message = f"Validation failed at '{' -> '.join(path_list)}': {description}"
+            else:
+                message = f"Validation failed at '{' -> '.join(path_list)}': {e.message}"
+            
+            logging.error(message)
         
+        
+        input_path_param = config.get("inputPathParams")
+        preprocessing_param = config.get("preprocessingParams")
+        training_params = config.get("trainingParams")
+        occlusion_params = config.get("occlusionParams")
+        preprocessing_info = config.get("preprocessingParams")
+        seed = config.get("generalSetting").get("seed", 42)
+        
+        machine_part = input_path_param.get("machine_part")
+        
+        
+        
+        # ============================================================
+        # Seeding for reproducibility
+        # ============================================================
+        enforce_reproducibility(seed=seed)
+        
+        
+        
+        # ============================================================
+        # Read and preprocess data
+        # ============================================================
         (
             X,
             Y,
@@ -250,15 +295,21 @@ def main():
         ) = prepare_data(
             input_path_param=input_path_param, preprocessing_param=preprocessing_param
         )
+        
+        
+        
+        # ============================================================
+        # Train the model
+        # ============================================================
         train_model(
             X=X,
             Y=Y,
-            params=config.get("training_param"),
-            occlusion_params= config.get("occlusion_param"),
+            params=training_params,
+            occlusion_params= occlusion_params,
             sensor_names=sensor_names,
             target_feature_names=target_feature_names,
             machine_part=machine_part,
-            preprocessing_info=config.get("preprocessing_param"),
+            preprocessing_info=preprocessing_info,
             annot_timesteps=annot_timesteps,
             mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
             )
