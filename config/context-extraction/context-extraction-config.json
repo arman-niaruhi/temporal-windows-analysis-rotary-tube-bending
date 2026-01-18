@@ -11,7 +11,7 @@
         "to_58_excluded": false,
         "random_seed": 42,
         "agg_metric": "mean",
-        "window_num": 200,
+        "window_num": 400,
         "feature_indices": [
             1,
             4
@@ -28,7 +28,7 @@
         ]
     },
     "trainingParams": {
-        "train": true,
+        "train": false,
         "hidden_dim": 32,
         "lstm_layers": 1,
         "dropout": 0.3,
@@ -39,7 +39,7 @@
         "model_path": "models/context_extraction"
     },
     "occlusionParams": {
-        "occlusion_window_size": 100,
-        "occlusion_stride": 100
+        "occlusion_window_size": 2,
+        "occlusion_stride": 2
     }
 }

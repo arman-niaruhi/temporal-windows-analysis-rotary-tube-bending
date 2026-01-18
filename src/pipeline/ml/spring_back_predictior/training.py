@@ -1,17 +1,31 @@
+import numpy as np
+import pandas as pd
+
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import (
+    mean_squared_error,
+    mean_absolute_error,
+    r2_score,
+    explained_variance_score,
+)
 import torch
 import torch.nn as nn
-import numpy as np
 from typing import Optional, Dict
 from tqdm.auto import tqdm
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
-from src.pipeline.ml.spring_back_predictior.models import AttentionSprigbackLSTM
-from src.pipeline.ml.spring_back_predictior.plot import (
+from src.pipeline.ml.spring_back_predictior.models import AttentionSpringbackLSTM
+from src.pipeline.ml.spring_back_predictior.plot_lstm import (
     plot_predictions,
     plot_training_history,
     plot_residuals,
     plot_true_vs_pred,
 )
+
+from src.pipeline.ml.spring_back_predictior.plot_random_forest import (
+    plot_feature_importance_random_forest,
+    plot_true_vs_pred_random_forest,
+)
+
 
 # ---------------------------------------------------------------------
 # Utilities
@@ -39,7 +53,7 @@ def set_seed(seed: int) -> None:
 # ---------------------------------------------------------------------
 # Training Function
 # ---------------------------------------------------------------------
-def train_model_springback(
+def train_model_springback_lstm(
     seed: int,
     model_input_size: int,
     model_output_size: int,
@@ -50,7 +64,6 @@ def train_model_springback(
     plot_loader,
     device: Optional[torch.device] = None,
 ):
-
     # ------------------
     # Setup
     # ------------------
@@ -72,14 +85,13 @@ def train_model_springback(
     # ------------------
     # Model
     # ------------------
-    model = AttentionSprigbackLSTM(
+    model = AttentionSpringbackLSTM(
         input_size=model_input_size,
         hidden_size=training_params["hidden_size"],
         num_layers=training_params["num_layers"],
         output_size=model_output_size,
         dropout=training_params["dropout"],
         fc_dropout=training_params["fc_dropout"],
-        bidirectional=training_params["bidirectional"],
     ).to(device)
 
     optimizer = torch.optim.AdamW(
@@ -88,7 +100,10 @@ def train_model_springback(
         weight_decay=training_params["weight_decay"],
     )
 
-    criterion = nn.SmoothL1Loss()
+    def loss_fn(pred, target):
+        mse = nn.functional.mse_loss(pred, target)
+        mae = nn.functional.l1_loss(pred, target)
+        return mse + 0.2 * mae
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
@@ -120,7 +135,6 @@ def train_model_springback(
     epoch_pbar = tqdm(range(n_epochs), desc="Training", unit="epoch")
 
     for epoch in epoch_pbar:
-
         # ===== Training =====
         model.train()
         train_loss = 0.0
@@ -132,7 +146,7 @@ def train_model_springback(
 
             optimizer.zero_grad()
             preds = model(x).squeeze(-1)
-            loss = criterion(preds, s)
+            loss = loss_fn(preds, s)
             loss.backward()
 
             if gradient_clip:
@@ -160,7 +174,7 @@ def train_model_springback(
                 s = target_norm.normalize(s.to(device).float()).squeeze(-1)
 
                 preds = model(x).squeeze(-1)
-                loss = criterion(preds, s)
+                loss = loss_fn(preds, s)
 
                 val_loss += loss.item() * x.size(0)
                 val_true.append(s.cpu().numpy())
@@ -182,9 +196,7 @@ def train_model_springback(
         history["train_rmse"].append(
             np.sqrt(mean_squared_error(train_true, train_pred))
         )
-        history["val_rmse"].append(
-            np.sqrt(mean_squared_error(val_true, val_pred))
-        )
+        history["val_rmse"].append(np.sqrt(mean_squared_error(val_true, val_pred)))
         history["lr"].append(optimizer.param_groups[0]["lr"])
 
         scheduler.step(val_loss)
@@ -253,3 +265,101 @@ def train_model_springback(
     plot_training_history(history)
 
     return model, history, evaluation
+
+
+# -------------------- Main Training Function --------------------
+def train_model_springback_random_forest(
+    X_train, X_test, springbacks_train, springbacks_test
+):
+    # Convert to numpy
+    X_tr = X_train.numpy()
+    X_val = X_test.numpy()
+    y_tr = springbacks_train.numpy().reshape(-1)
+    y_val = springbacks_test.numpy().reshape(-1)
+
+    n_samples, n_timesteps, n_features = X_tr.shape
+
+    # -------------------- Flattened Model --------------------
+    X_tr_flat = X_tr.reshape(n_samples, -1)
+    X_val_flat = X_val.reshape(X_val.shape[0], -1)
+
+    rf_flat = RandomForestRegressor(n_estimators=200, max_depth=10, random_state=42)
+    rf_flat.fit(X_tr_flat, y_tr)
+    y_pred_flat = rf_flat.predict(X_val_flat)
+
+    # Metrics for flattened model
+    mse_flat = mean_squared_error(y_val, y_pred_flat)
+    rmse_flat = np.sqrt(mse_flat)
+    mae_flat = mean_absolute_error(y_val, y_pred_flat)
+    r2_flat = r2_score(y_val, y_pred_flat)
+    expl_var_flat = explained_variance_score(y_val, y_pred_flat)
+
+    print("Random Forest (Flattened) Metrics:")
+    print(
+        f"MSE: {mse_flat:.4f}, RMSE: {rmse_flat:.4f}, MAE: {mae_flat:.4f}, R²: {r2_flat:.4f}, Explained Var: {expl_var_flat:.4f}"
+    )
+
+    # -------------------- Aggregated Model --------------------
+    def aggregate_features(X):
+        agg_features = []
+        for feat in range(X.shape[2]):
+            feat_data = X[:, :, feat]
+            mean = feat_data.mean(axis=1)
+            std = feat_data.std(axis=1)
+            min_val = feat_data.min(axis=1)
+            max_val = feat_data.max(axis=1)
+            agg_features.extend([mean, std, min_val, max_val])
+        return np.column_stack(agg_features)
+
+    X_tr_agg = aggregate_features(X_tr)
+    X_val_agg = aggregate_features(X_val)
+
+    rf_agg = RandomForestRegressor(n_estimators=200, max_depth=10, random_state=42)
+    rf_agg.fit(X_tr_agg, y_tr)
+    y_pred_agg = rf_agg.predict(X_val_agg)
+
+    # Metrics for aggregated model
+    mse_agg = mean_squared_error(y_val, y_pred_agg)
+    rmse_agg = np.sqrt(mse_agg)
+    mae_agg = mean_absolute_error(y_val, y_pred_agg)
+    r2_agg = r2_score(y_val, y_pred_agg)
+    expl_var_agg = explained_variance_score(y_val, y_pred_agg)
+
+    print("\nRandom Forest (Aggregated) Metrics:")
+    print(
+        f"MSE: {mse_agg:.4f}, RMSE: {rmse_agg:.4f}, MAE: {mae_agg:.4f}, R²: {r2_agg:.4f}, Explained Var: {expl_var_agg:.4f}"
+    )
+
+    # -------------------- Plots --------------------
+    plot_true_vs_pred_random_forest(y_val, y_pred_flat, y_pred_agg)
+
+    # Feature importance
+    feat_names_flat = [
+        f"f{feat + 1}_t{t + 1}"
+        for feat in range(n_features)
+        for t in range(n_timesteps)
+    ]
+    feat_imp_flat = pd.DataFrame(
+        {"feature": feat_names_flat, "importance": rf_flat.feature_importances_}
+    ).sort_values(by="importance", ascending=False)
+
+    feat_names_agg = [
+        f"f{feat + 1}_{agg}"
+        for feat in range(n_features)
+        for agg in ["mean", "std", "min", "max"]
+    ]
+    feat_imp_agg = pd.DataFrame(
+        {"feature": feat_names_agg, "importance": rf_agg.feature_importances_}
+    ).sort_values(by="importance", ascending=False)
+
+    print("\nTop 20 Flattened Features:")
+    print(feat_imp_flat.head(20))
+    print("\nTop 20 Aggregated Features:")
+    print(feat_imp_agg.head(20))
+
+    plot_feature_importance_random_forest(
+        feat_imp_flat, title="RF Flattened Top 20 Features"
+    )
+    plot_feature_importance_random_forest(
+        feat_imp_agg, title="RF Aggregated Top 20 Features"
+    )
