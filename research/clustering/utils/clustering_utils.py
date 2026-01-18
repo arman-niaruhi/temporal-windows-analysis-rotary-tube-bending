@@ -27,29 +27,21 @@ def cluster_time_series_subsequences(time_series_data, series_idx=0, window_size
     random_state : int
         Random state for reproducibility.
     """
-    # Pick one series
-    one_series = time_series_data[series_idx]  # (timesteps, num_features)
+    one_series = time_series_data[series_idx]  
 
-    # Extract subsequences
     subsequences = [one_series[j:j+window_size] 
                     for j in range(one_series.shape[0] - window_size + 1)]
-    subsequences = np.array(subsequences)  # (n_subseq, window_size, features)
+    subsequences = np.array(subsequences)  
 
-    # Flatten subsequences for clustering
     n_subseq, w, f = subsequences.shape
     subsequences_flat = subsequences.reshape(n_subseq, w*f)
 
-    # Standardize
     scaler = StandardScaler()
     subsequences_scaled = scaler.fit_transform(subsequences_flat)
 
-    # Clustering
     kmeans = KMeans(n_clusters=n_clusters, random_state=random_state)
     labels = kmeans.fit_predict(subsequences_scaled)
 
-    # -----------------------
-    # Plot feature 0 with cluster mask
-    # -----------------------
     plt.figure(figsize=(15, 4))
     plt.plot(one_series[:, 0], color="black", linewidth=2, label="Feature 0 (example)")
 
@@ -63,9 +55,6 @@ def cluster_time_series_subsequences(time_series_data, series_idx=0, window_size
     plt.legend()
     plt.show()
 
-    # -----------------------
-    # Plot all features with cluster mask
-    # -----------------------
     plt.figure(figsize=(15, 6))
     for f_idx in range(one_series.shape[1]):
         plt.plot(one_series[:, f_idx], linewidth=1.5, label=f"Feature {f_idx}")
@@ -79,9 +68,6 @@ def cluster_time_series_subsequences(time_series_data, series_idx=0, window_size
     plt.legend()
     plt.show()
 
-    # -----------------------
-    # PCA of clustered subsequences
-    # -----------------------
     pca = PCA(n_components=2)
     subsequences_pca = pca.fit_transform(subsequences_scaled)
 
@@ -105,9 +91,6 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-# -------------------------
-# Utility functions
-# -------------------------
 def euclidean_distance(a, b):
     return np.linalg.norm(a - b)
 
@@ -118,9 +101,6 @@ def uniform_scaling(seq, target_len):
     idx = np.linspace(0, len(seq) - 1, target_len)
     return np.array([seq[int(round(i))] for i in idx])
 
-# -------------------------
-# SSTS-style clustering function
-# -------------------------
 def cluster_time_series_subsequences_ssts(time_series_data, series_idx=0, window_size=10, scaling_factor=1.5, random_state=0):
     """
     Selective Subsequence Time Series (SSTS) clustering for a multivariate time series.
@@ -140,31 +120,25 @@ def cluster_time_series_subsequences_ssts(time_series_data, series_idx=0, window
     """
     np.random.seed(random_state)
 
-    # Pick one series
-    one_series = time_series_data[series_idx]  # (timesteps, num_features)
+    one_series = time_series_data[series_idx]  
 
-    # Extract subsequences with variable length
     w_min, w_max = int(window_size / scaling_factor), int(window_size * scaling_factor)
     subsequences = []
     starts = []
     for w in range(w_min, w_max + 1):
         for i in range(one_series.shape[0] - w + 1):
             subseq = one_series[i:i+w]
-            subseq = uniform_scaling(subseq, window_size)  # rescale to fixed length
+            subseq = uniform_scaling(subseq, window_size)  
             subsequences.append(subseq)
             starts.append(i)
 
-    subsequences = np.array(subsequences)  # (n_subseq, window_size, features)
+    subsequences = np.array(subsequences)  
     n_subseq, w, f = subsequences.shape
     subsequences_flat = subsequences.reshape(n_subseq, w*f)
 
-    # Standardize
     scaler = StandardScaler()
     subsequences_scaled = scaler.fit_transform(subsequences_flat)
 
-    # -------------------------
-    # Greedy SSTS clustering (simplified)
-    # -------------------------
     clusters = []
     centers = []
     labels = np.full(n_subseq, -1)
@@ -172,29 +146,23 @@ def cluster_time_series_subsequences_ssts(time_series_data, series_idx=0, window
     for i in range(n_subseq):
         subseq = subsequences_scaled[i]
         if not centers:
-            # Create first cluster
             centers.append(subseq)
             clusters.append([i])
             labels[i] = 0
         else:
-            # Find nearest cluster center
             dists = [euclidean_distance(subseq, c) for c in centers]
             j = np.argmin(dists)
-            if dists[j] < 1.0:  # threshold for similarity (tunable)
+            if dists[j] < 1.0:  
                 clusters[j].append(i)
                 centers[j] = average_sequence(subsequences_scaled[clusters[j]])
                 labels[i] = j
             else:
-                # Create new cluster
                 centers.append(subseq)
                 clusters.append([i])
                 labels[i] = len(centers) - 1
 
     n_clusters = len(centers)
 
-    # -------------------------
-    # Plot overlay on feature 0
-    # -------------------------
     plt.figure(figsize=(15, 4))
     plt.plot(one_series[:, 0], color="black", linewidth=2, label="Feature 0 (example)")
 
@@ -209,9 +177,6 @@ def cluster_time_series_subsequences_ssts(time_series_data, series_idx=0, window
     plt.legend()
     plt.show()
 
-    # -------------------------
-    # Plot all features with cluster mask
-    # -------------------------
     plt.figure(figsize=(15, 6))
     for f_idx in range(one_series.shape[1]):
         plt.plot(one_series[:, f_idx], linewidth=1.5, label=f"Feature {f_idx}")
@@ -226,9 +191,6 @@ def cluster_time_series_subsequences_ssts(time_series_data, series_idx=0, window
     plt.legend()
     plt.show()
 
-    # -------------------------
-    # PCA of clustered subsequences
-    # -------------------------
     pca = PCA(n_components=2)
     subsequences_pca = pca.fit_transform(subsequences_scaled)
 
@@ -261,25 +223,18 @@ def plot_k_selection(time_series_data, series_idx, window_size, k_range=range(2,
     k_range : range
         Range of k values to test
     """
-    # Pick one series
-    one_series = time_series_data[series_idx]  # (timesteps, num_features)
+    one_series = time_series_data[series_idx]  
 
-    # Extract subsequences
     subsequences = [one_series[j:j+window_size] 
                     for j in range(one_series.shape[0] - window_size + 1)]
-    subsequences = np.array(subsequences)  # (n_subseq, window_size, features)
+    subsequences = np.array(subsequences)  
 
-    # Flatten subsequences for clustering
     n_subseq, w, f = subsequences.shape
     subsequences_flat = subsequences.reshape(n_subseq, w*f)
 
-    # Standardize
     scaler = StandardScaler()
     subsequences_scaled = scaler.fit_transform(subsequences_flat)
     
-    # -----------------------
-    # Elbow method
-    # -----------------------
     inertias = []
     for k in k_range:
         kmeans = KMeans(n_clusters=k, random_state=0)
@@ -294,9 +249,6 @@ def plot_k_selection(time_series_data, series_idx, window_size, k_range=range(2,
     plt.grid(True)
     plt.show()
     
-    # -----------------------
-    # Silhouette method
-    # -----------------------
     scores = []
     for k in k_range:
         kmeans = KMeans(n_clusters=k, random_state=0)

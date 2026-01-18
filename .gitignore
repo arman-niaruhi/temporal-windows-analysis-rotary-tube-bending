@@ -6,11 +6,12 @@
 *.pptx
 *.DS_Store
 *.png
-*.pkl
 *.pth
 *.vscode
 *.joblib
 *.gif
+*.pkl
+*.idea
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -24,8 +25,8 @@ __pycache__/
 
 # Folders
 *models/*
-*data*
 *mlruns*
+results/*
 
 # Ignore virtual environment
 *venv/

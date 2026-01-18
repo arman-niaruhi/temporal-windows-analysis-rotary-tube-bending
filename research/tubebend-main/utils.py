@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Mon Jul 28 09:12:01 2025
 
@@ -63,7 +61,6 @@ def multi_sensor_subplots(df: pd.DataFrame,
 
     num_sensors = len(numeric_cols)
 
-    # Subplot titles = descriptive sensor names (not units)
     subplot_titles = [extract_trace_name(col) for col in numeric_cols]
 
     fig = make_subplots(
@@ -84,14 +81,14 @@ def multi_sensor_subplots(df: pd.DataFrame,
                 x=time,
                 y=y_values,
                 mode='lines',
-                name=extract_trace_name(col),  # for tooltip only
+                name=extract_trace_name(col),  
                 line=dict(width=1)
             ),
             row=i, col=1
         )
 
         fig.update_yaxes(
-            title_text=extract_y_label(col),  # this is the y-axis label on left
+            title_text=extract_y_label(col),  
             range=[y_min - margin, y_max + margin],
             row=i, col=1
         )
@@ -99,7 +96,6 @@ def multi_sensor_subplots(df: pd.DataFrame,
     fig.update_xaxes(title_text='Time [s]', row=num_sensors, col=1)
 
     fig.update_layout(
-        # title="Sensor Time Series - One per Subplot",
         height=300 * num_sensors,
         width=1400,
         showlegend=False,
