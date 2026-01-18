@@ -221,13 +221,12 @@ def train_model(
             if combined_importance_df is not None:
                 X_sample = plot_X[:1]
                 sensor_data_sample = X_test[:1].cpu().numpy()
-                springback_sample = springbacks_test[:1]
                 save_integrated_gradients_combined(
-                    model, X_sample, sensor_data_sample, springback_sample, sensor_names,
+                    model, X_sample, springback[:1], sensor_data_sample, sensor_names,
                     target_feature_names, integrated_gradients_dir, process_part, annot_timesteps,
                     mandrel_extraction_annot_timesteps
                 )
-                
+                    
                 log_feature_importance_to_mlflow(
                     combined_importance_df
                 )

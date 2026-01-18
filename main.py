@@ -21,7 +21,7 @@ from src.pipeline.ml.context_extractor.utils.helpers.seed_utils import enforce_r
 from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import prepare_data
 from src.pipeline.ml.context_extractor.utils.training_pipeline_utils import train_model
 
-from src.pipeline.ml.spring_back_predictior.training import train_model_springback
+from src.pipeline.ml.spring_back_predictior.training import train_model_springback_lstm, train_model_springback_random_forest
 from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import create_data_loaders
 
 
@@ -263,28 +263,33 @@ def main():
         
         input_path_param = config.get("inputPathParams")
         preprocessing_param = config.get("preprocessingParams")
-        training_params = config.get("trainingParams")
+        lstm_training_params = config.get("lstmTrainingParams")
         seed = config.get("generalSetting").get("seed", 42)
             
         X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, sensor_names, target_feature_names, annot_timesteps, mandrel_extraction_annot_timesteps = prepare_data(
                 input_path_param=input_path_param,
                 preprocessing_param=preprocessing_param,
             )
-
         train_loader, val_loader, plot_loader = create_data_loaders(
-        X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, training_params["batch_size"])
-        
-
-        train_model_springback( 
+        X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, lstm_training_params["batch_size"])
+        train_model_springback_random_forest(
+            X_train=X_train,
+            X_test=X_test,
+            springbacks_train=springbacks_train,
+            springbacks_test=springbacks_test
+        )
+        '''
+        train_model_springback_lstm( 
         seed=seed,
         model_input_size=X_train.shape[2],
         model_output_size=springbacks_train.shape[2],
-        training_params= training_params,
+        training_params= lstm_training_params,
         springbacks_train = springbacks_train,
         train_loader=train_loader,
         val_loader=val_loader,
         plot_loader=plot_loader,
         )
+        '''
 
 if __name__ == "__main__":
     main()

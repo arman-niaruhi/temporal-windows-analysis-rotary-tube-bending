@@ -87,7 +87,7 @@ class AttentionLSTM(nn.Module):
         lstm_layers: int = 2,
         dropout: float = 0.3,
         scalar_embedding_dim: int = 16,
-        use_scalar: bool = True,   # <<< FLAG
+        use_scalar: bool = False,   # <<< FLAG
     ):
         super().__init__()
 
