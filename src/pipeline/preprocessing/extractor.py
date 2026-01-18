@@ -63,15 +63,6 @@ class DataExtractor:
         result.columns = result.columns.str.replace("Experiment", "Experiment_ID")
         return result
 
-    def load_dict_getter(self):
-        """
-        Getter for the loaded experiments dictionary.
-
-        Returns:
-            dict: The loaded experiments dictionary stored in self.loaded_dict.
-        """
-        return self.loaded_dict
-
     @log_function
     def get_part_bending_setups(self, process_part):
         """
