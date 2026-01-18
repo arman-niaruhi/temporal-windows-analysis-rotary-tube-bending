@@ -7,8 +7,8 @@ import json
 
 
 class BasePreprocessor:
-    def __init__(self, database_path, machine_part, annotation_json_path):
-        self.machine_par = machine_part
+    def __init__(self, database_path, process_part, annotation_json_path):
+        self.machine_par = process_part
         self.sensor_df = None
         self.target_df = None
         self._feature_cols = None

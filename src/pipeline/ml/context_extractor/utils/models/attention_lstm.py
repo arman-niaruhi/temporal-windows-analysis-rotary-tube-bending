@@ -1,8 +1,8 @@
 """
-Methods Module: Attention LSTM
+Methods Module: Attention LSTM with Scalar Input
 
 This module implements:
-- AttentionLSTM model with MLPAttention
+- AttentionLSTM model with MLPAttention and scalar input support
 
 References:
 ------------
@@ -78,15 +78,6 @@ class MLPAttention(nn.Module):
 
 
 class AttentionLSTM(nn.Module):
-    """
-    LSTM model with MLP-based attention for multistep sequence prediction.
-
-    Architecture:
-        1. LSTM encoder to extract temporal features
-        2. Layer normalization for stabilized hidden states
-        3. MLPAttention for interpretable attention per prediction timestep
-        4. Fully connected layers to map context vectors to predictions
-    """
     def __init__(
         self,
         input_features: int,
@@ -95,23 +86,26 @@ class AttentionLSTM(nn.Module):
         hidden_dim: int = 128,
         lstm_layers: int = 2,
         dropout: float = 0.3,
+        scalar_embedding_dim: int = 16,
+        use_scalar: bool = True,   # <<< FLAG
     ):
-        """
-        Initialize AttentionLSTM.
-
-        Args:
-            input_features: Number of input features per timestep
-            n_predictions: Number of timesteps to predict
-            output_features: Number of output features per timestep
-            hidden_dim: Hidden dimension of LSTM and attention layers
-            lstm_layers: Number of stacked LSTM layers
-            dropout: Dropout rate applied to LSTM layers (except single layer)
-        """
         super().__init__()
-        self.input_features = input_features
+
+        self.use_scalar = use_scalar
         self.n_predictions = n_predictions
-        self.output_features = output_features
         self.hidden_dim = hidden_dim
+
+        # Scalar embedding (only if enabled)
+        if self.use_scalar:
+            self.scalar_embedding = nn.Sequential(
+                nn.Linear(1, scalar_embedding_dim),
+                nn.ReLU(),
+                nn.Linear(scalar_embedding_dim, scalar_embedding_dim),
+            )
+            combined_dim = hidden_dim + scalar_embedding_dim
+        else:
+            self.scalar_embedding = None
+            combined_dim = hidden_dim
 
         # LSTM encoder
         self.lstm = nn.LSTM(
@@ -122,38 +116,44 @@ class AttentionLSTM(nn.Module):
             dropout=dropout if lstm_layers > 1 else 0.0,
         )
 
-        # Layer normalization for LSTM outputs
         self.ln = nn.LayerNorm(hidden_dim)
-
-        # Attention mechanism
         self.attention = MLPAttention(n_predictions, hidden_dim)
 
-        # Fully connected layers to generate final predictions
+        # Final prediction head
         self.fc = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.Linear(combined_dim, hidden_dim // 2),
             nn.ReLU(),
             nn.Linear(hidden_dim // 2, hidden_dim // 4),
             nn.ReLU(),
             nn.Linear(hidden_dim // 4, output_features),
         )
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, scalar: torch.Tensor | None = None):
         """
-        Forward pass of AttentionLSTM.
-
         Args:
-            x: Input tensor of shape (batch_size, sequence_length, input_features)
-
-        Returns:
-            out: Predictions of shape (batch_size, n_predictions, output_features)
-            attn: Attention weights of shape (batch_size, n_predictions, sequence_length)
+            x: (batch_size, seq_len, input_features)
+            scalar: (batch_size, 1) or (batch_size,) – ignored if use_scalar=False
         """
-        # Encode input sequence
+        # LSTM encoding
         o, _ = self.lstm(x)
-        # Normalize LSTM outputs
         o = self.ln(o)
-        # Apply attention to LSTM outputs
-        ctx, attn = self.attention(o)
-        # Map context vectors to predictions
-        out = self.fc(ctx)
+
+        # Attention
+        ctx, attn = self.attention(o)  # (B, n_predictions, hidden_dim)
+
+        if self.use_scalar:
+            if scalar is None:
+                raise ValueError("scalar input is required when use_scalar=True")
+
+            if scalar.dim() == 1:
+                scalar = scalar.unsqueeze(-1)
+
+            scalar_emb = self.scalar_embedding(scalar)
+            scalar_emb = scalar_emb.unsqueeze(1).expand(-1, self.n_predictions, -1)
+
+            combined = torch.cat([ctx, scalar_emb], dim=-1)
+        else:
+            combined = ctx
+
+        out = self.fc(combined)
         return out, attn

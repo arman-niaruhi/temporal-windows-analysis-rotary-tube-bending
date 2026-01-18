@@ -4,6 +4,7 @@ import torch
 import os
 import logging
 from pathlib import Path
+from typing import Any
 
 from src.pipeline.ml.classification.utils.model import LSTMSequenceClassifier
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
@@ -14,13 +15,20 @@ from src.pipeline.ml.classification.utils.preprocessing_utils import (
 logger = logging.getLogger(__name__)
 
 
+TEST_EXPERIMENT_IDS = [
+    2, 3, 22, 23, 40, 54, 83, 85, 110, 112, 119, 120, 121, 122, 123,
+    178, 179, 182, 183, 211, 212, 213, 255, 258, 261, 271, 272, 273,
+    302, 303, 304, 317, 318
+]
+
+
 def get_all_predictions(
     label: str,
     database_path: str,
     annotation_json_path: str,
     eliminated_columns: list[str],
     models_path: str,
-    machine_part: str,
+    process_part: str,
     model_config: dict,
     exp_id: int,
 ):
@@ -32,7 +40,7 @@ def get_all_predictions(
         annotation_json_path: Path to the JSON file with annotations.
         eliminated_columns: List of columns to eliminate from the data.
         models_path: Path to the directory containing trained models.
-        machine_part: Machine part identifier.
+        process_part: Machine part identifier.
         exp_id: Experiment ID to get predictions for.
     Returns:
         exp_data: DataFrame with sensor data for the experiment.
@@ -40,7 +48,7 @@ def get_all_predictions(
     loader = DataLoaderETL(database_path)
     dataframes = loader.load_all_data_from_sqlite()
     classifier_preprocessor = ClassifierPreprocessor(
-        sensors_df=dataframes[machine_part], annotation_json=annotation_json_path
+        sensors_df=dataframes[process_part], annotation_json=annotation_json_path
     )
     sensors_df, _ = classifier_preprocessor.read_data()
     sensors_df = classifier_preprocessor.delete_columns(
@@ -58,7 +66,7 @@ def get_all_predictions(
         input_size, hidden_size, num_layers, num_classes, bidirectional=True
     ).to(device)
 
-    model_path = os.path.join(models_path, machine_part, label, "activity_detector.pth")
+    model_path = os.path.join(models_path, process_part, label, "activity_detector.pth")
 
     try:
         state_dict = torch.load(model_path, map_location=device)
@@ -93,9 +101,9 @@ def inference_one_label_in_one(
     models_path: str,
     model_config: dict,
     labels: list[str],
-    machine_part: str,
-    save_dir_path: str,
-    get_all_predictions_fn: callable,  
+    process_part: str,
+    save_dir_path: Any,
+    get_all_predictions_fn: Any,  
     figsize=(15, 10),
 ):
     """
@@ -108,7 +116,7 @@ def inference_one_label_in_one(
         eliminated_columns: List of columns to eliminate from the data.
         models_path: Path to the directory containing trained models.
         labels: List of target labels to plot.
-        machine_part: Machine part identifier.
+        process_part: Machine part identifier.
         get_all_predictions_fn: Function to get all predictions for a label.
         figsize: Figure size for the plot.
 
@@ -144,8 +152,8 @@ def inference_one_label_in_one(
     if not all(isinstance(l, str) for l in labels):  
         raise TypeError("all labels must be strings")
 
-    if not isinstance(machine_part, str) or not machine_part:
-        raise TypeError("machine_part must be a non-empty string")
+    if not isinstance(process_part, str) or not process_part:
+        raise TypeError("process_part must be a non-empty string")
 
     if save_dir_path is None:
         raise ValueError("save_dir_path must be provided")
@@ -157,7 +165,7 @@ def inference_one_label_in_one(
     logger.info(f"Starting inference for Experiment ID: {exp_id} with labels: {labels}")
 
     base_colors = list(mcolors.TABLEAU_COLORS.values())[: len(labels)] 
-
+    
     all_data = {}
     for label in labels:
         exp_data, mask_pred, mask_true = get_all_predictions_fn(
@@ -167,9 +175,9 @@ def inference_one_label_in_one(
             eliminated_columns=eliminated_columns,
             models_path=models_path,
             model_config=model_config,
-            machine_part=machine_part,
+            process_part=process_part,
             exp_id=exp_id,
-        )  
+        )   # type: ignore
         all_data[label] = {
             "exp_data": exp_data,
             "mask_pred": mask_pred,
@@ -256,8 +264,9 @@ def inference_one_label_in_one(
     axs[1].margins(x=0.01)
 
     plt.tight_layout()
-    save_dir_path = Path(save_dir_path) / machine_part
-    save_dir_path.parent.mkdir(parents=True, exist_ok=True)
-    save_file_path = save_dir_path / "individual_labels.png"
-    plt.savefig(f"{save_file_path}", dpi=300, bbox_inches="tight", facecolor="white")
-    plt.show()
+    output_dir = save_dir_path / process_part /"All_in_One"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_file = output_dir / f"individual_labels_{exp_id}.png"
+    plt.savefig(output_file, dpi=300, bbox_inches="tight", facecolor="white")
+

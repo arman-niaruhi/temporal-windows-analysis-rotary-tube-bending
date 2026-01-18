@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -162,10 +162,10 @@ def plot_predictions_vs_true_annot(
     sensor_df: pd.DataFrame,
     feature_cols: List[str],
     plot_config: Dict,
-    machine_part: str,
+    process_part: str,
     objective_label: str,
     device: str = "cpu",
-) -> None:
+) -> Any:
     """Plot predictions vs true annotations for multiple experiments.
     
     Args:
@@ -174,7 +174,7 @@ def plot_predictions_vs_true_annot(
         sensor_df: DataFrame with sensor data and labels
         feature_cols: List of feature column names
         plot_config: Dict with 'store_plots' and 'store_plots_path'
-        machine_part: Machine part identifier
+        process_part: Machine part identifier
         objective_label: Objective label
         device: Device for inference
     """
@@ -187,7 +187,7 @@ def plot_predictions_vs_true_annot(
         logger.error("store_plots_path not specified in plot_config")
         return
     
-    output_dir = Path(store_path_root) / machine_part / objective_label
+    output_dir = Path(store_path_root) / process_part / objective_label
     idx_to_label = {v: k for k, v in dataset.label_to_idx.items()}
     
     successful = 0

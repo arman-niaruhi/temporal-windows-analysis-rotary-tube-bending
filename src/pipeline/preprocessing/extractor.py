@@ -18,7 +18,7 @@ class DataExtractor:
             self.loaded_dict = pickle.load(f)
 
     def _take_bending_setups(
-        self, experiments_process_and_results, machine_part
+        self, experiments_process_and_results, process_part
     ) -> pd.DataFrame:
         """
         Extract all bending setups for a specific machine part as a DataFrame.
@@ -27,18 +27,18 @@ class DataExtractor:
 
         Args:
             experiments_process_and_results (dict): The loaded experiments dictionary.
-            machine_part (str): Key for the machine part or bending setup to extract.
+            process_part (str): Key for the machine part or bending setup to extract.
 
         Returns:
             pd.DataFrame: Concatenated DataFrame containing all setups for the specified machine part.
         """
-        if machine_part != "bending_setups":
+        if process_part != "bending_setups":
             df_list = []
             for (
                 experiment_name,
                 experiment_data,
             ) in experiments_process_and_results.items():
-                df = experiment_data[machine_part].copy()
+                df = experiment_data[process_part].copy()
                 if "Experiment_ID" in df.columns:
                     cols = ["Experiment_ID"] + [
                         col for col in df.columns if col != "Experiment_ID"
@@ -73,17 +73,17 @@ class DataExtractor:
         return self.loaded_dict
 
     @log_function
-    def get_part_bending_setups(self, machine_part):
+    def get_part_bending_setups(self, process_part):
         """
         Return bending setups for a specific machine part from the loaded dictionary.
 
         Args:
-            machine_part (str): Key for the machine part or bending setup to extract.
+            process_part (str): Key for the machine part or bending setup to extract.
 
         Returns:
             pd.DataFrame: DataFrame containing all setups for the specified machine part.
         """
-        return self._take_bending_setups(self.loaded_dict, machine_part)
+        return self._take_bending_setups(self.loaded_dict, process_part)
 
     @log_function
     def get_all_bending_setups(self):
