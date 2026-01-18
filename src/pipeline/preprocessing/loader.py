@@ -1,49 +1,59 @@
 import sqlite3
 import pandas as pd
-from typing import Dict
+from typing import Dict, List, Optional
+from pathlib import Path
 
 from src.logging.log_utils import log_function
 
 
 class DataLoader:
     def __init__(self, db_path: str) -> None:
+        """
+        Initialize the DataLoader with a path to the SQLite database.
+        If the database file or its parent directories do not exist, they will be created.
+
+        Args:
+            db_path (str): Path to SQLite database file.
+        """
         self.db_path = db_path
+        db_dir = Path(db_path).parent
+        db_dir.mkdir(parents=True, exist_ok=True)
 
     @log_function
-    def store_to_sqlite(self, dataframes: dict, store_index_tables: list) -> None:
+    def store_to_sqlite(
+        self, 
+        dataframes: Optional[Dict[str, pd.DataFrame]] = None, 
+        store_index_tables: Optional[List[str]] = None
+    ) -> None:
         """
         Save multiple DataFrames to a SQLite database and create indexes on all columns.
 
-        Each DataFrame in `dataframes` is saved to a table named after its key.
-        If a table is listed in `store_index_tables`, its index is stored as a column.
-        Indexes are created on all columns to optimize queries. Existing tables are replaced.
-
         Args:
-            dataframes (dict): Dictionary where keys are table names and values are DataFrames to save.
-            store_index_tables (list): List of table names for which the DataFrame index should be stored as a column.
-
-        Returns:
-            None: Saves the DataFrames to the SQLite database specified by `self.db_path` and creates indexes.
+            dataframes (dict, optional): Dictionary where keys are table names 
+                                         and values are DataFrames to save.
+            store_index_tables (list, optional): List of table names for which the 
+                                                 DataFrame index should be stored as a column.
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        if not dataframes:
+            print("No dataframes provided. Nothing to store.")
+            return
 
         if store_index_tables is None:
             store_index_tables = []
 
-        for table_name, df in dataframes.items():
-            # Case Distinction:
-            #           If table should store index, reset index as a column named "index"
-            if table_name in store_index_tables:
-                index = True
-            else:
-                index = False
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
 
-            # Save DataFrame to SQLite
+        for table_name, df in dataframes.items():
+            if not isinstance(df, pd.DataFrame):
+                print(f"Skipped {table_name}: not a valid DataFrame.")
+                continue
+
+            index = table_name in store_index_tables
+
             df.to_sql(table_name, conn, index=index, if_exists="replace")
             print(f"Saved table '{table_name}' with shape {df.shape} to SQLite.")
 
-            # Create indexes on all columns to access faster to the data
             for col in df.columns:
                 index_name = f"idx_{table_name}_{col}"
                 try:

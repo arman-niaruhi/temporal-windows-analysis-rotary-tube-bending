@@ -30,7 +30,6 @@ class LSTMClassifier(nn.Module):
         out = self.fc(out)
         return out
 
-    # --- Custom train method ---
     def train_model(self, train_loader, val_loader, num_epochs=100, learning_rate=1e-3, patience=10,
                 device=None, model_name="models/classifier.joblib"):
         """
@@ -48,7 +47,6 @@ class LSTMClassifier(nn.Module):
 
         epoch_bar = tqdm(range(num_epochs), desc="Training", leave=True, colour="blue")
         for epoch in epoch_bar:
-            # --- Training ---
             self.train()
             train_loss = 0.0
             y_train_true, y_train_pred = [], []
@@ -70,14 +68,12 @@ class LSTMClassifier(nn.Module):
                 y_train_pred.extend(preds)
                 y_train_true.extend(y_batch.cpu().numpy())
 
-                # update batch bar
                 batch_bar.set_postfix(loss=loss.item())
 
             train_loss /= len(train_loader.dataset)
             train_acc = accuracy_score(y_train_true, y_train_pred)
             train_prec = precision_score(y_train_true, y_train_pred, average="weighted", zero_division=0)
 
-            # --- Validation ---
             self.eval()
             val_loss = 0.0
             y_val_true, y_val_pred = [], []
@@ -98,7 +94,6 @@ class LSTMClassifier(nn.Module):
             val_acc = accuracy_score(y_val_true, y_val_pred)
             val_prec = precision_score(y_val_true, y_val_pred, average="weighted", zero_division=0)
 
-            # --- Update tqdm epoch bar ---
             lr = optimizer.param_groups[0]["lr"]
             epoch_bar.set_postfix({
                 "lr": f"{lr:.2e}",
@@ -110,7 +105,6 @@ class LSTMClassifier(nn.Module):
                 "val_prec": f"{val_prec:.3f}"
             })
 
-            # --- Early stopping ---
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 counter = 0
@@ -121,12 +115,10 @@ class LSTMClassifier(nn.Module):
                     print("\n⏹Early stopping triggered!")
                     break
 
-        # --- Load best model ---
         best_state = joblib.load(model_name)
         self.load_state_dict(best_state)
         print("\nTraining complete. Best model loaded.")
         
-    # --- Visualization function ---
     def visualize_model(self, input_size=10, seq_len=5, batch_size=2, out_file="lstm_model_graph"):
         """
         Generate a torchviz visualization of the model.

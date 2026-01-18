@@ -1,9 +1,8 @@
 import logging
 from functools import wraps
 
-# Logger configuration
 logging.basicConfig(
-    level=logging.INFO,  # Must be INFO or lower
+    level=logging.INFO,  
     format="%(asctime)s | %(levelname)s | %(funcName)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S"
 )
