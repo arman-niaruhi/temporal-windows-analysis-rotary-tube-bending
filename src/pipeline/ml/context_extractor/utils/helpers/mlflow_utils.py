@@ -14,14 +14,14 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # MLflow experiment setup
 # ============================================================
-def setup_mlflow_experiment(machine_part: str, params: dict,
+def setup_mlflow_experiment(process_part: str, params: dict,
                             preprocessing_info: dict, X: torch.Tensor, 
                             Y: torch.Tensor, target_feature_names: list[str]) -> tuple:
     """
     Initialize MLflow experiment and generate experiment description.
 
     Args:
-        machine_part: Name of the machine part for labeling the experiment
+        process_part: Name of the machine part for labeling the experiment
         params: Dictionary of model hyperparameters
         preprocessing_info: Dictionary describing preprocessing applied
         X: Input tensor (N_EXPERIMENTS x TIMESTEPS x FEATURES_IN)
@@ -44,7 +44,7 @@ def setup_mlflow_experiment(machine_part: str, params: dict,
     
     # Detailed experiment description for reproducibility/logging
     experiment_description = f"""
-    {machine_part} PART - LSTM Attention Model
+    {process_part} PART - LSTM Attention Model
     ============== PREPROCESSING INFO ====================
     {preprocessing_info}
     ==================== MODEL INFO ======================
@@ -216,7 +216,7 @@ def move_images_to_mlflow_artifacts(images_dir_path) -> None | bool:
 # ============================================================
 # Retrieve previous MLflow run
 # ============================================================
-def find_previous_mlflow_run(machine_part: str, preprocessing_info: dict):
+def find_previous_mlflow_run(process_part: str, preprocessing_info: dict):
     """
     Search for the most recent MLflow run matching a naming pattern.
 
@@ -230,10 +230,10 @@ def find_previous_mlflow_run(machine_part: str, preprocessing_info: dict):
         logger.warning(f"No MLflow experiment found with name {experiment_name}.")
         return None, None
 
-    # Construct run name from machine_part and preprocessing info
+    # Construct run name from process_part and preprocessing info
     excluded58 = "" if not preprocessing_info.get('to_58_excluded', False) else "58"
     window_size = str(preprocessing_info.get('window_num', '0'))
-    run_name_to_search = f"{machine_part}_{excluded58}_ws{window_size}"
+    run_name_to_search = f"{process_part}_{excluded58}_ws{window_size}"
 
     # Search runs by run_name tag
     runs = client.search_runs(

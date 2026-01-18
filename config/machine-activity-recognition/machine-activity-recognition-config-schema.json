@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/activity-recognition-config.schema.json",
+  "title": "Activity Recognition Pipeline Configuration",
+  "type": "object",
+  "required": [
+    "database_path",
+    "label",
+    "process_part",
+    "annotation_json_path",
+    "experiment_ids_path",
+    "model_path_root",
+    "eliminated_columns",
+    "pipeline_config",
+    "analytics",
+    "show_result_properties",
+    "inference_one_label_in_one"
+  ],
+  "properties": {
+    "database_path": {
+      "type": "string",
+      "default": "data/processed/tube_geometry.db"
+    },
+    "label": {
+      "type": "string",
+      "default": "All"
+    },
+    "process_part": {
+      "type": "string",
+      "default": "machine_and_movement"
+    },
+    "annotation_json_path": {
+      "type": "string",
+      "default": "data/ml/machine-and-movement_complete.json"
+    },
+    "experiment_ids_path": {
+      "type": "string",
+      "default": "data/ml/unique_experiment_ids.json"
+    },
+    "model_path_root": {
+      "type": "string",
+      "default": "models/classifier"
+    },
+    "eliminated_columns": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [
+        "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
+        "COLLET_ROTATING_Movement_[mm]",
+        "BEND-DIE_VERTICAL_Movement_[mm]",
+        "PRESSURE-DIE_LATERAL_Movement_[mm]"
+      ]
+    },
+    "pipeline_config": {
+      "type": "object",
+      "required": ["dataloader_config", "model_config", "training_config"],
+      "properties": {
+        "dataloader_config": {
+          "type": "object",
+          "required": ["batch_size"],
+          "properties": {
+            "batch_size": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 8
+            }
+          },
+          "additionalProperties": false
+        },
+        "model_config": {
+          "type": "object",
+          "required": ["hidden_size", "num_layers"],
+          "properties": {
+            "hidden_size": { "type": "integer", "minimum": 1, "default": 64 },
+            "num_layers": { "type": "integer", "minimum": 1, "default": 2 }
+          },
+          "additionalProperties": false
+        },
+        "training_config": {
+          "type": "object",
+          "required": ["training", "num_epochs", "learning_rate", "patience"],
+          "properties": {
+            "training": { "type": "boolean", "default": false },
+            "num_epochs": { "type": "integer", "minimum": 1, "default": 300 },
+            "learning_rate": { "type": "number", "exclusiveMinimum": 0, "default": 1e-5 },
+            "patience": { "type": "integer", "minimum": 0, "default": 3 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "analytics": { "type": "boolean", "default": true },
+    "show_result_properties": {
+      "type": "object",
+      "required": ["store_plots", "store_plots_path"],
+      "properties": {
+        "store_plots": { "type": "boolean", "default": true },
+        "store_plots_path": { "type": "string", "default": "results/activity_recognition" }
+      },
+      "additionalProperties": false
+    },
+    "inference_one_label_in_one": {
+      "type": "object",
+      "required": ["models_path", "save_dir_path", "labels"],
+      "properties": {
+        "models_path": { "type": "string", "default": "models/classifier" },
+        "save_dir_path": { "type": "string", "default": "results/activity_recognition" },
+        "labels": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "default": ["Clamping", "Bending", "Mandrel Extraction", "De-Clamping"]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -55,21 +55,18 @@ def train_one_epoch(model: nn.Module, train_loader: DataLoader,
     """
     model.train()  # set model to training mode
     train_loss = 0.0
-
-    for Xb, Yb in train_loader:
+    for Xb, Yb, sprinback in train_loader:
         # Move data to device
-        Xb, Yb = Xb.to(device), Yb.to(device)
+        Xb, Yb, sprinback = Xb.to(device), Yb.to(device), sprinback.to(device)
         
         # Forward pass
-        pred, _ = model(Xb)
+        pred, _ = model(Xb, sprinback)
         loss = criterion(pred, Yb)
         
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
-        
-        # Gradient clipping to stabilize training
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
         
         # Accumulate loss
@@ -106,9 +103,9 @@ def validate_one_epoch(model: nn.Module, val_loader: DataLoader,
     val_targets_epoch = []
 
     with torch.no_grad():  # no gradients for validation
-        for Xb, Yb in val_loader:
-            Xb, Yb = Xb.to(device), Yb.to(device)
-            pred, _ = model(Xb)
+        for Xb, Yb, sprinback in val_loader:
+            Xb, Yb, sprinback = Xb.to(device), Yb.to(device), sprinback.to(device)
+            pred, _ = model(Xb, sprinback)
             val_loss += criterion(pred, Yb).item()
             
             val_preds_epoch.append(pred.cpu())
@@ -148,7 +145,7 @@ def format_progress_bar(train_loss: float, val_loss: float, metrics: dict,
         "MedAE": f"{metrics['medae']:.6f}",
         "Best": f"{best_val_loss:.6f}",
         "LR": f"{current_lr:.2e}",
-        "Patience": f"{patience}/10",
+        "Patience": f"{patience}/20",
     }
 
 
@@ -170,9 +167,9 @@ def evaluate_final_model(model: nn.Module, val_loader: DataLoader,
     all_preds, all_targets = [], []
 
     with torch.no_grad():
-        for Xb, Yb in val_loader:
+        for Xb, Yb, springback in val_loader:
             Xb = Xb.to(device)
-            pred, _ = model(Xb)
+            pred, _ = model(Xb, springback)
             all_preds.append(pred.cpu())
             all_targets.append(Yb)
 
