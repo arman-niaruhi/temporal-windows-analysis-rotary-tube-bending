@@ -21,25 +21,47 @@ from src.pipeline.ml.context_extractor.utils.helpers.seed_utils import enforce_r
 from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import prepare_data
 from src.pipeline.ml.context_extractor.utils.training_pipeline_utils import train_model
 
+from src.pipeline.ml.spring_back_predictior.training import train_model_springback
+from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import create_data_loaders
+
 
 import logging
 
 logger = logging.getLogger(__name__)
 
 
+activity_recognition_config_path = "config/machine-activity-recognition/machine-activity-recognition-config.json"
+activity_recognition_config_schema_path = "config/machine-activity-recognition/machine-activity-recognition-config-schema.json"
+        
+context_extraction_config_path = "config/context-extraction/context-extraction-config.json"
+context_extraction_config_schema_path = "config/context-extraction/context-extraction-config-schema.json"
+
+spring_back_config_path = "config/springback-prediction/springback-prediction-config.json"
+
+def get_schema_description(schema_part, path):
+            """Traverse schema to find 'description' for a given path."""
+            for key in path:
+                if 'properties' in schema_part and key in schema_part['properties']:
+                    schema_part = schema_part['properties'][key]
+                else:
+                    return None
+            return schema_part.get('description')
+         
 def main():
+    # ============================================================
+    # Load schema and config and validate the config json entries and extract the required parameters
+    # ============================================================
     setup_logging()
-    activity_recognition_config_path = "config/machine_activity_recognition.json"
     parser = argparse.ArgumentParser(description="Run different pipeline steps.")
     parser.add_argument(
         "step",
-        choices=["preprocess", "activity_recognition", "context_extraction"],
+        choices=["preprocess", "activity_recognition", "context_extraction", "springback_prediction"],
         help="Choose which pipeline step to run",
     )
     args = parser.parse_args()
 
     if args.step == "preprocess":
-        with open("config/preprocessing_config.json", "r") as f:
+        with open("config/preprocessing/preprocessing_config.json", "r") as f:
             config = json.load(f)
         DataPreprocessPipeline.run(
             failed_experiment=config["failed_experiment"],
@@ -50,15 +72,30 @@ def main():
         )
 
     elif args.step == "activity_recognition":
-        logger.info("Starting activity recognition pipeline...")
-        if not os.path.exists(activity_recognition_config_path):
-            logger.error(
-                f"Configuration file not found at {activity_recognition_config_path}. Please create the config file."
-            )
+        # ============================================================
+        # Load schema and config and validate the config json entries and extract the required parameters
+        # ============================================================
 
         with open(activity_recognition_config_path, "r") as f:
             config = json.load(f)
+        with open(activity_recognition_config_schema_path, "r") as f:
+            schema = json.load(f)
 
+        try:
+            validate(instance=config, schema=schema)
+            logging.info("Configuration json is valid!")
+        except ValidationError as e:
+            path_list = list(e.path)
+            description = get_schema_description(schema, path_list)
+            
+            if description:
+                message = f"Validation failed at '{' -> '.join(str(p) for p in path_list)}': {description}"
+            else:
+                message = f"Validation failed at '{' -> '.join(str(p) for p in path_list)}': {e.message}"
+            
+            logging.error(message)
+            
+                
         try:
             if config.get("label", "All_and_One") == "All_and_One":
                 for lbl in [
@@ -71,91 +108,27 @@ def main():
                     logger.info(f"Starting Train for individuall label: {lbl}")
                     model, sensors_df, test_loader, device, feature_cols = (
                         training_pipeline(
-                            model_path_root=config.get(
-                                "model_path_root", "models/classifier"
-                            ),
-                            database_path=config.get(
-                                "database_path", "data/processed/tube_geometry.db"
-                            ),
-                            annotation_json_path=config.get(
-                                "annotation_json_path",
-                                "data/ml/machine-and-movement_complete.json",
-                            ),
-                            experiment_ids_path=config.get(
-                                "experiment_ids_path",
-                                "data/ml/unique_experiment_ids.json",
-                            ),
-                            machine_part=config.get(
-                                "machine_part", "machine_and_movement"
-                            ),
-                            eliminated_columns=config.get(
-                                "eliminated_columns",
-                                [
-                                    "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
-                                    "COLLET_ROTATING_Movement_[mm]",
-                                    "BEND-DIE_VERTICAL_Movement_[mm]",
-                                    "PRESSURE-DIE_LATERAL_Movement_[mm]",
-                                ],
-                            ),
+                            model_path_root=config.get("model_path_root"),
+                            database_path=config.get("database_path"),
+                            annotation_json_path=config.get("annotation_json_path"),
+                            experiment_ids_path=config.get("experiment_ids_path"),
+                            process_part=config.get("process_part"),
+                            eliminated_columns=config.get("eliminated_columns"),
                             label=lbl,
-                            pipeline_config=config.get(
-                                "pipeline_config",
-                                {
-                                    "dataloader_config": {"batch_size": 8},
-                                    "model_config": {
-                                        "hidden_size": 64,
-                                        "num_layers": 2,
-                                    },
-                                    "training_config": {
-                                        "training": False,
-                                        "num_epochs": 1,
-                                        "learning_rate": 1e-5,
-                                        "patience": 3,
-                                    },
-                                },
-                            ),
+                            pipeline_config=config.get("pipeline_config"),
                         )
                     )
             else:
                 model, sensors_df, test_loader, device, feature_cols = (
                     training_pipeline(
-                        model_path_root=config.get(
-                            "model_path_root", "models/classifier"
-                        ),
-                        database_path=config.get(
-                            "database_path", "data/processed/tube_geometry.db"
-                        ),
-                        annotation_json_path=config.get(
-                            "annotation_json_path",
-                            "data/ml/machine-and-movement_complete.json",
-                        ),
-                        experiment_ids_path=config.get(
-                            "experiment_ids_path", "data/ml/unique_experiment_ids.json"
-                        ),
-                        machine_part=config.get("machine_part", "machine_and_movement"),
-                        eliminated_columns=config.get(
-                            "eliminated_columns",
-                            [
-                                "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
-                                "COLLET_ROTATING_Movement_[mm]",
-                                "BEND-DIE_VERTICAL_Movement_[mm]",
-                                "PRESSURE-DIE_LATERAL_Movement_[mm]",
-                            ],
-                        ),
-                        label=config.get("label", "All"),
-                        pipeline_config=config.get(
-                            "pipeline_config",
-                            {
-                                "dataloader_config": {"batch_size": 8},
-                                "model_config": {"hidden_size": 64, "num_layers": 2},
-                                "training_config": {
-                                    "training": False,
-                                    "num_epochs": 1,
-                                    "learning_rate": 1e-5,
-                                    "patience": 3,
-                                },
-                            },
-                        ),
+                        model_path_root=config.get("model_path_root"),
+                        database_path=config.get("database_path"),
+                        annotation_json_path=config.get("annotation_json_path"),
+                        experiment_ids_path=config.get("experiment_ids_path"),
+                        process_part=config.get("process_part"),
+                        eliminated_columns=config.get("eliminated_columns"),
+                        label=config.get("label"),
+                        pipeline_config=config.get("pipeline_config"),
                     )
                 )
         except Exception as e:
@@ -164,18 +137,14 @@ def main():
 
         if config.get("analytics", False):
             try:
-                analyze_features_result_path = config.get(
-                    "analyze_features_result_path", "results/analyze_features"
-                )
+                analyze_features_result_path = config.get("analyze_features_result_path")
                 analyze_features_result_path = os.path.join(
                     analyze_features_result_path,
-                    config.get("machine_part", "machine_and_movement"),
-                    config.get("label", "All"),
+                    config.get("process_part"),
+                    config.get("label"),
                 )
                 os.makedirs(analyze_features_result_path, exist_ok=True)
-                analyze_features(
-                    analyze_features_result_path, model, sensors_df, test_loader, device
-                )
+                analyze_features(analyze_features_result_path, model, sensors_df, test_loader, device)
             except Exception as e:
                 logger.error(f"Warning: Feature analysis failed: {e}")
 
@@ -185,15 +154,9 @@ def main():
                 getattr(test_loader, "dataset", None),
                 sensors_df,
                 feature_cols,
-                config.get(
-                    "show_result_properties",
-                    {
-                        "store_plots": True,
-                        "store_plots_path": "results/activity_recognition",
-                    },
-                ),
-                config.get("machine_part", "machine_and_movement"),
-                config.get("label", "All"),
+                config.get("show_result_properties"),
+                config.get("process_part"),
+                config.get("label"),
             )
         except Exception as e:
             logger.error(f"Warning: Plotting predictions failed: {e}")
@@ -202,30 +165,25 @@ def main():
 
         if inference_config:
             try:
-                inference_one_label_in_one(
-                    exp_id=110,
-                    database_path=config.get("database_path", "data/processed/tube_geometry.db"),
-                    annotation_json_path=config.get(
-                        "annotation_json_path",
-                        "data/ml/machine-and-movement_complete.json",
-                    ),
-                    eliminated_columns=config.get(
-                        "eliminated_columns",
-                        [
-                            "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
-                            "COLLET_ROTATING_Movement_[mm]",
-                            "BEND-DIE_VERTICAL_Movement_[mm]",
-                            "PRESSURE-DIE_LATERAL_Movement_[mm]",
-                        ],
-                    ),
-                    models_path=inference_config.get("models_path"),
-                    model_config=config.get("pipeline_config").get("model_config",{"hidden_size": 64, "num_layers": 2}),
-                    labels=inference_config.get("labels"),
-                    machine_part=config.get("machine_part", "machine_and_movement"),
-                    save_dir_path=inference_config.get("save_dir_path"),
-                    get_all_predictions_fn=get_all_predictions,
-                    figsize=(15, 10),
-                )
+                TEST_EXPERIMENT_IDS = [
+                    2, 3, 22, 23, 40, 54, 83, 85, 110, 112, 119, 120, 121, 122, 123,
+                    178, 179, 182, 183, 211, 212, 213, 255, 258, 261, 271, 272, 273,
+                    302, 303, 304, 317, 318
+                ]
+                for i in TEST_EXPERIMENT_IDS:
+                    inference_one_label_in_one(
+                        exp_id=i,
+                        database_path=config.get("database_path"),
+                        annotation_json_path=config.get("annotation_json_path"),
+                        eliminated_columns=config.get("eliminated_columns"),
+                        models_path=inference_config.get("models_path"),
+                        model_config=config.get("pipeline_config").get("model_config"),
+                        labels=inference_config.get("labels"),
+                        process_part=config.get("process_part", "machine_and_movement"),
+                        save_dir_path=inference_config.get("save_dir_path"),
+                        get_all_predictions_fn=get_all_predictions,
+                        figsize=(15, 10),
+                    )
             except Exception as e:
                 logger.error(
                     f"Warning: Inference for one label in one experiment failed: {e}"
@@ -235,19 +193,10 @@ def main():
         # ============================================================
         # Load schema and config and validate the config json entries and extract the required parameters
         # ============================================================
-        with open("config/context-extraction-config.json", "r") as f:
+        with open(context_extraction_config_path, "r") as f:
             config = json.load(f)
-        with open("config/context-extraction-config-schema.json", "r") as f:
+        with open(context_extraction_config_schema_path, "r") as f:
             schema = json.load(f)
-            
-        def get_schema_description(schema_part, path):
-            """Traverse schema to find 'description' for a given path."""
-            for key in path:
-                if 'properties' in schema_part and key in schema_part['properties']:
-                    schema_part = schema_part['properties'][key]
-                else:
-                    return None
-            return schema_part.get('description')
 
         try:
             validate(instance=config, schema=schema)
@@ -257,9 +206,9 @@ def main():
             description = get_schema_description(schema, path_list)
             
             if description:
-                message = f"Validation failed at '{' -> '.join(path_list)}': {description}"
+                message = f"Validation failed at '{' -> '.join(str(p) for p in path_list)}': {description}"
             else:
-                message = f"Validation failed at '{' -> '.join(path_list)}': {e.message}"
+                message = f"Validation failed at '{' -> '.join(str(p) for p in path_list)}': {e.message}"
             
             logging.error(message)
         
@@ -271,8 +220,7 @@ def main():
         preprocessing_info = config.get("preprocessingParams")
         seed = config.get("generalSetting").get("seed", 42)
         
-        machine_part = input_path_param.get("machine_part")
-        
+        process_part = input_path_param.get("process_part")
         
         
         # ============================================================
@@ -280,40 +228,63 @@ def main():
         # ============================================================
         enforce_reproducibility(seed=seed)
         
-        
-        
         # ============================================================
         # Read and preprocess data
         # ============================================================
-        (
-            X,
-            Y,
-            sensor_names,
-            target_feature_names,
-            annot_timesteps,
-            mandrel_extraction_annot_timesteps,
-        ) = prepare_data(
-            input_path_param=input_path_param, preprocessing_param=preprocessing_param
-        )
+        try:
+            X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, sensor_names, target_feature_names, annot_timesteps, mandrel_extraction_annot_timesteps = prepare_data(
+                input_path_param=input_path_param,
+                preprocessing_param=preprocessing_param,
+            )
+            train_model(
+                X_train=X_train, 
+                Y_train=Y_train, 
+                X_test=X_test, 
+                Y_test=Y_test,
+                springbacks_train=springbacks_train,
+                springbacks_test=springbacks_test,
+                params=training_params,
+                occlusion_params=occlusion_params,
+                sensor_names=sensor_names,
+                target_feature_names=target_feature_names,
+                process_part=process_part,
+                preprocessing_info=preprocessing_info,
+                annot_timesteps=annot_timesteps,
+                mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+                )
+    
+        except Exception as e:
+            logger.error(f"Data preparation failed: {e}")
+            return
+
+    elif args.step == "springback_prediction":
+        with open(spring_back_config_path, "r") as f:
+            config = json.load(f)
         
-        
-        
-        # ============================================================
-        # Train the model
-        # ============================================================
-        train_model(
-            X=X,
-            Y=Y,
-            params=training_params,
-            occlusion_params= occlusion_params,
-            sensor_names=sensor_names,
-            target_feature_names=target_feature_names,
-            machine_part=machine_part,
-            preprocessing_info=preprocessing_info,
-            annot_timesteps=annot_timesteps,
-            mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+        input_path_param = config.get("inputPathParams")
+        preprocessing_param = config.get("preprocessingParams")
+        training_params = config.get("trainingParams")
+        seed = config.get("generalSetting").get("seed", 42)
+            
+        X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, sensor_names, target_feature_names, annot_timesteps, mandrel_extraction_annot_timesteps = prepare_data(
+                input_path_param=input_path_param,
+                preprocessing_param=preprocessing_param,
             )
 
+        train_loader, val_loader, plot_loader = create_data_loaders(
+        X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, training_params["batch_size"])
+        
+
+        train_model_springback( 
+        seed=seed,
+        model_input_size=X_train.shape[2],
+        model_output_size=springbacks_train.shape[2],
+        training_params= training_params,
+        springbacks_train = springbacks_train,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        plot_loader=plot_loader,
+        )
 
 if __name__ == "__main__":
     main()

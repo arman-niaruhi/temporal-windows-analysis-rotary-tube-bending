@@ -1,5 +1,6 @@
 import os
 import streamlit as st
+import re
 from mlflow.tracking import MlflowClient
 MLFLOW_TRACKING_URI = "mlruns"  
 
@@ -8,7 +9,7 @@ def get_experiment_runs():
         try:
             client = MlflowClient(tracking_uri=MLFLOW_TRACKING_URI)
             
-            experiment_id = "665463947744551178"
+            experiment_id = "878824481142313853"
             runs = client.search_runs(
                 experiment_ids=[experiment_id],
                 order_by=["start_time DESC"]  
@@ -42,7 +43,7 @@ def get_experiment_runs():
 def get_experiment_runs_fallback():
     """Fallback method: Get runs by listing directories"""
     runs = []
-    experiment_path = os.path.join(MLFLOW_TRACKING_URI, "665463947744551178")
+    experiment_path = os.path.join(MLFLOW_TRACKING_URI, "878824481142313853")
     
     if os.path.exists(experiment_path):
         all_runs = [d for d in os.listdir(experiment_path)
@@ -58,7 +59,7 @@ def get_all_run_names():
     """Get a list of all unique run names from the experiment"""
     try:
         client = MlflowClient(tracking_uri=MLFLOW_TRACKING_URI)
-        experiment_id = "665463947744551178"
+        experiment_id = "878824481142313853"
         runs = client.search_runs(
             experiment_ids=[experiment_id],
             order_by=["start_time DESC"]
@@ -77,67 +78,110 @@ def get_all_run_names():
         return []
 
 
+def clean_title(name: str) -> str:
+    """
+    Remove digits, replace underscores with spaces,
+    and normalize whitespace for display titles.
+    """
+    name = re.sub(r"\d+", " ", name)          # remove numbers
+    name = name.replace("_", " ")             # underscores → spaces
+    name = name.replace(".png", "")             # eliminet '.png' at the end of the image names
+    name = re.sub(r"\s+", " ", name).strip()  # normalize spaces
+    return name
+
+def find_window_importance_groups(root_path):
+    """
+    Find window importance images grouped by window size / stride.
+    Returns:
+        {
+            "size2-stride2": [img0, img1, ...],
+            "size4-stride2": [...],
+        }
+    """
+    import glob
+    import re
+    from pathlib import Path
+
+    root_path = Path(root_path)
+    groups = {}
+
+    pattern = str(root_path / "**" / "07_window_importance" / "*" / "*.png")
+    pngs = glob.glob(pattern, recursive=True)
+
+    for png in pngs:
+        folder = Path(png).parent.name  # e.g. size2-stride2
+        name = Path(png).name
+
+        match = re.search(r'window_importance_angle_(\d+)\.png$', name)
+        if not match:
+            continue
+
+        angle = int(match.group(1))
+
+        groups.setdefault(folder, []).append((angle, png))
+
+    # sort images by angle
+    for key in groups:
+        groups[key] = [p for _, p in sorted(groups[key], key=lambda x: x[0])]
+
+    return groups
+
+
 def find_png_images_with_rules(root_path):
-    """Find PNG images with rules: 
-    - For special folders, take only last epoch
-    - For attention_lines, collect all angle images"""
     import glob
     from pathlib import Path
     import re
-    
+    import os
+
     all_images = []
-    attention_line_images = {}  
-    
+    attention_line_images = {}
+
     root_path = Path(root_path)
-    
-    pattern = str(root_path / "**" / "*.png")
-    all_pngs = glob.glob(pattern, recursive=True)
-    
+    all_pngs = glob.glob(str(root_path / "**" / "*.png"), recursive=True)
+
     images_by_dir = {}
     for png_path in all_pngs:
         dir_path = os.path.dirname(png_path)
-        if dir_path not in images_by_dir:
-            images_by_dir[dir_path] = []
-        images_by_dir[dir_path].append(png_path)
-    
+        images_by_dir.setdefault(dir_path, []).append(png_path)
+
     for dir_path, images in images_by_dir.items():
-        dir_name = os.path.basename(dir_path)
-        
-        if "attention_lines" in dir_name.lower() or "04_attention_lines" in dir_name:
+        dir_path_str = dir_path.lower()
+
+        # NEVER show window importance images
+        if "07_window_importance" in dir_path_str or "window_importance" in dir_path_str:
+            continue
+
+        dir_name = os.path.basename(dir_path).lower()
+
+        if "attention_lines" in dir_name or "04_attention_lines" in dir_name:
             for img_path in images:
                 img_name = os.path.basename(img_path)
-                
                 match = re.search(r'attention_angle_(\d+)\.png$', img_name, re.IGNORECASE)
                 if match:
-                    angle_num = int(match.group(1))
-                    attention_line_images[angle_num] = img_path
+                    attention_line_images[int(match.group(1))] = img_path
                 else:
                     all_images.append(img_path)
-        
-        elif any(special in dir_name.lower() 
-                for special in ["predictions", "loss", "attention"]):
-            if "attention_lines" not in dir_name.lower():
+
+        elif any(special in dir_name for special in ["predictions", "loss", "attention"]):
+            if "attention_lines" not in dir_name:
                 epoch_images = {}
-                
                 for img_path in images:
                     img_name = os.path.basename(img_path)
-                    
                     match = re.search(r'_epoch_(\d+)\.png$', img_name, re.IGNORECASE)
                     if match:
-                        epoch_num = int(match.group(1))
-                        epoch_images[epoch_num] = img_path
+                        epoch_images[int(match.group(1))] = img_path
                     else:
                         all_images.append(img_path)
-                
+
                 if epoch_images:
-                    max_epoch = max(epoch_images.keys())
-                    all_images.append(epoch_images[max_epoch])
+                    all_images.append(epoch_images[max(epoch_images)])
                 else:
                     all_images.extend(images)
         else:
             all_images.extend(images)
-    
+
     return list(set(all_images)), attention_line_images
+
 
     
 def create_video_from_images(image_paths, output_dir, fps=5):

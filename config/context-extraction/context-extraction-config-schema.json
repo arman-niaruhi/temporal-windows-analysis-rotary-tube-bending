@@ -28,7 +28,7 @@
       "type": "object",
       "required": [
         "database_path",
-        "machine_part",
+        "process_part",
         "annotation_json_path"
       ],
       "properties": {
@@ -37,7 +37,7 @@
           "default": "data/processed/tube_geometry.db",
           "description": "Path to the database file"
         },
-        "machine_part": {
+        "process_part": {
           "type": "string",
           "enum": ["All", "Bending", "Clamping", "De-Clamping"],
           "description": "Machine part identifier - must be one of the 'All', 'Bending', 'Clamping', 'De-Clamping'"
@@ -54,7 +54,6 @@
       "type": "object",
       "required": [
         "to_58_excluded",
-        "seperate_test_set",
         "random_seed",
         "agg_metric",
         "window_num",
@@ -64,10 +63,6 @@
         "to_58_excluded": {
           "type": "boolean",
           "description": "Whether to exclude the experiments less equal than 58"
-        },
-        "seperate_test_set": {
-          "type": "boolean",
-          "description": "Whether to separate test set"
         },
         "random_seed": {
           "type": "integer",
