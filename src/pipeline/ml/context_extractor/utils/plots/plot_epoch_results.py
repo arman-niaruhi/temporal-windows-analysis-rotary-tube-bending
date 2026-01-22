@@ -19,16 +19,32 @@ import torch.nn as nn
 
 from src.pipeline.ml.context_extractor.utils.plots.plot_attention import plot_selected_features_with_attn_heatmap
 
-def generate_epoch_plots(model: nn.Module, plot_X: torch.Tensor, plot_Y: torch.Tensor, springback,
-                        X_train: torch.Tensor, sensor_names: list, 
-                        target_feature_names: list, val_losses: list, 
-                        process_part: str,
-                        train_losses: list, epoch: int,
-                        y_lim: tuple, predictions_out: int, train_loss: float,
-                        val_loss: float, best_val_loss: float, predictions_dir: Path,
-                        attention_csv_dir: Path, attention_dir: Path, loss_dir: Path,
-                        annot_timesteps: list, mandrel_extraction_annot_timesteps: list,
-                        n_samples: int = 4) -> None:
+def generate_epoch_plots(
+    model: nn.Module,
+    plot_X: torch.Tensor,
+    plot_Y: torch.Tensor,
+    springback: torch.Tensor,
+    experiment_config: torch.Tensor,
+    X_train: torch.Tensor,
+    sensor_names: list,
+    target_feature_names: list,
+    val_losses: list,
+    process_part: str,
+    train_losses: list,
+    epoch: int,
+    y_lim: tuple,
+    predictions_out: int,
+    train_loss: float,
+    val_loss: float,
+    best_val_loss: float,
+    predictions_dir: Path,
+    attention_csv_dir: Path,
+    attention_dir: Path,
+    loss_dir: Path,
+    annot_timesteps: list,
+    mandrel_extraction_annot_timesteps: list,
+    n_samples: int = 4,
+) -> None:
     """Save each subplot as a separate image in organized folders
     
     Args:
@@ -53,7 +69,7 @@ def generate_epoch_plots(model: nn.Module, plot_X: torch.Tensor, plot_Y: torch.T
     """
     
     with torch.no_grad():
-        pred, attn = model(plot_X, springback)
+        pred, attn = model(plot_X, springback, experiment_config)
         pred_np = pred.cpu().numpy()
         true_np = plot_Y.cpu().numpy()
         attn_mean = attn.mean(0).cpu().numpy()
@@ -189,3 +205,169 @@ def generate_epoch_plots(model: nn.Module, plot_X: torch.Tensor, plot_Y: torch.T
 
     csv_path = attention_csv_dir / f"attention_epoch_{epoch:04d}.csv"
     attn_df.to_csv(csv_path, float_format="%.6f")
+
+
+'''
+
+def generate_epoch_plots(
+    model: nn.Module,
+    plot_X: torch.Tensor,
+    plot_Y: torch.Tensor,
+    springback,
+    X_train: torch.Tensor,  # kept for API compatibility
+    sensor_names: list,
+    target_feature_names: list,
+    val_losses: list,
+    process_part: str,
+    train_losses: list,
+    epoch: int,
+    y_lim: tuple,
+    predictions_out: int,
+    train_loss: float,
+    val_loss: float,
+    best_val_loss: float,
+    predictions_dir: Path,
+    attention_csv_dir: Path,
+    attention_dir: Path,
+    loss_dir: Path,
+    annot_timesteps: list,
+    mandrel_extraction_annot_timesteps: list,
+    n_samples: int = 4,
+    attn_sample_index: int = 0,
+) -> None:
+    """
+    Saves:
+      - predictions grid
+      - loss curve
+      - attention heatmap (ANGLES × TIME)
+      - per-angle attention LINE plots (attention vs time)
+
+    Attention shape assumption:
+      attn = (B, A, T)
+      A == number of angles
+      T == input timesteps
+    """
+
+    model.eval()
+
+    # ============================================================
+    # Forward pass
+    # ============================================================
+    with torch.no_grad():
+        pred, attn = model(plot_X, springback)
+        pred_np = pred.detach().cpu().numpy()
+        true_np = plot_Y.detach().cpu().numpy()
+        attn_bat = attn.detach().cpu().numpy()  # (B,A,T)
+
+    # ============================================================
+    # Predictions grid
+    # ============================================================
+    idxs = random.sample(range(len(true_np)), min(n_samples, len(true_np)))
+    x_axis = np.arange(predictions_out)
+
+    num_samples = len(idxs)
+    n_features = true_np.shape[-1]
+
+    plt.style.use("tableau-colorblind10")
+
+    fig_pred, axes = plt.subplots(
+        nrows=num_samples,
+        ncols=n_features,
+        figsize=(5 * n_features, 3.5 * num_samples),
+        sharex=True,
+    )
+    axes = np.array(axes).reshape(num_samples, n_features)
+
+    for row_i, idx in enumerate(idxs):
+        for feat in range(n_features):
+            ax = axes[row_i, feat]
+
+            diff = pred_np[idx, :, feat] - true_np[idx, :, feat]
+            ax.bar(x_axis, diff, color="tab:orange", alpha=0.75, label="Pred-True")
+
+            diff_margin = max(1e-6, float(np.max(np.abs(diff))) * 1.2)
+            ax.set_ylim(-diff_margin, diff_margin)
+            ax.grid(True, linestyle=":", alpha=0.5)
+
+            if feat == 0:
+                ax.set_ylabel(f"Sample {row_i}", fontsize=11, weight="bold")
+            if row_i == 0:
+                ax.set_title(target_feature_names[feat], fontsize=12, weight="bold")
+            if feat == n_features - 1:
+                ax.legend(fontsize=8)
+
+    fig_pred.suptitle(
+        f"Predictions – Epoch {epoch}",
+        fontsize=15,
+        weight="bold",
+    )
+    fig_pred.supxlabel("Prediction Index / Angle")
+    fig_pred.supylabel("Target Value")
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    fig_pred.savefig(predictions_dir / f"predictions_epoch_{epoch:04d}.png", dpi=180)
+    plt.close(fig_pred)
+
+    # ============================================================
+    # Loss plot
+    # ============================================================
+    fig_loss, ax_loss = plt.subplots(figsize=(10, 7))
+    epochs_list = list(range(1, len(val_losses) + 1))
+
+    ax_loss.plot(epochs_list, train_losses, lw=3, label="Train MSE")
+    ax_loss.plot(epochs_list, val_losses, lw=3, label="Val MSE")
+    ax_loss.plot(
+        epochs_list,
+        [best_val_loss] * len(epochs_list),
+        "--",
+        lw=2,
+        label="Best Val",
+    )
+
+    ax_loss.set_xlabel("Epoch")
+    ax_loss.set_ylabel("MSE")
+    ax_loss.set_title(
+        f"Training Progress – Epoch {epoch}\n"
+        f"Train {train_loss:.6f} | Val {val_loss:.6f}",
+        weight="bold",
+    )
+    ax_loss.grid(alpha=0.3)
+    ax_loss.legend()
+    plt.tight_layout()
+
+    fig_loss.savefig(loss_dir / f"loss_epoch_{epoch:04d}.png", dpi=150)
+    plt.close(fig_loss)
+
+    # ============================================================
+    # Attention heatmap (ANGLES × TIME)
+    # ============================================================
+    B, A, T = attn_bat.shape
+    b = int(np.clip(attn_sample_index, 0, B - 1))
+
+    sensor_data = plot_X[-2:-1].detach().cpu().numpy()  # (1,T,F)
+    attn_angles = attn_bat[1]  # (A,T)
+
+    attention_dir.mkdir(parents=True, exist_ok=True)
+    attention_csv_dir.mkdir(parents=True, exist_ok=True)
+
+    plot_selected_features_with_attn_heatmap(
+        process_part,
+        sensor_data,
+        sensor_names,
+        attn_angles,
+        attention_dir / f"attention_epoch_{epoch:04d}.png",
+        annot_timesteps,
+        mandrel_extraction_annot_timesteps,
+    )
+
+    # CSV (all angles)
+    attn_df = pd.DataFrame(
+        attn_angles,
+        index=[f"Angle_{i:02d}" for i in range(A)],
+        columns=[f"Time_{i}" for i in range(T)],
+    )
+    attn_df.to_csv(
+        attention_csv_dir / f"attention_epoch_{epoch:04d}.csv",
+        float_format="%.6f",
+    )
+'''

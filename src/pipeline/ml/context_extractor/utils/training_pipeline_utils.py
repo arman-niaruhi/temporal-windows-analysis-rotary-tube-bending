@@ -108,6 +108,8 @@ def train_model(
     Y_test: torch.Tensor,
     springbacks_train: torch.Tensor,
     springbacks_test: torch.Tensor,
+    experiment_configurations_train: torch.Tensor,
+    experiment_configurations_test: torch.Tensor,
     params: dict,
     occlusion_params: dict,
     sensor_names: list[str],
@@ -170,14 +172,15 @@ def train_model(
         setup_mlflow_experiment(
             process_part, params, preprocessing_info, X_train, Y_train, target_feature_names
         )  
-
+    
     # Create PyTorch DataLoaders using customized dataloader
     train_loader, val_loader, plot_loader = create_data_loaders(
-        X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, params["batch_size"]
+        X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, 
+        experiment_configurations_train, experiment_configurations_test, params["batch_size"]
     )
 
     # Extract a fixed batch for visualization
-    plot_X, plot_Y, springback = get_plot_batch(plot_loader, device)
+    plot_X, plot_Y, springback, experiment_config = get_plot_batch(plot_loader, device)
     n_samples = min(4, len(plot_Y))
     
     
@@ -205,8 +208,16 @@ def train_model(
 
             # Generate final attention visualization using the loaded model
             generate_final_attention_plot(
-                model, plot_X, springback, X_test, sensor_names, process_part, attention_lines_dir,
-                annot_timesteps, mandrel_extraction_annot_timesteps
+                model,
+                plot_X,
+                springback,
+                experiment_config,
+                X_test,
+                sensor_names,
+                process_part,
+                attention_lines_dir,
+                annot_timesteps,
+                mandrel_extraction_annot_timesteps,
             )
 
 
@@ -219,12 +230,20 @@ def train_model(
             )
 
             if combined_importance_df is not None:
-                X_sample = plot_X[:1]
+                X_sample = plot_X[-1]
                 sensor_data_sample = X_test[:1].cpu().numpy()
                 save_integrated_gradients_combined(
-                    model, X_sample, springback[:1], sensor_data_sample, sensor_names,
-                    target_feature_names, integrated_gradients_dir, process_part, annot_timesteps,
-                    mandrel_extraction_annot_timesteps
+                    model,
+                    X_sample,
+                    springback[:1],
+                    experiment_config[:1],
+                    sensor_data_sample,
+                    sensor_names,
+                    target_feature_names,
+                    integrated_gradients_dir,
+                    process_part,
+                    annot_timesteps,
+                    mandrel_extraction_annot_timesteps,
                 )
                     
                 log_feature_importance_to_mlflow(
@@ -277,24 +296,57 @@ def train_model(
         mlflow.log_param("val_size", len(X_test))
         
         y_lim = compute_plot_limits(Y_test)
-        plot_X, plot_Y, springback = get_plot_batch(plot_loader, device)
+        plot_X, plot_Y, springback, experiment_config = get_plot_batch(plot_loader, device)
         n_samples = min(4, len(plot_Y))
         
         # Initialize model
-        model = create_model(features_in, predictions_out, features_out,
-                           params["hidden_dim"], params["lstm_layers"],
-                           params["dropout"], device)
+        use_experiment_config = bool(params.get("use_experiment_config", True))
+        config_dim = experiment_configurations_train.shape[1] if use_experiment_config else None
+        model = create_model(
+            features_in,
+            predictions_out,
+            features_out,
+            params["hidden_dim"],
+            params["lstm_layers"],
+            params["dropout"],
+            device,
+            use_experiment_config=use_experiment_config,
+            config_dim=config_dim,
+        )
         
         # Log model architecture parameters
         log_model_parameters(model)
         
         # Optimizer and scheduler
         optimizer = optim.AdamW(model.parameters(), lr=params["lr"], weight_decay=params["weight_decay"])
-        scheduler = ReduceLROnPlateau(optimizer, patience=7, factor=0.2)
-        
-        
+        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=7, factor=0.5, threshold=1e-4)
         # Loss function
         criterion = nn.MSELoss()
+
+        feature_weights = None
+        if params.get("feature_loss_weights"):
+            feature_weights = torch.tensor(
+                params["feature_loss_weights"], dtype=torch.float32, device=device
+            )
+            feature_weights = feature_weights / feature_weights.mean()
+        elif params.get("auto_feature_loss_weighting"):
+            per_feature_std = Y_train.std(dim=(0, 1)).to(device)
+            feature_weights = 1.0 / (per_feature_std + 1e-8)
+            feature_weights = feature_weights / feature_weights.mean()
+
+        feature_loss_types = None
+        if params.get("feature_loss_types"):
+            feature_loss_types = list(params["feature_loss_types"])
+            if len(feature_loss_types) == 1 and features_out > 1:
+                feature_loss_types = feature_loss_types * features_out
+            if len(feature_loss_types) != features_out:
+                raise ValueError(
+                    "feature_loss_types length must match output features."
+                )
+        elif params.get("use_smoothl1_for_secondary"):
+            feature_loss_types = ["smoothl1" if i == 0 else "mse" for i in range(features_out)]
+
+        extra_l2_reg = float(params.get("extra_l2_reg", 0.0))
         
         
         # Training state tracking
@@ -314,9 +366,23 @@ def train_model(
             epoch_start = time.time()
             
             # Train and validate
-            train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
+            train_loss = train_one_epoch(
+                model,
+                train_loader,
+                optimizer,
+                criterion,
+                device,
+                feature_weights,
+                feature_loss_types,
+                extra_l2_reg,
+            )
             val_loss, val_preds, val_targets = validate_one_epoch(
-                model, val_loader, criterion, device
+                model,
+                val_loader,
+                criterion,
+                device,
+                feature_weights,
+                feature_loss_types,
             )
             
             
@@ -329,6 +395,19 @@ def train_model(
             metrics = compute_epoch_metrics(val_targets, val_preds)
             for key in metrics_history.keys():
                 metrics_history[key].append(metrics[key])
+            
+            per_feature_mse = metrics.get("per_feature_mse") or []
+            per_feature_r2 = metrics.get("per_feature_r2") or []
+            if per_feature_mse and per_feature_r2:
+                feature_labels = target_feature_names or [f"feature_{i}" for i in range(len(per_feature_mse))]
+                feature_metrics_parts = []
+                for i, name in enumerate(feature_labels):
+                    if i >= len(per_feature_mse) or i >= len(per_feature_r2):
+                        break
+                    feature_metrics_parts.append(
+                        f"{name}: MSE={per_feature_mse[i]:.6f}, R2={per_feature_r2[i]:.4f}"
+                    )
+                tqdm.write(f"Epoch {epoch} per-feature metrics: " + " | ".join(feature_metrics_parts))
             
             
             # Learning rate scheduling
@@ -360,6 +439,7 @@ def train_model(
                     plot_X=plot_X, 
                     plot_Y=plot_Y, 
                     springback=springback,
+                    experiment_config=experiment_config,
                     X_train= X_train, 
                     sensor_names=sensor_names,
                     target_feature_names=target_feature_names, 
@@ -378,7 +458,7 @@ def train_model(
                     loss_dir=loss_dir,
                     annot_timesteps=annot_timesteps, 
                     mandrel_extraction_annot_timesteps= mandrel_extraction_annot_timesteps,
-                    n_samples = n_samples
+                    n_samples = n_samples,
                 )
             
             progress_info = format_progress_bar(
@@ -427,9 +507,17 @@ def train_model(
             X_sample = plot_X[:1]
             sensor_data_sample = X_test[:1].cpu().numpy()
             save_integrated_gradients_combined(
-                model, X_sample, springback[:1], sensor_data_sample, sensor_names,
-                target_feature_names, integrated_gradients_dir, process_part, annot_timesteps,
-                mandrel_extraction_annot_timesteps
+                model,
+                X_sample,
+                springback[:1],
+                experiment_config[:1],
+                sensor_data_sample,
+                sensor_names,
+                target_feature_names,
+                integrated_gradients_dir,
+                process_part,
+                annot_timesteps,
+                mandrel_extraction_annot_timesteps,
             )
             
             log_feature_importance_to_mlflow(combined_importance_df)
@@ -437,8 +525,16 @@ def train_model(
         
         # Final attention visualization
         generate_final_attention_plot(
-            model, plot_X, springback, X_test, sensor_names, process_part, attention_lines_dir,
-            annot_timesteps, mandrel_extraction_annot_timesteps
+            model,
+            plot_X,
+            springback,
+            experiment_config,
+            X_test,
+            sensor_names,
+            process_part,
+            attention_lines_dir,
+            annot_timesteps,
+            mandrel_extraction_annot_timesteps,
         )
         
         

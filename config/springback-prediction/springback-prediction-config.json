@@ -11,10 +11,10 @@
         "to_58_excluded": false,
         "random_seed": 42,
         "agg_metric": "mean",
-        "window_num": 1700,
+        "window_num": 400,
         "feature_indices": [
             1,
-            4
+            3
         ],
         "annot_timesteps": [
             150,
@@ -29,19 +29,19 @@
     },
     "lstmTrainingParams": {
         "train": true,
-        "hidden_size": 128,
-        "num_layers": 2,
-        "dropout": 0.05,
+        "hidden_size": 64,
+        "num_layers": 1,
+        "dropout": 0.1,
         "fc_dropout": 0.1,
-        "bidirectional": false,
-        "lr": 3e-4,
-        "weight_decay": 1e-4,
-        "batch_size": 16,
-        "max_epochs": 500,
+        "bidirectional": true,
+        "lr": 3e-5,
+        "weight_decay": 3e-5,
+        "batch_size": 4,
+        "max_epochs": 1000,
         "stop_early_min_delta":1e-4,
-        "stop_early_patience":30,
+        "stop_early_patience":20,
         "schedular_factor": 0.5,
-        "schedular_patience": 5,
+        "schedular_patience": 3,
         "gradient_clip":1.0,
         "verbose_every":2,
         "model_path": "models/spring_back"
