@@ -232,10 +232,16 @@ def main():
         # Read and preprocess data
         # ============================================================
         try:
-            X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, sensor_names, target_feature_names, annot_timesteps, mandrel_extraction_annot_timesteps = prepare_data(
+            (
+                X_train, Y_train, X_test, Y_test, 
+                springbacks_train, springbacks_test, 
+                experiment_configurations_train, experiment_configurations_test, 
+                sensor_names, target_feature_names, annot_timesteps, 
+                mandrel_extraction_annot_timesteps) = prepare_data(
                 input_path_param=input_path_param,
                 preprocessing_param=preprocessing_param,
             )
+            
             train_model(
                 X_train=X_train, 
                 Y_train=Y_train, 
@@ -243,6 +249,8 @@ def main():
                 Y_test=Y_test,
                 springbacks_train=springbacks_train,
                 springbacks_test=springbacks_test,
+                experiment_configurations_train=experiment_configurations_train,
+                experiment_configurations_test=experiment_configurations_test, 
                 params=training_params,
                 occlusion_params=occlusion_params,
                 sensor_names=sensor_names,
@@ -270,15 +278,20 @@ def main():
                 input_path_param=input_path_param,
                 preprocessing_param=preprocessing_param,
             )
-        train_loader, val_loader, plot_loader = create_data_loaders(
-        X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, lstm_training_params["batch_size"])
+        
+        # Train RF
         train_model_springback_random_forest(
             X_train=X_train,
             X_test=X_test,
             springbacks_train=springbacks_train,
-            springbacks_test=springbacks_test
+            springbacks_test=springbacks_test,
+            sensor_names = sensor_names
         )
-        '''
+        
+        # Train LSTM
+        train_loader, val_loader, plot_loader = create_data_loaders(
+        X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, lstm_training_params["batch_size"])
+        
         train_model_springback_lstm( 
         seed=seed,
         model_input_size=X_train.shape[2],
@@ -289,7 +302,8 @@ def main():
         val_loader=val_loader,
         plot_loader=plot_loader,
         )
-        '''
+        
+        
 
 if __name__ == "__main__":
     main()

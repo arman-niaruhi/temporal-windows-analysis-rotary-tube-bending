@@ -88,10 +88,14 @@ class AttentionLSTM(nn.Module):
         dropout: float = 0.3,
         scalar_embedding_dim: int = 16,
         use_scalar: bool = False,   # <<< FLAG
+        config_dim: int | None = None,
+        config_embedding_dim: int = 16,
+        use_config: bool = False,
     ):
         super().__init__()
 
         self.use_scalar = use_scalar
+        self.use_config = use_config
         self.n_predictions = n_predictions
         self.hidden_dim = hidden_dim
 
@@ -106,6 +110,19 @@ class AttentionLSTM(nn.Module):
         else:
             self.scalar_embedding = None
             combined_dim = hidden_dim
+
+        # Experiment configuration embedding (only if enabled)
+        if self.use_config:
+            if config_dim is None or config_dim <= 0:
+                raise ValueError("config_dim must be set when use_config=True")
+            self.config_embedding = nn.Sequential(
+                nn.Linear(config_dim, config_embedding_dim),
+                nn.ReLU(),
+                nn.Linear(config_embedding_dim, config_embedding_dim),
+            )
+            combined_dim = combined_dim + config_embedding_dim
+        else:
+            self.config_embedding = None
 
         # LSTM encoder
         self.lstm = nn.LSTM(
@@ -128,11 +145,17 @@ class AttentionLSTM(nn.Module):
             nn.Linear(hidden_dim // 4, output_features),
         )
 
-    def forward(self, x: torch.Tensor, scalar: torch.Tensor | None = None):
+    def forward(
+        self,
+        x: torch.Tensor,
+        scalar: torch.Tensor | None = None,
+        config: torch.Tensor | None = None,
+    ):
         """
         Args:
             x: (batch_size, seq_len, input_features)
             scalar: (batch_size, 1) or (batch_size,) – ignored if use_scalar=False
+            config: (batch_size, config_dim) – ignored if use_config=False
         """
         # LSTM encoding
         o, _ = self.lstm(x)
@@ -141,7 +164,12 @@ class AttentionLSTM(nn.Module):
         # Attention
         ctx, attn = self.attention(o)  # (B, n_predictions, hidden_dim)
 
-        if self.use_scalar:
+        combined = ctx
+
+        use_scalar = getattr(self, "use_scalar", False)
+        use_config = getattr(self, "use_config", False)
+
+        if use_scalar:
             if scalar is None:
                 raise ValueError("scalar input is required when use_scalar=True")
 
@@ -151,9 +179,19 @@ class AttentionLSTM(nn.Module):
             scalar_emb = self.scalar_embedding(scalar)
             scalar_emb = scalar_emb.unsqueeze(1).expand(-1, self.n_predictions, -1)
 
-            combined = torch.cat([ctx, scalar_emb], dim=-1)
-        else:
-            combined = ctx
+            combined = torch.cat([combined, scalar_emb], dim=-1)
+
+        if use_config:
+            if config is None:
+                raise ValueError("config input is required when use_config=True")
+
+            if config.dim() == 1:
+                config = config.unsqueeze(-1)
+
+            config_emb = self.config_embedding(config)
+            config_emb = config_emb.unsqueeze(1).expand(-1, self.n_predictions, -1)
+
+            combined = torch.cat([combined, config_emb], dim=-1)
 
         out = self.fc(combined)
         return out, attn

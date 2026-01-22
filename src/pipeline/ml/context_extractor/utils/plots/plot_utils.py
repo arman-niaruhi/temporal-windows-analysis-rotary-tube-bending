@@ -13,8 +13,13 @@ import torch
 from torch.utils.data import DataLoader
 
 def get_plot_batch(loader: DataLoader, device: torch.device):
-    x, y, springback = next(iter(loader))
-    return x.to(device), y, springback
+    x, y, springback, experiment_config = next(iter(loader))
+    return (
+        x.to(device),
+        y.to(device),
+        springback.to(device),
+        experiment_config.to(device),
+    )
 
 def compute_plot_limits(Y_val: torch.Tensor) -> tuple:
     """Compute global y-limits for consistent plotting."""
@@ -22,4 +27,3 @@ def compute_plot_limits(Y_val: torch.Tensor) -> tuple:
     global_ymin, global_ymax = y_all.min(), y_all.max()
     margin = (global_ymax - global_ymin) * 0.1
     return (global_ymin - margin, global_ymax + margin)
-

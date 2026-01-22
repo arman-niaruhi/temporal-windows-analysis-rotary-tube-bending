@@ -168,16 +168,17 @@ class LSTMPreprocessor:
 class ProcessDataset(Dataset):
     """Custom PyTorch Dataset for time-series data."""
 
-    def __init__(self, X: torch.Tensor, Y: torch.Tensor, Springback: torch.Tensor) -> None:
+    def __init__(self, X: torch.Tensor, Y: torch.Tensor, Springback: torch.Tensor, experiment_configurations: torch.Tensor) -> None:
         self.X = X.float()
         self.Y = Y.float()
         self.Springback = Springback.float().squeeze()
+        self.experiment_configurations = experiment_configurations
 
     def __len__(self):
         return len(self.X)
 
     def __getitem__(self, idx):
-        return self.X[idx], self.Y[idx], self.Springback[idx] 
+        return self.X[idx], self.Y[idx], self.Springback[idx], self.experiment_configurations[idx]
 
 
 def _scale_annotation_timesteps(
@@ -293,8 +294,10 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         )
         r["Experiment_ID"] = exp_id
         resampled_sensors.append(r)
-    sensors_df = pd.concat(resampled_sensors, ignore_index=True)
 
+    sensors_df = pd.concat(resampled_sensors, ignore_index=True)
+ 
+    #sensors_df = sensors_df.drop(columns=['Time_[s]'])
     # Select target features
     columns = list(target_df.columns[1:])
     feature_idx_start, feature_idx_end = preprocessing_param.get("feature_indices")
@@ -321,13 +324,43 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
      
     test_groups = experiment_groups['test_groups']
     test_groups = [item for sublist in test_groups for item in sublist]
-    
+
     train_springbacks = spring_backs_df[spring_backs_df["Experiment_ID"].isin(train_groups)]
     test_springbacks= spring_backs_df[spring_backs_df["Experiment_ID"].isin(test_groups)]
     train_targets = target_df[target_df["Experiment_ID"].isin(train_groups)]
     test_targets = target_df[target_df["Experiment_ID"].isin(test_groups)]
     train_sensors = sensors_df[sensors_df["Experiment_ID"].isin(train_groups)]
     testsensors = sensors_df[sensors_df["Experiment_ID"].isin(test_groups)]
+
+    # --------------------------------------------------
+    # Experiment configuration alignment + normalization
+    # --------------------------------------------------
+    experiment_configurations = pd.read_csv("experiment_setups.csv").reset_index(drop=True)
+    feature_cols = experiment_configurations.columns.drop("Experiment_ID")
+
+    train_exp_ids = sorted(train_sensors["Experiment_ID"].unique())
+    test_exp_ids = sorted(testsensors["Experiment_ID"].unique())
+
+    config_by_id = experiment_configurations.set_index("Experiment_ID")
+
+    missing_train = [eid for eid in train_exp_ids if eid not in config_by_id.index]
+    missing_test = [eid for eid in test_exp_ids if eid not in config_by_id.index]
+    if missing_train or missing_test:
+        raise ValueError(
+            f"Missing experiment config for IDs. "
+            f"train_missing={missing_train[:10]} test_missing={missing_test[:10]}"
+        )
+
+    experiment_configurations_train = config_by_id.loc[train_exp_ids, feature_cols]
+    experiment_configurations_test = config_by_id.loc[test_exp_ids, feature_cols]
+
+    experiment_configurations_train = torch.from_numpy(
+        experiment_configurations_train.to_numpy(dtype="float32")
+    )
+    experiment_configurations_test = torch.from_numpy(
+        experiment_configurations_test.to_numpy(dtype="float32")
+    )
+
     # Convert to tensors for targets
     X_train, Y_train = _to_tensor_split(
         preprocessor, train_sensors, train_targets, feature_idx_start, feature_idx_end
@@ -362,6 +395,8 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         Y_test,
         springbacks_train,
         springbacks_test,
+        experiment_configurations_train,
+        experiment_configurations_test,
         sensor_names,
         target_feature_names,
         annot_timesteps,
@@ -373,6 +408,8 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
 def create_data_loaders(X_train: torch.Tensor, Y_train: torch.Tensor,
                         X_val: torch.Tensor, Y_val: torch.Tensor,
                         springbacks_train: torch.Tensor, springbacks_val: torch.Tensor,
+                        experiment_configurations_train: torch.Tensor, 
+                        experiment_configurations_test: torch.Tensor,
                         batch_size: int) -> tuple:
     """
     Create PyTorch DataLoaders for training, validation, and plotting.
@@ -387,8 +424,8 @@ def create_data_loaders(X_train: torch.Tensor, Y_train: torch.Tensor,
     Returns:
         Tuple of (train_loader, val_loader, plot_loader)
     """
-    train_ds = ProcessDataset(X_train, Y_train, springbacks_train)
-    val_ds = ProcessDataset(X_val, Y_val, springbacks_val)
+    train_ds = ProcessDataset(X_train, Y_train, springbacks_train, experiment_configurations_train)
+    val_ds = ProcessDataset(X_val, Y_val, springbacks_val, experiment_configurations_test)
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=32)

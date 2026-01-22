@@ -38,18 +38,20 @@ def window_based_importance(
     n_windows = None
     
     with torch.no_grad():
-        for X_batch, _, springback_batch in train_loader:
+        for X_batch, _, springback_batch, experiment_configuration in train_loader:
             X_batch = X_batch.to(device)
             springback_batch = springback_batch.to(device)
+            experiment_configuration = experiment_configuration.to(device)
             
             batch_size, T, F = X_batch.shape
             
             for b in range(batch_size):
                 x = X_batch[b:b + 1]
                 springback = springback_batch[b:b + 1]
+                config = experiment_configuration[b:b + 1]
                 
                 # Get original prediction with springback
-                original_pred, _ = model(x, springback)
+                original_pred, _ = model(x, springback, config)
                 original_pred = original_pred.cpu().numpy()
                 
                 importance_vals = []
@@ -60,7 +62,7 @@ def window_based_importance(
                     x_occluded[:, start:start + occluded_window_size, :] = 0.0
                     
                     # Get prediction with occluded window (same springback)
-                    occluded_pred, _ = model(x_occluded, springback)
+                    occluded_pred, _ = model(x_occluded, springback, config)
                     occluded_pred = occluded_pred.cpu().numpy()
                     
                     # Compute importance as change in prediction for this angle
@@ -112,3 +114,4 @@ def save_window_importance_results(all_importance_data, output_dir):
     
     all_df.to_csv(output_path, index=False)
     logger.info(f"Window importance results saved to {output_path}")
+    
