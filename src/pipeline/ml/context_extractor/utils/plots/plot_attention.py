@@ -561,7 +561,7 @@ def plot_selected_features_with_attn_heatmap(
 
     if annot_timesteps and (machine_part == "All"):
         annot_labels = [
-            "Start-Declamping",
+            "Start-Clamping",
             "Start-Bending",
             "Start-Declamping",
             "End-Declamping",
