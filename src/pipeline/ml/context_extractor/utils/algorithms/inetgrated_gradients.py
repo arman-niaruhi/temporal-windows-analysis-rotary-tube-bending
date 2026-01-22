@@ -18,6 +18,7 @@ def __compute_integrated_gradients(
     model: nn.Module, 
     X_sample: torch.Tensor, 
     springback_sample: torch.Tensor,
+    experiment_config: torch.Tensor,
     n_output_features: int
 ) -> list:
     """
@@ -38,7 +39,7 @@ def __compute_integrated_gradients(
             batch_size = x.shape[0]
             springback_expanded = springback_sample.expand(batch_size, -1)
             
-            pred, _ = model(x, springback_expanded)
+            pred, _ = model(x, springback_expanded, experiment_config)
             # Sum over prediction timesteps to get single output per sample
             return pred[:, :, idx].sum(dim=1)
         
@@ -60,6 +61,7 @@ def save_integrated_gradients_combined(
     model: torch.nn.Module, 
     X_sample: torch.Tensor,
     springback_sample: torch.Tensor,
+    experiment_config: torch.Tensor,
     sensor_data: torch.Tensor,
     sensor_names: list[str],
     target_feature_names: list[str],
@@ -75,9 +77,10 @@ def save_integrated_gradients_combined(
     
     X_sample = X_sample.to(device)
     springback_sample = springback_sample.to(device)
+    experiment_config = experiment_config.to(device)
 
     with torch.no_grad():
-        pred, _ = model(X_sample, springback_sample)
+        pred, _ = model(X_sample, springback_sample, experiment_config)
     
     n_output_features = pred.shape[2]
     sample_data = sensor_data[-1, :, :]
@@ -85,10 +88,11 @@ def save_integrated_gradients_combined(
     
     # FIXED: Corrected argument order - springback_sample before n_output_features
     ig_maps = __compute_integrated_gradients(
-        model, 
-        X_sample, 
+        model,
+        X_sample,
         springback_sample,
-        n_output_features
+        experiment_config,
+        n_output_features,
     )
     
     save_combined_ig_plot(

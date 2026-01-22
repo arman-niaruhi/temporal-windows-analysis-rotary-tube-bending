@@ -42,12 +42,23 @@ def compute_all_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
     per_pred_mae = np.mean(np.abs(y_true_np - y_pred_np), axis=(0, 2))
 
     # Per-feature metrics (if multi-feature output)
-    if y_true_np.ndim == 3 and y_true_np.shape[2] > 1:
+    if y_true_np.ndim == 3:
         per_feature_mse = np.mean((y_true_np - y_pred_np) ** 2, axis=(0, 1))
         per_feature_mae = np.mean(np.abs(y_true_np - y_pred_np), axis=(0, 1))
+        per_feature_r2 = [
+            r2_score(y_true_np[:, :, i].flatten(), y_pred_np[:, :, i].flatten())
+            for i in range(y_true_np.shape[2])
+        ]
     else:
         per_feature_mse = None
         per_feature_mae = None
+        per_feature_r2 = None
+
+    # Per-sample MSE (average over crosscuts/features)
+    if y_true_np.ndim == 3:
+        per_sample_mse = np.mean((y_true_np - y_pred_np) ** 2, axis=(1, 2))
+    else:
+        per_sample_mse = np.mean((y_true_np - y_pred_np) ** 2, axis=1)
 
     # Additional error statistics
     max_error = np.max(np.abs(y_true_np - y_pred_np))
@@ -67,12 +78,14 @@ def compute_all_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
         "per_prediction_mse": per_pred_mse.tolist(),
         "per_prediction_mae": per_pred_mae.tolist(),
         "residuals": residuals,
+        "per_sample_mse": per_sample_mse.tolist(),
     }
 
     # Include per-feature metrics if applicable
     if per_feature_mse is not None:
         metrics["per_feature_mse"] = per_feature_mse.tolist()
         metrics["per_feature_mae"] = per_feature_mae.tolist()
+        metrics["per_feature_r2"] = per_feature_r2
 
     return metrics
 
@@ -108,10 +121,13 @@ def compute_epoch_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
     r2 = r2_score(y_true_flat, y_pred_flat)
     rmse = np.sqrt(mse)
 
-    # Mean Absolute Percentage Error (avoid division by zero)
+    # Mean Absolute Percentage Error (avoid division by zero by masking near-zero targets)
     epsilon = 1e-8
-    denominator = np.abs(y_true_flat) + epsilon
-    mape = np.mean(np.abs((y_true_flat - y_pred_flat) / denominator)) * 100
+    valid_mask = np.abs(y_true_flat) > epsilon
+    if np.any(valid_mask):
+        mape = np.mean(np.abs((y_true_flat[valid_mask] - y_pred_flat[valid_mask]) / y_true_flat[valid_mask])) * 100
+    else:
+        mape = np.nan
 
     # Maximum absolute error
     max_error = np.max(np.abs(y_true_flat - y_pred_flat))
@@ -125,6 +141,19 @@ def compute_epoch_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
     # Median Absolute Error
     medae = median_absolute_error(y_true_flat, y_pred_flat)
 
+    # Per-feature metrics
+    if y_true_np.ndim == 3:
+        per_feature_mse = np.mean((y_true_np - y_pred_np) ** 2, axis=(0, 1))
+        per_feature_r2 = [
+            r2_score(y_true_np[:, :, i].flatten(), y_pred_np[:, :, i].flatten())
+            for i in range(y_true_np.shape[2])
+        ]
+        per_sample_mse = np.mean((y_true_np - y_pred_np) ** 2, axis=(1, 2))
+    else:
+        per_feature_mse = None
+        per_feature_r2 = None
+        per_sample_mse = np.mean((y_true_np - y_pred_np) ** 2, axis=1)
+
     return {
         "mse": mse,
         "rmse": rmse,
@@ -135,4 +164,8 @@ def compute_epoch_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
         "evs": evs,
         "mbe": mbe,
         "medae": medae,
+        "per_feature_mse": per_feature_mse.tolist() if per_feature_mse is not None else None,
+        "per_feature_r2": per_feature_r2,
+        "per_sample_mse": per_sample_mse.tolist(),
+        "per_sample_mse_mean": float(np.mean(per_sample_mse)),
     }

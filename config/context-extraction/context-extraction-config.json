@@ -13,8 +13,8 @@
         "agg_metric": "mean",
         "window_num": 400,
         "feature_indices": [
-            1,
-            4
+            2,
+            3
         ],
         "annot_timesteps": [
             150,
@@ -28,18 +28,21 @@
         ]
     },
     "trainingParams": {
-        "train": false,
-        "hidden_dim": 32,
-        "lstm_layers": 1,
-        "dropout": 0.3,
-        "lr": 5e-3,
-        "weight_decay": 5e-3,
+        "train": true,
+        "hidden_dim": 256,
+        "lstm_layers": 3,
+        "dropout": 0.2,
+        "lr": 3e-4,
+        "weight_decay": 1e-4,
         "batch_size": 8,
         "max_epochs": 500,
-        "model_path": "models/context_extraction"
+        "model_path": "models/context_extraction",
+        "feature_loss_types": [
+            "smoothl1"
+        ]
     },
     "occlusionParams": {
-        "occlusion_window_size": 2,
-        "occlusion_stride": 2
+        "occlusion_window_size": 4,
+        "occlusion_stride": 4
     }
 }

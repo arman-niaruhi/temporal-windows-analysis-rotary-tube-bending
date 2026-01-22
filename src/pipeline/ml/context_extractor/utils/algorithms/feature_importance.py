@@ -21,10 +21,12 @@ def collect_attention_data(model, val_loader, device):
     all_targets = []
 
     with torch.no_grad():
-        for Xb, Yb, springback in tqdm(val_loader, desc="Attention Importance"):
-            Xb, Yb = Xb.to(device), Yb.to(device)
+        for Xb, Yb, springback, experiment_config in tqdm(val_loader, desc="Attention Importance"):
+            Xb = Xb.to(device)
+            Yb = Yb.to(device)
             springback = springback.to(device)
-            pred, attn_weights = model(Xb, springback)
+            experiment_config = experiment_config.to(device)
+            pred, attn_weights = model(Xb, springback, experiment_config)
             
             mean_attn = attn_weights.mean(dim=(0, 1))  
             all_attention_weights.append(mean_attn.cpu())
@@ -167,10 +169,12 @@ def compute_ablation_importance(
     n_batches = 0
 
     with torch.no_grad():
-        for Xb, Yb, springback in val_loader:
-            Xb, Yb = Xb.to(device), Yb.to(device)
+        for Xb, Yb, springback, experiment_config in val_loader:
+            Xb = Xb.to(device)
+            Yb = Yb.to(device)
             springback = springback.to(device)
-            pred, _ = model(Xb, springback)
+            experiment_config = experiment_config.to(device)
+            pred, _ = model(Xb, springback, experiment_config)
             baseline_loss += criterion(pred, Yb).item()
             n_batches += 1
 
@@ -187,16 +191,18 @@ def compute_ablation_importance(
         n_batches = 0
 
         with torch.no_grad():
-            for Xb, Yb, springback in val_loader:
-                Xb, Yb = Xb.to(device), Yb.to(device)
+            for Xb, Yb, springback, experiment_config in val_loader:
+                Xb = Xb.to(device)
+                Yb = Yb.to(device)
                 springback = springback.to(device)
+                experiment_config = experiment_config.to(device)
 
                 # FIXED: Only ablate the sequence features, not springback
                 # springback is a scalar (batch_size, 1), not a sequence
                 Xb_ablated = Xb.clone()
                 Xb_ablated[:, :, feat_idx] = 0
 
-                pred, _ = model(Xb_ablated, springback)
+                pred, _ = model(Xb_ablated, springback, experiment_config)
                 ablated_loss += criterion(pred, Yb).item()
                 n_batches += 1
 
@@ -258,10 +264,12 @@ def compute_permutation_importance(
     n_batches = 0
 
     with torch.no_grad():
-        for Xb, Yb, springback in val_loader:
-            Xb, Yb = Xb.to(device), Yb.to(device)
+        for Xb, Yb, springback, experiment_config in val_loader:
+            Xb = Xb.to(device)
+            Yb = Yb.to(device)
             springback = springback.to(device)
-            pred, _ = model(Xb, springback)
+            experiment_config = experiment_config.to(device)
+            pred, _ = model(Xb, springback, experiment_config)
             baseline_loss += criterion(pred, Yb).item()
             n_batches += 1
 
@@ -278,16 +286,18 @@ def compute_permutation_importance(
         n_batches = 0
 
         with torch.no_grad():
-            for Xb, Yb, springback in val_loader:
-                Xb, Yb = Xb.to(device), Yb.to(device)
+            for Xb, Yb, springback, experiment_config in val_loader:
+                Xb = Xb.to(device)
+                Yb = Yb.to(device)
                 springback = springback.to(device)
+                experiment_config = experiment_config.to(device)
 
                 # Permute only the sequence features
                 Xb_perm = Xb.clone()
                 perm_indices = torch.randperm(Xb.size(0))
                 Xb_perm[:, :, feat_idx] = Xb[perm_indices, :, feat_idx]
 
-                pred, _ = model(Xb_perm, springback)
+                pred, _ = model(Xb_perm, springback, experiment_config)
                 permuted_loss += criterion(pred, Yb).item()
                 n_batches += 1
 
