@@ -266,17 +266,10 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     crosscuts_list, spring_backs_list = [], []
     for exp_id, g in target_df.groupby("Experiment_ID"):
         g_clean = g.drop(columns=["Experiment_ID"])
-        crosscuts = g_clean.iloc[:45:,:].copy()
-        spring_back = g_clean.iloc[-1:,0:1].copy()
-        mask_less = spring_back['Angle[degree]ORDistance[mm]'] < 45
-        mask_more = spring_back['Angle[degree]ORDistance[mm]'] >= 45
-
-        # do this for < 45
-        spring_back.loc[mask_less, 'Angle[degree]ORDistance[mm]'] -= 44.0
-
-        # subtract 44 for >= 45
-        spring_back.loc[mask_more, 'Angle[degree]ORDistance[mm]'] -= 45.0
-
+        crosscuts = g_clean.iloc[0:45:3,:].copy()
+        spring_back = g_clean.iloc[-1:,].copy()
+        spring_back['Angle[degree]ORDistance[mm]'] = 46.0 - spring_back['Angle[degree]ORDistance[mm]']
+        
         crosscuts["Experiment_ID"] = exp_id
         spring_back["Experiment_ID"] = exp_id
         crosscuts_list.append(crosscuts)

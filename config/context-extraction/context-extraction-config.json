@@ -13,7 +13,7 @@
         "agg_metric": "mean",
         "window_num": 400,
         "feature_indices": [
-            2,
+            1,
             3
         ],
         "annot_timesteps": [
@@ -29,8 +29,8 @@
     },
     "trainingParams": {
         "train": true,
-        "hidden_dim": 256,
-        "lstm_layers": 3,
+        "hidden_dim": 32,
+        "lstm_layers": 1,
         "dropout": 0.2,
         "lr": 3e-4,
         "weight_decay": 1e-4,

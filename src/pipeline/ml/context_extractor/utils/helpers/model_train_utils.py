@@ -19,9 +19,9 @@ def create_model(
     dropout: float,
     device: torch.device,
     *,
-    use_scalar: bool = False,
+    use_scalar: bool = True,
     scalar_embedding_dim: int = 16,
-    use_experiment_config: bool = False,
+    use_experiment_config: bool = True,
     config_dim: int | None = None,
     config_embedding_dim: int = 16,
 ) -> AttentionLSTM:
@@ -48,12 +48,13 @@ def create_model(
         hidden_dim=hidden_dim,
         lstm_layers=lstm_layers,
         dropout=dropout,
-        use_scalar=use_scalar,
+        use_scalar=False,
         scalar_embedding_dim=scalar_embedding_dim,
-        use_config=use_experiment_config,
+        use_config=True,
         config_dim=config_dim,
         config_embedding_dim=config_embedding_dim,
     ).to(device)
+
     return AttentionMamba(
         input_features=input_features,
         n_predictions=n_predictions,
