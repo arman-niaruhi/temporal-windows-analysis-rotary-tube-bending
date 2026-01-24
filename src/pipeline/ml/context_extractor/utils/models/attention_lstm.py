@@ -87,17 +87,22 @@ class AttentionLSTM(nn.Module):
         lstm_layers: int = 2,
         dropout: float = 0.3,
         scalar_embedding_dim: int = 16,
-        use_scalar: bool = False,   # <<< FLAG
+        use_scalar: bool = True,   # <<< FLAG
         config_dim: int | None = None,
         config_embedding_dim: int = 16,
-        use_config: bool = False,
+        use_config: bool = True,
+        split_output_heads: bool = False,
+        main_head_hidden_sizes: list[int] | None = None,
+        secondary_head_hidden_sizes: list[int] | None = None,
     ):
         super().__init__()
-
+        print(use_scalar, use_config)
         self.use_scalar = use_scalar
         self.use_config = use_config
         self.n_predictions = n_predictions
         self.hidden_dim = hidden_dim
+        self.output_features = output_features
+        self.split_output_heads = split_output_heads
 
         # Scalar embedding (only if enabled)
         if self.use_scalar:
@@ -136,14 +141,41 @@ class AttentionLSTM(nn.Module):
         self.ln = nn.LayerNorm(hidden_dim)
         self.attention = MLPAttention(n_predictions, hidden_dim)
 
-        # Final prediction head
-        self.fc = nn.Sequential(
-            nn.Linear(combined_dim, hidden_dim // 2),
-            nn.ReLU(),
-            nn.Linear(hidden_dim // 2, hidden_dim // 4),
-            nn.ReLU(),
-            nn.Linear(hidden_dim // 4, output_features),
-        )
+        def _build_mlp_head(input_dim: int, hidden_sizes: list[int], output_dim: int) -> nn.Sequential:
+            layers: list[nn.Module] = []
+            prev = input_dim
+            for size in hidden_sizes:
+                layers.append(nn.Linear(prev, size))
+                layers.append(nn.ReLU())
+                prev = size
+            layers.append(nn.Linear(prev, output_dim))
+            return nn.Sequential(*layers)
+
+        # Final prediction head(s)
+        if self.split_output_heads and output_features > 1:
+            base_main_sizes = main_head_hidden_sizes or [
+                max(1, hidden_dim // 2),
+                max(1, hidden_dim // 4),
+            ]
+            base_secondary_sizes = secondary_head_hidden_sizes or [
+                max(1, hidden_dim // 2),
+                max(1, hidden_dim // 4),
+                max(1, hidden_dim // 8),
+            ]
+            self.fc_heads = nn.ModuleList()
+            for i in range(output_features):
+                sizes = base_secondary_sizes if i == 0 else base_main_sizes
+                self.fc_heads.append(_build_mlp_head(combined_dim, sizes, 1))
+            self.fc = None
+        else:
+            self.fc = nn.Sequential(
+                nn.Linear(combined_dim, hidden_dim // 2),
+                nn.ReLU(),
+                nn.Linear(hidden_dim // 2, hidden_dim // 4),
+                nn.ReLU(),
+                nn.Linear(hidden_dim // 4, output_features),
+            )
+            self.fc_heads = None
 
     def forward(
         self,
@@ -193,5 +225,9 @@ class AttentionLSTM(nn.Module):
 
             combined = torch.cat([combined, config_emb], dim=-1)
 
-        out = self.fc(combined)
+        if self.fc_heads is not None:
+            outs = [head(combined) for head in self.fc_heads]
+            out = torch.cat(outs, dim=-1)
+        else:
+            out = self.fc(combined)
         return out, attn

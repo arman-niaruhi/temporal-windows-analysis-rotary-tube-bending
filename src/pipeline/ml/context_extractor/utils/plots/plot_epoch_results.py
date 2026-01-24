@@ -19,6 +19,58 @@ import torch.nn as nn
 
 from src.pipeline.ml.context_extractor.utils.plots.plot_attention import plot_selected_features_with_attn_heatmap
 
+def save_validation_scatter(
+    val_targets: torch.Tensor,
+    val_preds: torch.Tensor,
+    target_feature_names: list,
+    val_pred_dir: Path,
+    epoch: int,
+) -> None:
+    val_targets_np = val_targets.detach().cpu().numpy()
+    val_preds_np = val_preds.detach().cpu().numpy()
+    n_features = val_targets_np.shape[-1]
+    ncols = min(3, n_features)
+    nrows = int(np.ceil(n_features / ncols))
+
+    fig_scatter, axes = plt.subplots(
+        nrows=nrows,
+        ncols=ncols,
+        figsize=(4.2 * ncols, 4.0 * nrows),
+        squeeze=False,
+    )
+
+    for feat in range(n_features):
+        row = feat // ncols
+        col = feat % ncols
+        ax = axes[row][col]
+        true_flat = val_targets_np[..., feat].reshape(-1)
+        pred_flat = val_preds_np[..., feat].reshape(-1)
+        ax.scatter(true_flat, pred_flat, s=8, alpha=0.35, color="#1f77b4")
+        min_val = float(np.min([true_flat.min(), pred_flat.min()]))
+        max_val = float(np.max([true_flat.max(), pred_flat.max()]))
+        ax.plot([min_val, max_val], [min_val, max_val], color="black", lw=1)
+        title = target_feature_names[feat] if target_feature_names else f"feature_{feat}"
+        ax.set_title(title, fontsize=11, weight="bold")
+        ax.set_xlabel("True")
+        ax.set_ylabel("Prediction")
+        ax.grid(alpha=0.25)
+
+    for idx in range(n_features, nrows * ncols):
+        row = idx // ncols
+        col = idx % ncols
+        axes[row][col].axis("off")
+
+    fig_scatter.suptitle(
+        f"Validation True vs Prediction – Epoch {epoch}",
+        fontsize=14,
+        weight="bold",
+    )
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    val_pred_dir.mkdir(parents=True, exist_ok=True)
+    scatter_path = val_pred_dir / f"val_scatter_epoch_{epoch:04d}.png"
+    fig_scatter.savefig(scatter_path, dpi=160, bbox_inches="tight")
+    plt.close(fig_scatter)
+
 def generate_epoch_plots(
     model: nn.Module,
     plot_X: torch.Tensor,
@@ -32,7 +84,7 @@ def generate_epoch_plots(
     process_part: str,
     train_losses: list,
     epoch: int,
-    y_lim: tuple,
+    y_lim,
     predictions_out: int,
     train_loss: float,
     val_loss: float,
@@ -41,9 +93,16 @@ def generate_epoch_plots(
     attention_csv_dir: Path,
     attention_dir: Path,
     loss_dir: Path,
+    diff_hist_dir: Path,
+    diff_bar_dir: Path,
+    val_pred_dir: Path,
+    val_diff_bar_dir: Path,
     annot_timesteps: list,
     mandrel_extraction_annot_timesteps: list,
     n_samples: int = 4,
+    val_targets: torch.Tensor | None = None,
+    val_preds: torch.Tensor | None = None,
+    target_scaler=None,
 ) -> None:
     """Save each subplot as a separate image in organized folders
     
@@ -73,6 +132,12 @@ def generate_epoch_plots(
         pred_np = pred.cpu().numpy()
         true_np = plot_Y.cpu().numpy()
         attn_mean = attn.mean(0).cpu().numpy()
+
+    if target_scaler is not None:
+        flat_pred = pred_np.reshape(-1, pred_np.shape[-1])
+        flat_true = true_np.reshape(-1, true_np.shape[-1])
+        pred_np = target_scaler.inverse_transform(flat_pred).reshape(pred_np.shape)
+        true_np = target_scaler.inverse_transform(flat_true).reshape(true_np.shape)
 
     idxs = random.sample(range(len(true_np)), min(n_samples, len(true_np)))
     x_axis = np.arange(predictions_out)
@@ -127,7 +192,10 @@ def generate_epoch_plots(
                 label="Prediction",
             )
 
-            ax.set_ylim(*y_lim)
+            if isinstance(y_lim, (list, tuple)) and y_lim and isinstance(y_lim[0], (list, tuple)):
+                ax.set_ylim(*y_lim[feat])
+            else:
+                ax.set_ylim(*y_lim)
             ax.grid(True, linestyle=":", alpha=0.55)
 
             if feat == 0:
@@ -191,6 +259,7 @@ def generate_epoch_plots(
     loss_path = loss_dir / f"loss_epoch_{epoch:04d}.png"
     fig_loss.savefig(loss_path, dpi=150, bbox_inches="tight")
     plt.close(fig_loss)
+
     
     attn_mean = attn_data
     attn_path = attention_dir / f"attention_epoch_{epoch:04d}.png"

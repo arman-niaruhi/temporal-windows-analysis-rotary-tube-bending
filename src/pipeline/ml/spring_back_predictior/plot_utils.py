@@ -47,6 +47,57 @@ def plot_predictions_comparison(y_true, y_pred, model_name="Model", save_path=No
 
 
 # --------------------------------------------------
+# 1b. Prediction Difference Bar Chart
+# --------------------------------------------------
+def plot_prediction_difference_bars(
+    y_true,
+    y_pred,
+    model_name="Model",
+    save_path=None,
+    show=False,
+    max_bars=200,
+):
+    """
+    Plot per-sample prediction differences (y_pred - y_true) as a bar chart.
+
+    Args:
+        y_true: Ground truth values
+        y_pred: Predicted values
+        model_name: Name of the model
+        save_path: Path to save the plot
+        show: Whether to display the plot
+        max_bars: Max number of bars to draw (samples are evenly downsampled)
+    """
+    residuals = np.asarray(y_pred) - np.asarray(y_true)
+    n_samples = len(residuals)
+
+    if n_samples > max_bars:
+        idx = np.linspace(0, n_samples - 1, max_bars, dtype=int)
+        residuals = residuals[idx]
+        x = idx
+        title = f"{model_name} - Residuals (sampled {max_bars}/{n_samples})"
+    else:
+        x = np.arange(n_samples)
+        title = f"{model_name} - Residuals (y_pred - y_true)"
+
+    colors = np.where(residuals >= 0, "#3498db", "#e74c3c")
+    plt.figure(figsize=(14, 6))
+    plt.bar(x, residuals, color=colors, alpha=0.75, edgecolor="black", linewidth=0.3)
+    plt.axhline(0, linestyle="--", linewidth=1.5, color="black")
+    plt.title(title, fontsize=13, fontweight="bold")
+    plt.xlabel("Sample Index", fontsize=12)
+    plt.ylabel("Residual", fontsize=12)
+    plt.grid(True, axis="y", linestyle="--", alpha=0.4)
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    plt.close()
+
+
+# --------------------------------------------------
 # 2. True vs Predicted Scatter Plot
 # --------------------------------------------------
 def plot_true_vs_pred_scatter(y_true, y_pred, model_name="Model", save_path=None, show=False):

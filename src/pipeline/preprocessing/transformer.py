@@ -253,9 +253,10 @@ class DataTransformer:
                 )
             
             else:
-                df.loc[:, numeric_cols] = df[numeric_cols].transform(
-                    lambda x: (x - x.min()) / (x.max() - x.min()) if x.max() != x.min() else 0
-                )
+                #df.loc[:, numeric_cols] = df[numeric_cols].transform(
+                #    lambda x: (x - x.min()) / (x.max() - x.min()) if x.max() != x.min() else 0
+                #)
+                pass
 
             setattr(self, attr_name, df)
             logger.info(

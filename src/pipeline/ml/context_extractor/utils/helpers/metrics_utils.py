@@ -35,7 +35,15 @@ def compute_all_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
     mse = mean_squared_error(y_true_np.flatten(), y_pred_np.flatten())
     rmse = np.sqrt(mse)
     mae = mean_absolute_error(y_true_np.flatten(), y_pred_np.flatten())
-    r2 = r2_score(y_true_np.flatten(), y_pred_np.flatten())
+    r2_flat = r2_score(y_true_np.flatten(), y_pred_np.flatten())
+
+    r2_uniform_avg = None
+    r2_variance_weighted = None
+    if y_true_np.ndim == 3:
+        y_true_2d = y_true_np.reshape(-1, y_true_np.shape[2])
+        y_pred_2d = y_pred_np.reshape(-1, y_pred_np.shape[2])
+        r2_uniform_avg = r2_score(y_true_2d, y_pred_2d, multioutput="uniform_average")
+        r2_variance_weighted = r2_score(y_true_2d, y_pred_2d, multioutput="variance_weighted")
 
     # Per-prediction metrics (mean across batch and time)
     per_pred_mse = np.mean((y_true_np - y_pred_np) ** 2, axis=(0, 2))
@@ -71,7 +79,9 @@ def compute_all_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
         "mse": float(mse),
         "rmse": float(rmse),
         "mae": float(mae),
-        "r2": float(r2),
+        "r2": float(r2_uniform_avg) if r2_uniform_avg is not None else float(r2_flat),
+        "r2_flat": float(r2_flat),
+        "r2_variance_weighted": float(r2_variance_weighted) if r2_variance_weighted is not None else None,
         "max_error": float(max_error),
         "mean_error": float(mean_error),
         "std_error": float(std_error),
@@ -118,7 +128,7 @@ def compute_epoch_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
     # Basic regression metrics
     mse = mean_squared_error(y_true_flat, y_pred_flat)
     mae = mean_absolute_error(y_true_flat, y_pred_flat)
-    r2 = r2_score(y_true_flat, y_pred_flat)
+    r2_flat = r2_score(y_true_flat, y_pred_flat)
     rmse = np.sqrt(mse)
 
     # Mean Absolute Percentage Error (avoid division by zero by masking near-zero targets)
@@ -142,12 +152,18 @@ def compute_epoch_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
     medae = median_absolute_error(y_true_flat, y_pred_flat)
 
     # Per-feature metrics
+    r2_uniform_avg = None
+    r2_variance_weighted = None
     if y_true_np.ndim == 3:
         per_feature_mse = np.mean((y_true_np - y_pred_np) ** 2, axis=(0, 1))
         per_feature_r2 = [
             r2_score(y_true_np[:, :, i].flatten(), y_pred_np[:, :, i].flatten())
             for i in range(y_true_np.shape[2])
         ]
+        y_true_2d = y_true_np.reshape(-1, y_true_np.shape[2])
+        y_pred_2d = y_pred_np.reshape(-1, y_pred_np.shape[2])
+        r2_uniform_avg = r2_score(y_true_2d, y_pred_2d, multioutput="uniform_average")
+        r2_variance_weighted = r2_score(y_true_2d, y_pred_2d, multioutput="variance_weighted")
         per_sample_mse = np.mean((y_true_np - y_pred_np) ** 2, axis=(1, 2))
     else:
         per_feature_mse = None
@@ -158,7 +174,9 @@ def compute_epoch_metrics(y_true: torch.Tensor, y_pred: torch.Tensor):
         "mse": mse,
         "rmse": rmse,
         "mae": mae,
-        "r2": r2,
+        "r2": r2_uniform_avg if r2_uniform_avg is not None else r2_flat,
+        "r2_flat": r2_flat,
+        "r2_variance_weighted": r2_variance_weighted,
         "mape": mape,
         "max_error": max_error,
         "evs": evs,

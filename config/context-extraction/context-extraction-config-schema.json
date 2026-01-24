@@ -72,6 +72,10 @@
           "type": "string",
           "description": "Aggregation metric"
         },
+        "normalize": {
+          "type": "boolean",
+          "description": "Whether to normalize inputs and targets for training"
+        },
         "window_num": {
           "type": "integer",
           "minimum": 1,

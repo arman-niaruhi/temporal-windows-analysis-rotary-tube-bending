@@ -237,7 +237,9 @@ def main():
                 springbacks_train, springbacks_test, 
                 experiment_configurations_train, experiment_configurations_test, 
                 sensor_names, target_feature_names, annot_timesteps, 
-                mandrel_extraction_annot_timesteps) = prepare_data(
+                mandrel_extraction_annot_timesteps,
+                normalization_info,
+            ) = prepare_data(
                 input_path_param=input_path_param,
                 preprocessing_param=preprocessing_param,
             )
@@ -259,6 +261,7 @@ def main():
                 preprocessing_info=preprocessing_info,
                 annot_timesteps=annot_timesteps,
                 mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+                target_scaler=normalization_info.get("target_scaler") if normalization_info else None,
                 )
     
         except Exception as e:
@@ -274,7 +277,12 @@ def main():
         lstm_training_params = config.get("lstmTrainingParams")
         seed = config.get("generalSetting").get("seed", 42)
             
-        X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, sensor_names, target_feature_names, annot_timesteps, mandrel_extraction_annot_timesteps = prepare_data(
+        (
+            X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test,
+            experiment_configurations_train, experiment_configurations_test,
+            sensor_names, target_feature_names, annot_timesteps,
+            mandrel_extraction_annot_timesteps, normalization_info,
+        ) = prepare_data(
                 input_path_param=input_path_param,
                 preprocessing_param=preprocessing_param,
             )
@@ -290,7 +298,16 @@ def main():
         
         # Train LSTM
         train_loader, val_loader, plot_loader = create_data_loaders(
-        X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, lstm_training_params["batch_size"])
+            X_train,
+            Y_train,
+            X_test,
+            Y_test,
+            springbacks_train,
+            springbacks_test,
+            experiment_configurations_train,
+            experiment_configurations_test,
+            lstm_training_params["batch_size"],
+        )
         
         train_model_springback_lstm( 
         seed=seed,
