@@ -24,6 +24,9 @@ def create_model(
     use_experiment_config: bool = True,
     config_dim: int | None = None,
     config_embedding_dim: int = 16,
+    split_output_heads: bool = False,
+    main_head_hidden_sizes: list[int] | None = None,
+    secondary_head_hidden_sizes: list[int] | None = None,
 ) -> AttentionLSTM:
     """
     Instantiate and initialize the Attention LSTM model.
@@ -48,11 +51,14 @@ def create_model(
         hidden_dim=hidden_dim,
         lstm_layers=lstm_layers,
         dropout=dropout,
-        use_scalar=False,
+        use_scalar=use_scalar,
         scalar_embedding_dim=scalar_embedding_dim,
-        use_config=True,
+        use_config=use_experiment_config,
         config_dim=config_dim,
         config_embedding_dim=config_embedding_dim,
+        split_output_heads=split_output_heads,
+        main_head_hidden_sizes=main_head_hidden_sizes,
+        secondary_head_hidden_sizes=secondary_head_hidden_sizes,
     ).to(device)
 
     return AttentionMamba(

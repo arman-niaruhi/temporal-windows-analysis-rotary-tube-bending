@@ -10,12 +10,45 @@ from src.pipeline.ml.context_extractor.utils.data.data_resampler import (
 import numpy as np
 import pandas as pd
 
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 import json
 
 # Initialize logger for monitoring execution
 logger = logging.getLogger(__name__)
+
+def _fit_scaler(
+    df: pd.DataFrame,
+    cols: list[str],
+    scaler_type: str = "minmax",
+) -> tuple[pd.DataFrame, MinMaxScaler | StandardScaler | None]:
+    if not cols:
+        return df, None
+    scaler_type = scaler_type.lower()
+    if scaler_type == "standard":
+        scaler = StandardScaler()
+    elif scaler_type == "minmax":
+        scaler = MinMaxScaler()
+    else:
+        raise ValueError(f"Unknown scaler type: {scaler_type}")
+    values = df[cols].to_numpy(dtype="float32")
+    scaler.fit(values)
+    df_scaled = df.copy()
+    df_scaled[cols] = scaler.transform(values)
+    return df_scaled, scaler
+
+
+def _apply_scaler(
+    df: pd.DataFrame,
+    cols: list[str],
+    scaler: MinMaxScaler | StandardScaler | None,
+) -> pd.DataFrame:
+    if scaler is None or not cols:
+        return df
+    df_scaled = df.copy()
+    df_scaled[cols] = scaler.transform(df[cols].to_numpy(dtype="float32"))
+    return df_scaled
+
 
 class LSTMPreprocessor:
     """
@@ -233,6 +266,7 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         target_feature_names: target columns
         annot_timesteps: scaled annotation indices
         mandrel_extraction_annot_timesteps: scaled mandrel extraction indices
+        normalization_info: scalers used for normalization (if enabled)
     """
     process_part = input_path_param.get("process_part")
     annotation_json_path = input_path_param.get("annotation_json_path")
@@ -242,6 +276,8 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         raise ValueError("Required input paths or machine part are missing.")
 
     to_58_included = preprocessing_param.get("to_58_included", False)
+    normalize = preprocessing_param.get("normalize", False)
+    scaler_type = preprocessing_param.get("scaler", "minmax")
     preprocessor = LSTMPreprocessor(database_path, process_part, annotation_json_path)
 
     if process_part == "De-Clamping":
@@ -266,7 +302,7 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     crosscuts_list, spring_backs_list = [], []
     for exp_id, g in target_df.groupby("Experiment_ID"):
         g_clean = g.drop(columns=["Experiment_ID"])
-        crosscuts = g_clean.iloc[0:45:3,:].copy()
+        crosscuts = g_clean.iloc[0:45,:].copy()
         spring_back = g_clean.iloc[-1:,].copy()
         spring_back['Angle[degree]ORDistance[mm]'] = 46.0 - spring_back['Angle[degree]ORDistance[mm]']
         
@@ -290,12 +326,14 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
 
     sensors_df = pd.concat(resampled_sensors, ignore_index=True)
  
-    #sensors_df = sensors_df.drop(columns=['Time_[s]'])
+    #
+    # sensors_df = sensors_df.drop(columns=['Time_[s]'])
     # Select target features
     columns = list(target_df.columns[1:])
     feature_idx_start, feature_idx_end = preprocessing_param.get("feature_indices")
 
     target_feature_names = columns[feature_idx_start - 1: feature_idx_end - 1]
+    springback_feature_names = columns[:1]
 
     if to_58_included:
         sensors_df = sensors_df[sensors_df["Experiment_ID"] >= 58]
@@ -325,6 +363,33 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     train_sensors = sensors_df[sensors_df["Experiment_ID"].isin(train_groups)]
     testsensors = sensors_df[sensors_df["Experiment_ID"].isin(test_groups)]
 
+    normalization_info = {
+        "enabled": normalize,
+        "scaler_type": scaler_type,
+        "sensor_scaler": None,
+        "target_scaler": None,
+        "springback_scaler": None,
+        "config_scaler": None,
+    }
+
+    if normalize:
+        sensor_cols = [c for c in train_sensors.columns if c != "Experiment_ID"]
+        train_sensors, sensor_scaler = _fit_scaler(train_sensors, sensor_cols, scaler_type)
+        testsensors = _apply_scaler(testsensors, sensor_cols, sensor_scaler)
+        normalization_info["sensor_scaler"] = sensor_scaler
+
+        train_targets, target_scaler = _fit_scaler(train_targets, target_feature_names, scaler_type)
+        test_targets = _apply_scaler(test_targets, target_feature_names, target_scaler)
+        normalization_info["target_scaler"] = target_scaler
+
+        train_springbacks, springback_scaler = _fit_scaler(
+            train_springbacks, springback_feature_names, scaler_type
+        )
+        test_springbacks = _apply_scaler(
+            test_springbacks, springback_feature_names, springback_scaler
+        )
+        normalization_info["springback_scaler"] = springback_scaler
+
     # --------------------------------------------------
     # Experiment configuration alignment + normalization
     # --------------------------------------------------
@@ -346,6 +411,15 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
 
     experiment_configurations_train = config_by_id.loc[train_exp_ids, feature_cols]
     experiment_configurations_test = config_by_id.loc[test_exp_ids, feature_cols]
+
+    if normalize:
+        experiment_configurations_train, config_scaler = _fit_scaler(
+            experiment_configurations_train, list(feature_cols), scaler_type
+        )
+        experiment_configurations_test = _apply_scaler(
+            experiment_configurations_test, list(feature_cols), config_scaler
+        )
+        normalization_info["config_scaler"] = config_scaler
 
     experiment_configurations_train = torch.from_numpy(
         experiment_configurations_train.to_numpy(dtype="float32")
@@ -394,6 +468,7 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         target_feature_names,
         annot_timesteps,
         mandrel_extraction_annot_timesteps,
+        normalization_info,
     )
 
 

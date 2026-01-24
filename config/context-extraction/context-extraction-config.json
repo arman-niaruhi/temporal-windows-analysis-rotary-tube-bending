@@ -10,6 +10,8 @@
     "preprocessingParams": {
         "to_58_excluded": false,
         "random_seed": 42,
+        "normalize": true,
+        "scaler": "minmax",
         "agg_metric": "mean",
         "window_num": 400,
         "feature_indices": [
@@ -29,20 +31,44 @@
     },
     "trainingParams": {
         "train": true,
-        "hidden_dim": 32,
+        "hidden_dim": 64,
         "lstm_layers": 1,
-        "dropout": 0.2,
-        "lr": 3e-4,
+        "dropout": 0.1,
+        "lr": 2e-4,
         "weight_decay": 1e-4,
         "batch_size": 8,
-        "max_epochs": 500,
+        "max_epochs": 1000,
         "model_path": "models/context_extraction",
+        "use_experiment_config": true,
+        "use_scalar": false,
+        "split_output_heads": true,
+        "timestep_sensitivity": true,
+        "main_head_hidden_sizes": [
+            48,
+            24
+        ],
+        "secondary_head_hidden_sizes": [
+            128,
+            64,
+            32
+        ],
+        "feature_loss_weights": [
+            6.0,
+            1.0
+        ],
+        "dynamic_feature_loss_weighting": true,
+        "dynamic_feature_loss_warmup_epochs": 20,
+        "dynamic_feature_loss_end_weights": [
+            6.0,
+            1.0
+        ],
         "feature_loss_types": [
-            "smoothl1"
+            "smoothl1",
+            "mse"
         ]
     },
     "occlusionParams": {
-        "occlusion_window_size": 4,
-        "occlusion_stride": 4
+        "occlusion_window_size": 10,
+        "occlusion_stride": 10
     }
 }

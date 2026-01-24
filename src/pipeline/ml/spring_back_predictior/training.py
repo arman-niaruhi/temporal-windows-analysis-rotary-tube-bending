@@ -22,11 +22,7 @@ from tqdm.auto import tqdm
 
 from src.pipeline.ml.spring_back_predictior.models import AttentionSpringbackLSTM
 from src.pipeline.ml.spring_back_predictior.plot_utils import (
-    plot_predictions_comparison,
-    plot_true_vs_pred_scatter,
-    plot_metrics_comparison,
-    plot_training_history,
-    plot_feature_importance,
+    plot_prediction_difference_bars,
 )
 
 
@@ -166,7 +162,7 @@ def train_model_springback_lstm(
             train_loss = 0.0
             train_true, train_pred = [], []
 
-            for x, _, s in train_loader:
+            for x, _, s, _ in train_loader:
                 x = x.to(device).float()
                 s = target_norm.normalize(s.to(device).float()).squeeze(-1)
 
@@ -195,7 +191,7 @@ def train_model_springback_lstm(
             val_true, val_pred = [], []
 
             with torch.no_grad():
-                for x, _, s in val_loader:
+                for x, _, s, _ in val_loader:
                     x = x.to(device).float()
                     s = target_norm.normalize(s.to(device).float()).squeeze(-1)
                     preds = model(x).squeeze(-1)
@@ -261,7 +257,7 @@ def train_model_springback_lstm(
         y_true, y_pred = [], []
 
         with torch.no_grad():
-            for x, _, s in plot_loader:
+            for x, _, s, _ in plot_loader:
                 x = x.to(device).float()
                 s = target_norm.normalize(s.to(device).float()).squeeze(-1)
                 preds = model(x).squeeze(-1)
@@ -289,22 +285,11 @@ def train_model_springback_lstm(
         # Generate All Plots (using temp directory)
         # ------------------
         with tempfile.TemporaryDirectory() as tmpdir:
-            # 1. Predictions comparison
-            plot_predictions_comparison(
-                y_true, y_pred, model_name="LSTM",
-                save_path=os.path.join(tmpdir, "01_predictions_comparison.png")
-            )
-            
-            # 2. True vs Pred scatter
-            plot_true_vs_pred_scatter(
-                y_true, y_pred, model_name="LSTM",
-                save_path=os.path.join(tmpdir, "02_true_vs_pred_scatter.png")
-            )
-            
-            # 4. Training history
-            plot_training_history(
-                history,
-                save_path=os.path.join(tmpdir, "03_training_history.png")
+            plot_prediction_difference_bars(
+                y_true,
+                y_pred,
+                model_name="LSTM",
+                save_path=os.path.join(tmpdir, "01_residuals_bar.png"),
             )
             
             
@@ -445,42 +430,20 @@ def train_model_springback_random_forest(
         print("\nGenerating plots...")
         
         with tempfile.TemporaryDirectory() as tmpdir:
-            # 1. Predictions comparison
-            plot_predictions_comparison(
-                y_val, y_pred_flat,
-                save_path=os.path.join(tmpdir, "01_predictions_flatten.png")
+            plot_prediction_difference_bars(
+                y_val,
+                y_pred_flat,
+                model_name="RF Flattened",
+                save_path=os.path.join(tmpdir, "01_residuals_flattened.png"),
             )
-            
-            plot_predictions_comparison(
-                y_val, y_pred_agg,
-                save_path=os.path.join(tmpdir, "01_predictions_aggreated.png")
+
+            plot_prediction_difference_bars(
+                y_val,
+                y_pred_agg,
+                model_name="RF Aggregated",
+                save_path=os.path.join(tmpdir, "02_residuals_aggregated.png"),
             )
-            
-            # 2. True vs Pred scatter (both models)
-            plot_true_vs_pred_scatter(
-                y_val, y_pred_flat,
-                save_path=os.path.join(tmpdir, "02_true_vs_pred_scatter_flatten.png")
-            )
-            
-            plot_true_vs_pred_scatter(
-                y_val, y_pred_agg,
-                save_path=os.path.join(tmpdir, "02_true_vs_pred_scatter_aggregated.png")
-            )
-            
-            # 3. Metrics comparison
-            metrics_df = plot_metrics_comparison(
-                y_val, y_pred_flat,
-                save_path=os.path.join(tmpdir, "03_metrics_flatten.png")
-            )
-            metrics_df.to_csv(os.path.join(tmpdir, "metrics_flatten.csv"), index=False)
-            
-            metrics_df = plot_metrics_comparison(
-                y_val, y_pred_agg,
-                save_path=os.path.join(tmpdir, "03_metrics_aggregated.png")
-            )
-            metrics_df.to_csv(os.path.join(tmpdir, "metrics_aggregated.csv"), index=False)
-            
-            # 4. Feature importance plots
+
             feat_names_flat = [
                 f"{sensor_names[feat]}_t{t + 1}"
                 for feat in range(n_features)
@@ -488,7 +451,7 @@ def train_model_springback_random_forest(
             ]
             feat_imp_flat = pd.DataFrame({
                 "feature": feat_names_flat,
-                "importance": rf_flat.feature_importances_
+                "importance": rf_flat.feature_importances_,
             }).sort_values(by="importance", ascending=False)
 
             feat_names_agg = [
@@ -498,22 +461,9 @@ def train_model_springback_random_forest(
             ]
             feat_imp_agg = pd.DataFrame({
                 "feature": feat_names_agg,
-                "importance": rf_agg.feature_importances_
+                "importance": rf_agg.feature_importances_,
             }).sort_values(by="importance", ascending=False)
 
-            plot_feature_importance(
-                feat_imp_flat, 
-                title="RF Flattened - Top 20 Features",
-                save_path=os.path.join(tmpdir, "04_feat_imp_flat.png")
-            )
-
-            plot_feature_importance(
-                feat_imp_agg,
-                title="RF Aggregated - Top 20 Features",
-                save_path=os.path.join(tmpdir, "05_feat_imp_agg.png")
-            )
-
-            # Save feature importance CSVs
             feat_imp_flat.to_csv(os.path.join(tmpdir, "feat_imp_flat.csv"), index=False)
             feat_imp_agg.to_csv(os.path.join(tmpdir, "feat_imp_agg.csv"), index=False)
             

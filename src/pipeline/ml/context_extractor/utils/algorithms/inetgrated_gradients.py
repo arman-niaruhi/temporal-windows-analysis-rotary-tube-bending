@@ -37,9 +37,19 @@ def __compute_integrated_gradients(
             # x will have shape (n_steps, seq_len, features) where n_steps is typically 50
             # springback_sample has shape (1, 1)
             batch_size = x.shape[0]
-            springback_expanded = springback_sample.expand(batch_size, -1)
+            springback_base = springback_sample
+            if springback_base.dim() == 1:
+                springback_base = springback_base.unsqueeze(0)
+            springback_expanded = springback_base.expand(batch_size, -1)
+
+            config_expanded = None
+            if experiment_config is not None:
+                config_base = experiment_config
+                if config_base.dim() == 1:
+                    config_base = config_base.unsqueeze(0)
+                config_expanded = config_base.expand(batch_size, -1)
             
-            pred, _ = model(x, springback_expanded, experiment_config)
+            pred, _ = model(x, springback_expanded, config_expanded)
             # Sum over prediction timesteps to get single output per sample
             return pred[:, :, idx].sum(dim=1)
         
