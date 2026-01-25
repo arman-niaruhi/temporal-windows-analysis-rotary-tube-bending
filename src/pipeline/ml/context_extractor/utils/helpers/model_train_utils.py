@@ -8,6 +8,9 @@ from typing import Optional, Sequence
 from src.pipeline.ml.context_extractor.utils.models.attention_lstm import AttentionLSTM
 from src.pipeline.ml.context_extractor.utils.models.attention_transformer import TransformerAttention
 from src.pipeline.ml.context_extractor.utils.models.attention_mamba import AttentionMamba
+from src.pipeline.ml.context_extractor.utils.models.attention_tcn import AttentionTCN
+from src.pipeline.ml.context_extractor.utils.models.attention_tcn_lstm import AttentionTCNLSTM
+from src.pipeline.ml.context_extractor.utils.models.attention_tcn_mamba import AttentionTCNMamba
 
 
 def create_model(
@@ -19,6 +22,7 @@ def create_model(
     dropout: float,
     device: torch.device,
     *,
+    model_type: str = "lstm",
     use_scalar: bool = True,
     scalar_embedding_dim: int = 16,
     use_experiment_config: bool = True,
@@ -27,7 +31,11 @@ def create_model(
     split_output_heads: bool = False,
     main_head_hidden_sizes: list[int] | None = None,
     secondary_head_hidden_sizes: list[int] | None = None,
-) -> AttentionLSTM:
+    tcn_layers: int | None = None,
+    tcn_kernel_size: int = 3,
+    mamba_layers: int | None = None,
+    mamba_d_state: int | None = None,
+) -> nn.Module:
     """
     Instantiate and initialize the Attention LSTM model.
     
@@ -43,6 +51,91 @@ def create_model(
     Returns:
         AttentionLSTM model moved to the specified device
     """
+
+    model_type_norm = (model_type or "lstm").lower()
+
+    if model_type_norm in ("tcn_lstm", "tcn-lstm", "tcn+lstm"):
+        return AttentionTCNLSTM(
+            input_features=input_features,
+            n_predictions=n_predictions,
+            output_features=output_features,
+            hidden_dim=hidden_dim,
+            tcn_layers=tcn_layers if tcn_layers is not None else lstm_layers,
+            lstm_layers=lstm_layers,
+            kernel_size=tcn_kernel_size,
+            dropout=dropout,
+            use_scalar=use_scalar,
+            scalar_embedding_dim=scalar_embedding_dim,
+            use_config=use_experiment_config,
+            config_dim=config_dim,
+            config_embedding_dim=config_embedding_dim,
+            split_output_heads=split_output_heads,
+            main_head_hidden_sizes=main_head_hidden_sizes,
+            secondary_head_hidden_sizes=secondary_head_hidden_sizes,
+        ).to(device)
+
+    if model_type_norm in ("tcn_mamba", "tcn-mamba", "tcn+mamba"):
+        return AttentionTCNMamba(
+            input_features=input_features,
+            n_predictions=n_predictions,
+            output_features=output_features,
+            hidden_dim=hidden_dim,
+            tcn_layers=tcn_layers if tcn_layers is not None else lstm_layers,
+            mamba_layers=mamba_layers if mamba_layers is not None else lstm_layers,
+            d_state=mamba_d_state if mamba_d_state is not None else 16,
+            kernel_size=tcn_kernel_size,
+            dropout=dropout,
+            use_scalar=use_scalar,
+            scalar_embedding_dim=scalar_embedding_dim,
+            use_config=use_experiment_config,
+            config_dim=config_dim,
+            config_embedding_dim=config_embedding_dim,
+            split_output_heads=split_output_heads,
+            main_head_hidden_sizes=main_head_hidden_sizes,
+            secondary_head_hidden_sizes=secondary_head_hidden_sizes,
+        ).to(device)
+
+    if model_type_norm == "tcn":
+        return AttentionTCN(
+            input_features=input_features,
+            n_predictions=n_predictions,
+            output_features=output_features,
+            hidden_dim=hidden_dim,
+            tcn_layers=tcn_layers if tcn_layers is not None else lstm_layers,
+            kernel_size=tcn_kernel_size,
+            dropout=dropout,
+            use_scalar=use_scalar,
+            scalar_embedding_dim=scalar_embedding_dim,
+            use_config=use_experiment_config,
+            config_dim=config_dim,
+            config_embedding_dim=config_embedding_dim,
+            split_output_heads=split_output_heads,
+            main_head_hidden_sizes=main_head_hidden_sizes,
+            secondary_head_hidden_sizes=secondary_head_hidden_sizes,
+        ).to(device)
+
+    if model_type_norm == "mamba":
+        return AttentionMamba(
+            input_features=input_features,
+            n_predictions=n_predictions,
+            output_features=output_features,
+            hidden_dim=hidden_dim,
+            mamba_layers=mamba_layers if mamba_layers is not None else lstm_layers,
+            d_state=mamba_d_state if mamba_d_state is not None else 16,
+            dropout=dropout,
+            use_scalar=use_scalar,
+            scalar_embedding_dim=scalar_embedding_dim,
+            use_config=use_experiment_config,
+            config_dim=config_dim,
+            config_embedding_dim=config_embedding_dim,
+        ).to(device)
+
+    if model_type_norm == "transformer":
+        return TransformerAttention(
+            input_features=input_features,
+            n_predictions=n_predictions,
+            output_features=output_features
+        ).to(device)
 
     return AttentionLSTM(
         input_features=input_features,
@@ -60,22 +153,6 @@ def create_model(
         main_head_hidden_sizes=main_head_hidden_sizes,
         secondary_head_hidden_sizes=secondary_head_hidden_sizes,
     ).to(device)
-
-    return AttentionMamba(
-        input_features=input_features,
-        n_predictions=n_predictions,
-        output_features=output_features,
-        hidden_dim=128,
-        mamba_layers=2,
-        d_state=16,
-        dropout=0.3,
-        use_scalar=True,
-    )
-    return TransformerAttention(
-        input_features=input_features,
-        n_predictions=n_predictions,
-        output_features=output_features
-    )
 
 
 def train_one_epoch(
@@ -155,7 +232,7 @@ def validate_one_epoch(
 
             pred, _ = model(Xb, springback, experiment_config)
             if feature_weights is None and not feature_loss_types:
-                val_loss += criterion(pred, Yb).item()
+                loss = criterion(pred, Yb)
             else:
                 if feature_loss_types:
                     loss = 0.0
@@ -169,10 +246,11 @@ def validate_one_epoch(
                             part = part * weights[i]
                         loss = loss + part
                     loss = loss / len(feature_loss_types)
-                    val_loss += loss.item()
                 else:
                     weights = feature_weights.view(1, 1, -1)
-                    val_loss += ((pred - Yb) ** 2 * weights).mean().item()
+                    loss = ((pred - Yb) ** 2 * weights).mean()
+
+            val_loss += loss.item()
 
             val_preds_epoch.append(pred.detach().cpu())
             val_targets_epoch.append(Yb.detach().cpu())

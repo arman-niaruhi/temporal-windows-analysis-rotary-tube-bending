@@ -356,12 +356,17 @@ def train_model(
             params["lstm_layers"],
             params["dropout"],
             device,
+            model_type=params.get("model_type", "lstm"),
             use_experiment_config=use_experiment_config,
             config_dim=config_dim,
             use_scalar=use_scalar,
             split_output_heads=bool(params.get("split_output_heads", False)),
             main_head_hidden_sizes=params.get("main_head_hidden_sizes"),
             secondary_head_hidden_sizes=params.get("secondary_head_hidden_sizes"),
+            tcn_layers=params.get("tcn_layers"),
+            tcn_kernel_size=params.get("tcn_kernel_size", 3),
+            mamba_layers=params.get("mamba_layers"),
+            mamba_d_state=params.get("mamba_d_state"),
         )
         
         # Log model architecture parameters

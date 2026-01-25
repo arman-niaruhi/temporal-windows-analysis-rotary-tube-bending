@@ -314,31 +314,60 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     spring_backs_df = pd.concat(spring_backs_list, ignore_index=True)
 
     sensors_df = sensors_df.reset_index()
-    resampled_sensors = []
-    for exp_id, g in sensors_df.groupby("Experiment_ID"):
-        r = resample_experiment_ultrafast(
-            g,
-            n=preprocessing_param.get("window_num", 40),
-            metric=preprocessing_param.get("agg_metric", "mean"),
-        )
-        r["Experiment_ID"] = exp_id
-        resampled_sensors.append(r)
+    do_resample = preprocessing_param.get("resample", True)
+    if do_resample:
+        resampled_sensors = []
+        for exp_id, g in sensors_df.groupby("Experiment_ID", sort=False):
+            r = resample_experiment_ultrafast(
+                g,
+                n=preprocessing_param.get("window_num", 40),
+                metric=preprocessing_param.get("agg_metric", "mean"),
+            )
+            r["Experiment_ID"] = exp_id
+            resampled_sensors.append(r)
 
-    sensors_df = pd.concat(resampled_sensors, ignore_index=True)
- 
-    #
-    # sensors_df = sensors_df.drop(columns=['Time_[s]'])
+        sensors_df = pd.concat(resampled_sensors, ignore_index=True)
+    else:
+        # Keep raw sequence ordering when resampling is disabled.
+        if "Time_[s]" in sensors_df.columns:
+            sensors_df = sensors_df.sort_values(["Experiment_ID", "Time_[s]"])
+        else:
+            sensors_df = sensors_df.sort_values(["Experiment_ID"])
+
+    sensors_df = sensors_df.drop(columns=["Time_[s]"], errors="ignore")
     # Select target features
     columns = list(target_df.columns[1:])
     feature_idx_start, feature_idx_end = preprocessing_param.get("feature_indices")
 
     target_feature_names = columns[feature_idx_start - 1: feature_idx_end - 1]
     springback_feature_names = columns[:1]
-
+    '''
     if to_58_included:
         sensors_df = sensors_df[sensors_df["Experiment_ID"] >= 58]
         target_df = target_df[target_df["Experiment_ID"] >= 58]
         spring_backs_df = spring_backs_df[spring_backs_df["Experiment_ID"] >= 58]
+    '''
+    normalization_info = {
+        "enabled": normalize,
+        "scaler_type": scaler_type,
+        "sensor_scaler": None,
+        "target_scaler": None,
+        "springback_scaler": None,
+        "config_scaler": None,
+    }
+
+    if normalize:
+        sensor_cols = [c for c in sensors_df.columns if c != "Experiment_ID"]
+        sensors_df, sensor_scaler = _fit_scaler(sensors_df, sensor_cols, scaler_type)
+        normalization_info["sensor_scaler"] = sensor_scaler
+
+        target_df, target_scaler = _fit_scaler(target_df, target_feature_names, scaler_type)
+        normalization_info["target_scaler"] = target_scaler
+
+        spring_backs_df, springback_scaler = _fit_scaler(
+            spring_backs_df, springback_feature_names, scaler_type
+        )
+        normalization_info["springback_scaler"] = springback_scaler
 
     # --------------------------------------------------
     # Train / Validation Split
@@ -395,6 +424,11 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     # --------------------------------------------------
     experiment_configurations = pd.read_csv("experiment_setups.csv").reset_index(drop=True)
     feature_cols = experiment_configurations.columns.drop("Experiment_ID")
+    if normalize:
+        experiment_configurations, config_scaler = _fit_scaler(
+            experiment_configurations, list(feature_cols), scaler_type
+        )
+        normalization_info["config_scaler"] = config_scaler
 
     train_exp_ids = sorted(train_sensors["Experiment_ID"].unique())
     test_exp_ids = sorted(testsensors["Experiment_ID"].unique())
@@ -411,15 +445,6 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
 
     experiment_configurations_train = config_by_id.loc[train_exp_ids, feature_cols]
     experiment_configurations_test = config_by_id.loc[test_exp_ids, feature_cols]
-
-    if normalize:
-        experiment_configurations_train, config_scaler = _fit_scaler(
-            experiment_configurations_train, list(feature_cols), scaler_type
-        )
-        experiment_configurations_test = _apply_scaler(
-            experiment_configurations_test, list(feature_cols), config_scaler
-        )
-        normalization_info["config_scaler"] = config_scaler
 
     experiment_configurations_train = torch.from_numpy(
         experiment_configurations_train.to_numpy(dtype="float32")
@@ -444,7 +469,7 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         preprocessor, testsensors, test_springbacks, 0, 1
     )
 
-    sensor_names = list(sensors_df.columns[:-1])
+    sensor_names = [c for c in sensors_df.columns if c != "Experiment_ID"]
 
     # Scale annotation indices based on training sequence length
     annot_timesteps, mandrel_extraction_annot_timesteps = _scale_annotation_timesteps(
