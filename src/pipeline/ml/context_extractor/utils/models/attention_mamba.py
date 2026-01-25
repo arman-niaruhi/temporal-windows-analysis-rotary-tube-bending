@@ -32,12 +32,19 @@ class MLPAttention(nn.Module):
         )
         nn.init.xavier_uniform_(self.angle_embeddings)
 
-    def forward(self, H: torch.Tensor):
+    def forward(self, H: torch.Tensor, mask: torch.Tensor | None = None):
         B, T, D = H.shape
         contexts, attns = [], []
+        mask_bool = None
+        if mask is not None:
+            mask_bool = mask.to(dtype=torch.bool, device=H.device)
         for a in range(self.n_predictions):
             scores = self.mlp(H + self.angle_embeddings[a]).squeeze(-1)  # (B,T)
+            if mask_bool is not None:
+                scores = scores.masked_fill(~mask_bool, -1e9)
             w = torch.softmax(scores, dim=-1)                            # (B,T)
+            if mask_bool is not None:
+                w = w * mask_bool
             ctx = (w.unsqueeze(-1) * H).sum(1)                           # (B,D)
             contexts.append(ctx)
             attns.append(w)
@@ -90,10 +97,14 @@ class AttentionMamba(nn.Module):
         dropout: float = 0.3,
         scalar_embedding_dim: int = 16,
         use_scalar: bool = False,
+        config_dim: int | None = None,
+        config_embedding_dim: int = 16,
+        use_config: bool = True,
     ):
         super().__init__()
 
         self.use_scalar = use_scalar
+        self.use_config = use_config
         self.n_predictions = n_predictions
         self.hidden_dim = hidden_dim
 
@@ -108,6 +119,17 @@ class AttentionMamba(nn.Module):
         else:
             self.scalar_embedding = None
             combined_dim = hidden_dim
+        if self.use_config:
+            if config_dim is None or config_dim <= 0:
+                raise ValueError("config_dim must be set when use_config=True")
+            self.config_embedding = nn.Sequential(
+                nn.Linear(config_dim, config_embedding_dim),
+                nn.ReLU(),
+                nn.Linear(config_embedding_dim, config_embedding_dim),
+            )
+            combined_dim = combined_dim + config_embedding_dim
+        else:
+            self.config_embedding = None
 
         # Project input features to hidden_dim (LSTM implicitly does this; Mamba needs it explicit)
         self.in_proj = nn.Linear(input_features, hidden_dim)
@@ -138,12 +160,13 @@ class AttentionMamba(nn.Module):
         x: torch.Tensor,
         scalar: torch.Tensor | None = None,
         config: torch.Tensor | None = None,
+        mask: torch.Tensor | None = None,
     ):
         """
         Args:
             x: (B, T, input_features)
             scalar: (B,) or (B,1) – ignored if use_scalar=False
-            config: (B, config_dim) – currently unused
+            config: (B, config_dim) – used when use_config=True
         Returns:
             out:  (B, n_predictions, output_features)
             attn: (B, n_predictions, T)
@@ -151,13 +174,17 @@ class AttentionMamba(nn.Module):
         if x.is_cuda:
             raise RuntimeError("This AttentionMambaCPU is CPU-only. Move inputs/model to CPU.")
 
+        attention_mask = mask
+        if attention_mask is None:
+            attention_mask = x.abs().sum(dim=-1) > 0
+
         # Encode
         h = self.in_proj(x)     # (B,T,H)
         h = self.mamba(h)       # (B,T,H)
         h = self.ln(h)          # (B,T,H)
 
         # Attention pooling (per prediction horizon)
-        ctx, attn = self.attention(h)  # (B,A,H), (B,A,T)
+        ctx, attn = self.attention(h, mask=attention_mask)  # (B,A,H), (B,A,T)
 
         # Optional scalar fusion (same as your original)
         if self.use_scalar:
@@ -171,6 +198,14 @@ class AttentionMamba(nn.Module):
             combined = torch.cat([ctx, scalar_emb], dim=-1)            # (B,A,H+S)
         else:
             combined = ctx
+        if self.use_config:
+            if config is None:
+                raise ValueError("config input is required when use_config=True")
+            if config.dim() == 1:
+                config = config.unsqueeze(-1)
+            config_emb = self.config_embedding(config)
+            config_emb = config_emb.unsqueeze(1).expand(-1, self.n_predictions, -1)
+            combined = torch.cat([combined, config_emb], dim=-1)
 
         out = self.fc(combined)  # (B,A,output_features)
         return out, attn
