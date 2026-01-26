@@ -518,5 +518,10 @@
       162
     ]
   ],
-  "split_rule": "80/20 per (Collet boost \u00d7 Mandrel timing) combination"
+  "split_rule": "80/20 per (Collet boost × Mandrel retraction timing) cell, train wins overlaps",
+  "seed": 42,
+  "cell_cols": [
+    "Collet boost",
+    "Mandrel retraction timing"
+  ]
 }

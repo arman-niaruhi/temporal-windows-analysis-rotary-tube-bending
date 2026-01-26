@@ -373,7 +373,7 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     # Train / Validation Split
     # --------------------------------------------------
     # Read groups from your existing JSON
-    with open("train_test_split.json", "r") as f:
+    with open("config/data-split-config/train_test_split.json", "r") as f:
         experiment_groups = json.load(f)
 
     if experiment_groups is None:
@@ -422,7 +422,7 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     # --------------------------------------------------
     # Experiment configuration alignment + normalization
     # --------------------------------------------------
-    experiment_configurations = pd.read_csv("experiment_setups.csv").reset_index(drop=True)
+    experiment_configurations = pd.read_csv("config/data-split-config/experiment_setups.csv").reset_index(drop=True)
     feature_cols = experiment_configurations.columns.drop("Experiment_ID")
     if normalize:
         experiment_configurations, config_scaler = _fit_scaler(
