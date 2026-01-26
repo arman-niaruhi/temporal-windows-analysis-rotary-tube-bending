@@ -1,6 +1,8 @@
 {
   "eliminated_columns": {
     "df_machine":[
+      "MACHINE_PRESSURE-DIE_LEFT_AXIAL_Max_Torque_[%]",
+      "MACHINE_COLLET_ROTATING_Max_Torque_[%]"
     ]
   },
   "failed_experiment": [1, 48, 166],
