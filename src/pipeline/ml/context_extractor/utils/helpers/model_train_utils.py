@@ -1,16 +1,41 @@
-import gc
-
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import optim
 from torch.utils.data import DataLoader
+from typing import Optional, Sequence
 
 from src.pipeline.ml.context_extractor.utils.models.attention_lstm import AttentionLSTM
+from src.pipeline.ml.context_extractor.utils.models.attention_transformer import TransformerAttention
+from src.pipeline.ml.context_extractor.utils.models.attention_mamba import AttentionMamba
+from src.pipeline.ml.context_extractor.utils.models.attention_tcn import AttentionTCN
+from src.pipeline.ml.context_extractor.utils.models.attention_tcn_lstm import AttentionTCNLSTM
+from src.pipeline.ml.context_extractor.utils.models.attention_tcn_mamba import AttentionTCNMamba
 
 
-def create_model(input_features: int, n_predictions: int, output_features: int,
-                 hidden_dim: int, lstm_layers: int, dropout: float,
-                 device: torch.device) -> AttentionLSTM:
+def create_model(
+    input_features: int,
+    n_predictions: int,
+    output_features: int,
+    hidden_dim: int,
+    lstm_layers: int,
+    dropout: float,
+    device: torch.device,
+    *,
+    model_type: str = "lstm",
+    use_scalar: bool = True,
+    scalar_embedding_dim: int = 16,
+    use_experiment_config: bool = True,
+    config_dim: int | None = None,
+    config_embedding_dim: int = 16,
+    split_output_heads: bool = False,
+    main_head_hidden_sizes: list[int] | None = None,
+    secondary_head_hidden_sizes: list[int] | None = None,
+    tcn_layers: int | None = None,
+    tcn_kernel_size: int = 3,
+    mamba_layers: int | None = None,
+    mamba_d_state: int | None = None,
+) -> nn.Module:
     """
     Instantiate and initialize the Attention LSTM model.
     
@@ -26,6 +51,92 @@ def create_model(input_features: int, n_predictions: int, output_features: int,
     Returns:
         AttentionLSTM model moved to the specified device
     """
+
+    model_type_norm = (model_type or "lstm").lower()
+
+    if model_type_norm in ("tcn_lstm", "tcn-lstm", "tcn+lstm"):
+        return AttentionTCNLSTM(
+            input_features=input_features,
+            n_predictions=n_predictions,
+            output_features=output_features,
+            hidden_dim=hidden_dim,
+            tcn_layers=tcn_layers if tcn_layers is not None else lstm_layers,
+            lstm_layers=lstm_layers,
+            kernel_size=tcn_kernel_size,
+            dropout=dropout,
+            use_scalar=use_scalar,
+            scalar_embedding_dim=scalar_embedding_dim,
+            use_config=use_experiment_config,
+            config_dim=config_dim,
+            config_embedding_dim=config_embedding_dim,
+            split_output_heads=split_output_heads,
+            main_head_hidden_sizes=main_head_hidden_sizes,
+            secondary_head_hidden_sizes=secondary_head_hidden_sizes,
+        ).to(device)
+
+    if model_type_norm in ("tcn_mamba", "tcn-mamba", "tcn+mamba"):
+        return AttentionTCNMamba(
+            input_features=input_features,
+            n_predictions=n_predictions,
+            output_features=output_features,
+            hidden_dim=hidden_dim,
+            tcn_layers=tcn_layers if tcn_layers is not None else lstm_layers,
+            mamba_layers=mamba_layers if mamba_layers is not None else lstm_layers,
+            d_state=mamba_d_state if mamba_d_state is not None else 16,
+            kernel_size=tcn_kernel_size,
+            dropout=dropout,
+            use_scalar=use_scalar,
+            scalar_embedding_dim=scalar_embedding_dim,
+            use_config=use_experiment_config,
+            config_dim=config_dim,
+            config_embedding_dim=config_embedding_dim,
+            split_output_heads=split_output_heads,
+            main_head_hidden_sizes=main_head_hidden_sizes,
+            secondary_head_hidden_sizes=secondary_head_hidden_sizes,
+        ).to(device)
+
+    if model_type_norm == "tcn":
+        return AttentionTCN(
+            input_features=input_features,
+            n_predictions=n_predictions,
+            output_features=output_features,
+            hidden_dim=hidden_dim,
+            tcn_layers=tcn_layers if tcn_layers is not None else lstm_layers,
+            kernel_size=tcn_kernel_size,
+            dropout=dropout,
+            use_scalar=use_scalar,
+            scalar_embedding_dim=scalar_embedding_dim,
+            use_config=use_experiment_config,
+            config_dim=config_dim,
+            config_embedding_dim=config_embedding_dim,
+            split_output_heads=split_output_heads,
+            main_head_hidden_sizes=main_head_hidden_sizes,
+            secondary_head_hidden_sizes=secondary_head_hidden_sizes,
+        ).to(device)
+
+    if model_type_norm == "mamba":
+        return AttentionMamba(
+            input_features=input_features,
+            n_predictions=n_predictions,
+            output_features=output_features,
+            hidden_dim=hidden_dim,
+            mamba_layers=mamba_layers if mamba_layers is not None else lstm_layers,
+            d_state=mamba_d_state if mamba_d_state is not None else 16,
+            dropout=dropout,
+            use_scalar=use_scalar,
+            scalar_embedding_dim=scalar_embedding_dim,
+            use_config=use_experiment_config,
+            config_dim=config_dim,
+            config_embedding_dim=config_embedding_dim,
+        ).to(device)
+
+    if model_type_norm == "transformer":
+        return TransformerAttention(
+            input_features=input_features,
+            n_predictions=n_predictions,
+            output_features=output_features
+        ).to(device)
+
     return AttentionLSTM(
         input_features=input_features,
         n_predictions=n_predictions,
@@ -33,35 +144,59 @@ def create_model(input_features: int, n_predictions: int, output_features: int,
         hidden_dim=hidden_dim,
         lstm_layers=lstm_layers,
         dropout=dropout,
+        use_scalar=use_scalar,
+        scalar_embedding_dim=scalar_embedding_dim,
+        use_config=use_experiment_config,
+        config_dim=config_dim,
+        config_embedding_dim=config_embedding_dim,
+        split_output_heads=split_output_heads,
+        main_head_hidden_sizes=main_head_hidden_sizes,
+        secondary_head_hidden_sizes=secondary_head_hidden_sizes,
     ).to(device)
 
 
-
-def train_one_epoch(model: nn.Module, train_loader: DataLoader, 
-                    optimizer: optim.Optimizer, criterion: nn.Module,
-                    device: torch.device) -> float:
-    """
-    Perform a single epoch of training.
-
-    Args:
-        model: PyTorch model
-        train_loader: DataLoader for training data
-        optimizer: Optimizer
-        criterion: Loss function
-        device: torch device
-
-    Returns:
-        Average training loss for the epoch
-    """
-    model.train()  # set model to training mode
+def train_one_epoch(
+    model: nn.Module,
+    train_loader: DataLoader,
+    optimizer: optim.Optimizer,
+    criterion: nn.Module,
+    device: torch.device,
+    feature_weights: Optional[torch.Tensor] = None,
+    feature_loss_types: Optional[Sequence[str]] = None,
+    extra_l2_reg: float = 0.0,
+) -> float:
+    model.train()
     train_loss = 0.0
-    for Xb, Yb, sprinback in train_loader:
+    for Xb, Yb, sprinback, experiment_config in train_loader:
         # Move data to device
-        Xb, Yb, sprinback = Xb.to(device), Yb.to(device), sprinback.to(device)
-        
+        Xb = Xb.to(device)
+        Yb = Yb.to(device)
+        sprinback = sprinback.to(device)
+        experiment_config = experiment_config.to(device)
         # Forward pass
-        pred, _ = model(Xb, sprinback)
-        loss = criterion(pred, Yb)
+        pred, _ = model(Xb, sprinback, experiment_config)
+        if feature_weights is None and not feature_loss_types:
+            loss = criterion(pred, Yb)
+        else:
+            if feature_loss_types:
+                loss = 0.0
+                weights = feature_weights.to(device) if feature_weights is not None else None
+                for i, loss_type in enumerate(feature_loss_types):
+                    if loss_type == "smoothl1":
+                        part = F.smooth_l1_loss(pred[:, :, i], Yb[:, :, i])
+                    else:
+                        part = F.mse_loss(pred[:, :, i], Yb[:, :, i])
+                    if weights is not None:
+                        part = part * weights[i]
+                    loss = loss + part
+                loss = loss / len(feature_loss_types)
+            else:
+                weights = feature_weights.to(device).view(1, 1, -1)
+                loss = ((pred - Yb) ** 2 * weights).mean()
+
+        if extra_l2_reg > 0.0:
+            l2_penalty = sum(p.pow(2).sum() for p in model.parameters())
+            loss = loss + extra_l2_reg * l2_penalty
         
         # Backpropagation
         optimizer.zero_grad()
@@ -71,52 +206,57 @@ def train_one_epoch(model: nn.Module, train_loader: DataLoader,
         
         # Accumulate loss
         train_loss += loss.item()
-        
-        # Free memory
-        del pred, loss, Xb, Yb
-
-    # Garbage collection and clear CUDA cache to prevent memory leaks
-    gc.collect()
-    torch.cuda.empty_cache()
 
     return train_loss / len(train_loader)
 
 
-
-def validate_one_epoch(model: nn.Module, val_loader: DataLoader, 
-                       criterion: nn.Module, device: torch.device) -> tuple:
-    """
-    Evaluate model on validation data for one epoch.
-
-    Args:
-        model: PyTorch model
-        val_loader: DataLoader for validation data
-        criterion: Loss function
-        device: torch device
-
-    Returns:
-        tuple: (average validation loss, all predictions, all targets)
-    """
-    model.eval()  # set model to evaluation mode
+def validate_one_epoch(
+    model: nn.Module,
+    val_loader: DataLoader,
+    criterion: nn.Module,
+    device: torch.device,
+    feature_weights: Optional[torch.Tensor] = None,
+    feature_loss_types: Optional[Sequence[str]] = None,
+) -> tuple[float, torch.Tensor, torch.Tensor]:
+    model.eval()
     val_loss = 0.0
     val_preds_epoch = []
     val_targets_epoch = []
 
-    with torch.no_grad():  # no gradients for validation
-        for Xb, Yb, sprinback in val_loader:
-            Xb, Yb, sprinback = Xb.to(device), Yb.to(device), sprinback.to(device)
-            pred, _ = model(Xb, sprinback)
-            val_loss += criterion(pred, Yb).item()
-            
-            val_preds_epoch.append(pred.cpu())
-            val_targets_epoch.append(Yb.cpu())
+    with torch.no_grad():
+        for Xb, Yb, springback, experiment_config in val_loader:
+            Xb = Xb.to(device, non_blocking=True)
+            Yb = Yb.to(device, non_blocking=True)
+            springback = springback.to(device, non_blocking=True).view(-1, 1)
+            experiment_config = experiment_config.to(device, non_blocking=True)
+
+            pred, _ = model(Xb, springback, experiment_config)
+            if feature_weights is None and not feature_loss_types:
+                loss = criterion(pred, Yb)
+            else:
+                if feature_loss_types:
+                    loss = 0.0
+                    weights = feature_weights.to(device) if feature_weights is not None else None
+                    for i, loss_type in enumerate(feature_loss_types):
+                        if loss_type == "smoothl1":
+                            part = F.smooth_l1_loss(pred[:, :, i], Yb[:, :, i])
+                        else:
+                            part = F.mse_loss(pred[:, :, i], Yb[:, :, i])
+                        if weights is not None:
+                            part = part * weights[i]
+                        loss = loss + part
+                    loss = loss / len(feature_loss_types)
+                else:
+                    weights = feature_weights.view(1, 1, -1)
+                    loss = ((pred - Yb) ** 2 * weights).mean()
+
+            val_loss += loss.item()
+
+            val_preds_epoch.append(pred.detach().cpu())
+            val_targets_epoch.append(Yb.detach().cpu())
 
     val_loss /= len(val_loader)
-    val_preds_epoch = torch.cat(val_preds_epoch, dim=0)
-    val_targets_epoch = torch.cat(val_targets_epoch, dim=0)
-    
-    return val_loss, val_preds_epoch, val_targets_epoch
-
+    return val_loss, torch.cat(val_preds_epoch, dim=0), torch.cat(val_targets_epoch, dim=0)
 
 
 def format_progress_bar(train_loss: float, val_loss: float, metrics: dict,
@@ -149,7 +289,6 @@ def format_progress_bar(train_loss: float, val_loss: float, metrics: dict,
     }
 
 
-
 def evaluate_final_model(model: nn.Module, val_loader: DataLoader, 
                          device: torch.device) -> tuple:
     """
@@ -167,9 +306,11 @@ def evaluate_final_model(model: nn.Module, val_loader: DataLoader,
     all_preds, all_targets = [], []
 
     with torch.no_grad():
-        for Xb, Yb, springback in val_loader:
+        for Xb, Yb, springback, experiment_config in val_loader:
             Xb = Xb.to(device)
-            pred, _ = model(Xb, springback)
+            springback = springback.to(device).view(-1, 1)
+            experiment_config = experiment_config.to(device)
+            pred, _ = model(Xb, springback, experiment_config)
             all_preds.append(pred.cpu())
             all_targets.append(Yb)
 

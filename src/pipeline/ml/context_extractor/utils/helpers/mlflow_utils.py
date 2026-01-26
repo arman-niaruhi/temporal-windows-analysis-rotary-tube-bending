@@ -81,24 +81,31 @@ def log_epoch_metrics(epoch: int, train_loss: float, val_loss: float,
 
     Includes loss values, regression metrics, learning rate, and epoch duration.
     """
-    mlflow.log_metrics(
-        {
-            "train_loss": train_loss,
-            "val_loss": val_loss,
-            "val_mse": metrics["mse"],
-            "val_rmse": metrics["rmse"],
-            "val_mae": metrics["mae"],
-            "val_r2": metrics["r2"],
-            "val_mape": metrics["mape"],
-            "val_max_error": metrics["max_error"],
-            "val_evs": metrics["evs"],
-            "val_mbe": metrics["mbe"],
-            "val_medae": metrics["medae"],
-            "learning_rate": current_lr,
-            "epoch_time": epoch_time,
-        },
-        step=epoch,
-    )
+    metrics_to_log = {
+        "train_loss": train_loss,
+        "val_loss": val_loss,
+        "val_mse": metrics["mse"],
+        "val_rmse": metrics["rmse"],
+        "val_mae": metrics["mae"],
+        "val_r2": metrics["r2"],
+        "val_mape": metrics["mape"],
+        "val_max_error": metrics["max_error"],
+        "val_evs": metrics["evs"],
+        "val_mbe": metrics["mbe"],
+        "val_medae": metrics["medae"],
+        "val_sample_mse_mean": metrics.get("per_sample_mse_mean"),
+        "learning_rate": current_lr,
+        "epoch_time": epoch_time,
+    }
+
+    per_feature_mse = metrics.get("per_feature_mse") or []
+    per_feature_r2 = metrics.get("per_feature_r2") or []
+    for i, mse in enumerate(per_feature_mse):
+        metrics_to_log[f"val_mse_feature_{i}"] = mse
+    for i, r2 in enumerate(per_feature_r2):
+        metrics_to_log[f"val_r2_feature_{i}"] = r2
+
+    mlflow.log_metrics(metrics_to_log, step=epoch)
 
 
 # ============================================================
@@ -130,8 +137,22 @@ def log_final_metrics(all_targets: torch.Tensor, all_preds: torch.Tensor,
         for i, (mse, mae) in enumerate(zip(final_metrics["per_feature_mse"], final_metrics["per_feature_mae"])):
             metrics_to_log[f"final_mse_feature_{i}"] = mse
             metrics_to_log[f"final_mae_feature_{i}"] = mae
+        for i, r2 in enumerate(final_metrics.get("per_feature_r2", [])):
+            metrics_to_log[f"final_r2_feature_{i}"] = r2
+
+    if "per_sample_mse" in final_metrics:
+        metrics_to_log["final_sample_mse_mean"] = float(np.mean(final_metrics["per_sample_mse"]))
 
     mlflow.log_metrics(metrics_to_log)
+
+    if "per_sample_mse" in final_metrics:
+        df = pd.DataFrame({
+            "sample_index": np.arange(len(final_metrics["per_sample_mse"])),
+            "mse": final_metrics["per_sample_mse"],
+        })
+        df.to_csv("final_per_sample_mse.csv", index=False)
+        mlflow.log_artifact("final_per_sample_mse.csv")
+        Path("final_per_sample_mse.csv").unlink()
 
 
 # ============================================================

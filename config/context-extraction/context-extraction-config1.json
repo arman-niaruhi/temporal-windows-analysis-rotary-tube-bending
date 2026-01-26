@@ -1,3 +1,4 @@
+
 {
     "generalSetting": {
         "seed": 42
@@ -31,16 +32,20 @@
     },
     "trainingParams": {
         "train": true,
-        "model_type": "tcn_lstm",
-        "hidden_dim": 64,
+        "model_type": "tcn_mamba",
+        "hidden_dim": 128,
         "lstm_layers": 1,
+        "tcn_layers": 8,
+        "tcn_kernel_size": 5,
+        "mamba_layers": 2,
+        "mamba_d_state": 32,
         "dropout": 0.1,
-        "lr": 2e-4,
-        "weight_decay": 1e-4,
-        "batch_size": 8,
+        "lr": 5e-4,
+        "weight_decay": 5e-5,
+        "batch_size": 16,
         "max_epochs": 1000,
         "model_path": "models/context_extraction",
-        "use_experiment_config": false,
+        "use_experiment_config": true,
         "use_scalar": false,
         "split_output_heads": true,
         "timestep_sensitivity": true,
@@ -64,6 +69,7 @@
             1.0
         ],
         "feature_loss_types": [
+            "smoothl1",
             "mse"
         ]
     },
