@@ -10,430 +10,83 @@ from src.pipeline.preprocessing.loader import DataLoader
 
 logger = logging.getLogger(__name__)
 
+from captum.attr import IntegratedGradients
+def compute_feature_mean_baseline(data_loader, device):
+    all_feats = []
 
-def permutation_importance_sequence(model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device, n_repeats: int = 10):
-    """
-    Calculate permutation importance for sequence model with padding.
-    Works directly with the DataLoader.
-    
-    Args:
-        model (LSTMSequenceClassifier): Trained sequence classification model.
-        data_loader (DataLoader): DataLoader providing the input data.
-        device (torch.device): Device to run computations on.
-        n_repeats (int): Number of permutation repeats for averaging.
-    
-    Returns:
-        importances (np.ndarray): Array of feature importance scores.
-        importance_std (np.ndarray): Standard deviation of importance scores.
-    """
-    model.eval()
+    for X, _, mask in data_loader:
+        X = X.to(device)
+        mask = mask.to(device)  # (B, T, 1)
 
-    logger.info("Calculating baseline accuracy (permutation importance)")
-    correct = 0
-    total = 0
+        # remove the singleton dimension
+        mask = mask.squeeze(-1)  # (B, T)
 
-    with torch.no_grad():
-        for X_batch, y_batch, mask_batch in data_loader:
-            X_batch = X_batch.to(device)
-            y_batch = y_batch.to(device)
-            mask_batch = mask_batch.to(device)
+        # flatten batch and time
+        X_flat = X.reshape(-1, X.size(-1))        # (B*T, F)
+        mask_flat = mask.reshape(-1) == 1          # (B*T,)
 
-            outputs = model(X_batch)
-            predictions = outputs.argmax(dim=-1)
+        all_feats.append(X_flat[mask_flat])
 
-            valid_mask = (y_batch != -1) & (mask_batch == 1)
-            correct += ((predictions == y_batch) & valid_mask).sum().item()
-            total += valid_mask.sum().item()
+    return torch.cat(all_feats, dim=0).mean(dim=0)
 
-    baseline_accuracy = correct / total
-    logger.info("Baseline accuracy: %.4f", baseline_accuracy)
+class LSTMWrapper(torch.nn.Module):
+    def __init__(self, model, target_class):
+        super().__init__()
+        self.model = model
+        self.target_class = target_class
 
-    for X_batch, _, _ in data_loader:
-        num_features = X_batch.shape[2]
-        break
+    def forward(self, x):
+        # x: (B, T, F)
+        logits = self.model(x)  # (B, T, C)
+        return logits[:, :, self.target_class].sum(dim=1)
 
-    importances = []
-    importance_std = []
+def captum_classwise_ig(
+    model,
+    data_loader,
+    device,
+    target_class: int,
+    n_samples: int = 100,
+):
+    wrapper = LSTMWrapper(model, target_class).to(device)
+    ig = IntegratedGradients(wrapper)
 
-    for feature_idx in range(num_features):
-        logger.info("Processing feature %d / %d", feature_idx + 1, num_features)
-        feature_scores = []
-
-        for repeat in range(n_repeats):
-            logger.debug("  Repeat %d / %d", repeat + 1, n_repeats)
-            correct = 0
-            total = 0
-
-            with torch.no_grad():
-                for X_batch, y_batch, mask_batch in data_loader:
-                    X_permuted = X_batch.clone()
-
-                    perm_values = X_batch[:, :, feature_idx].flatten()
-                    perm_indices = torch.randperm(perm_values.shape[0])
-                    X_permuted[:, :, feature_idx] = perm_values[perm_indices].reshape(
-                        X_batch.shape[0], X_batch.shape[1]
-                    )
-
-                    X_permuted = X_permuted.to(device)
-                    y_batch = y_batch.to(device)
-                    mask_batch = mask_batch.to(device)
-
-                    outputs = model(X_permuted)
-                    predictions = outputs.argmax(dim=-1)
-
-                    valid_mask = (y_batch != -1) & (mask_batch == 1)
-                    correct += ((predictions == y_batch) & valid_mask).sum().item()
-                    total += valid_mask.sum().item()
-
-            permuted_accuracy = correct / total
-            feature_scores.append(baseline_accuracy - permuted_accuracy)
-
-        mean_importance = np.mean(feature_scores)
-        std_importance = np.std(feature_scores)
-
-        importances.append(mean_importance)
-        importance_std.append(std_importance)
-
-        logger.info(
-            "Feature %d importance: %.4f ± %.4f",
-            feature_idx,
-            mean_importance,
-            std_importance,
-        )
-
-    return np.array(importances), np.array(importance_std)
-
-
-def gradient_importance_sequence(model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device, n_batches: int = 10):
-    """
-    Calculate Gradient × Input importance for a sequence model.
-    Averages contributions over valid timesteps only.
-    
-    Args:
-        model (LSTMSequenceClassifier): Trained sequence classification model.
-        data_loader (DataLoader): DataLoader providing input sequences.
-        device (torch.device): Device to run computations on.
-        n_batches (int): Number of batches to process for averaging.
-    
-    Returns:
-        importances (np.ndarray): Array of feature importance scores.
-    """
-    import numpy as np
-
-    model.eval()
-    logger.info("Calculating Gradient × Input importance")
-
-    all_gradients = []
-    batch_count = 0
-
-    for X_batch, y_batch, mask_batch in data_loader:
-        if batch_count >= n_batches:
-            break
-
-        X_batch = X_batch.to(device)
-        y_batch = y_batch.to(device)
-        mask_batch = mask_batch.to(device)
-        X_batch.requires_grad = True
-
-        outputs = model(X_batch)
-        model.zero_grad()
-
-        # Valid timesteps mask
-        valid_mask = (y_batch != -1) & (mask_batch == 1)
-        loss = outputs[valid_mask].max(dim=-1)[0].sum()
-        loss.backward()
-
-        # Gradient × Input
-        gradients = X_batch.grad  # shape: [batch, seq_len, features]
-        grad_x_input = (gradients * X_batch).detach()  # element-wise product
-
-        for i in range(X_batch.shape[0]):
-            valid_indices = torch.where(valid_mask[i])[0]
-            if len(valid_indices) > 0:
-                # Average over valid timesteps
-                grad_mean = grad_x_input[i, valid_indices, :].mean(dim=0).cpu().numpy()
-                all_gradients.append(grad_mean)
-
-        batch_count += 1
-
-    # Average over all samples
-    importances = np.mean(all_gradients, axis=0)
-    logger.info("Gradient × Input importance computed")
-
-    return importances
-
-
-def integrated_gradients_importance(model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device, n_samples: int = 50, steps: int = 30):
-    """
-    Calculate integrated gradients importance for sequence model.
-    
-    Args:
-        model (LSTMSequenceClassifier): Trained sequence classification model.
-        data_loader (DataLoader): DataLoader providing the input data.
-        device (torch.device): Device to run computations on.
-        n_samples (int): Number of samples to process for averaging.
-        steps (int): Number of interpolation steps for integrated gradients.
-    
-    Returns:
-        importances (np.ndarray): Array of feature importance scores.
-    """
-    model.eval()
-    logger.info("Calculating integrated gradients importance")
-
-    all_importances = []
+    all_attr = []
     sample_count = 0
 
-    for X_batch, y_batch, mask_batch in data_loader:
-        if sample_count >= n_samples:
-            break
+    baseline_feat = compute_feature_mean_baseline(data_loader, device)
 
-        X_batch = X_batch.to(device)
-        mask_batch = mask_batch.to(device)
+    for X, y, mask in data_loader:
+        X = X.to(device)
+        y = y.to(device)
+        mask = mask.to(device)
 
-        for i in range(X_batch.shape[0]):
+        for i in range(X.size(0)):
+            if y[i].eq(target_class).any() is False:
+                continue
+
+            baseline = baseline_feat.view(1, 1, -1).expand_as(X[i:i+1])
+            attr = ig.attribute(
+                X[i:i+1],
+                baselines=baseline,
+                n_steps=50,
+            )
+
+            # mask padded timesteps
+            valid_idx = mask[i] == 1
+            attr = attr[0, valid_idx, :].abs().mean(dim=0)
+
+            all_attr.append(attr.cpu().numpy())
+            sample_count += 1
+
             if sample_count >= n_samples:
                 break
 
-            valid_indices = torch.where(mask_batch[i] == 1)[0]
-            if len(valid_indices) == 0:
-                continue
+        if sample_count >= n_samples:
+            break
 
-            X_sample = X_batch[i : i + 1].clone()
-            baseline = torch.zeros_like(X_sample)
-            accumulated_grads = torch.zeros_like(X_sample)
-
-            for alpha in np.linspace(0, 1, steps):
-                X_interp = (
-                    (baseline + alpha * (X_sample - baseline))
-                    .clone()
-                    .detach()
-                    .requires_grad_(True)
-                )
-
-                outputs = model(X_interp)
-                pred_class = outputs.argmax(dim=-1)
-
-                model.zero_grad()
-                outputs[0, pred_class].sum().backward()
-                accumulated_grads += X_interp.grad
-
-            avg_grads = accumulated_grads / steps
-            integrated_grads = (X_sample - baseline) * avg_grads
-
-            feature_importance = (
-                integrated_grads[0, valid_indices, :]
-                .abs()
-                .mean(dim=0)
-                .detach()
-                .cpu()
-                .numpy()
-            )
-
-            all_importances.append(feature_importance)
-            sample_count += 1
-
-    importances = np.mean(all_importances, axis=0)
-    logger.info("Integrated gradients importance computed")
-
-    return importances
+    return np.mean(all_attr, axis=0)
 
 
-def occlusion_importance(
-    model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device, occlusion_value: float = 0.0
-):
-    """
-    Occlusion-based importance.
-    
-    Args:
-        model (LSTMSequenceClassifier): Trained sequence classification model.
-        data_loader (DataLoader): DataLoader providing the input data.
-        device (torch.device): Device to run computations on.
-        occlusion_value (float): Value to use for occlusion.
-        
-    Returns:
-        importances (np.ndarray): Array of feature importance scores.   
-    """
-    model.eval()
-    logger.info("Calculating baseline accuracy (occlusion)")
-
-    baseline_correct = 0
-    baseline_total = 0
-
-    with torch.no_grad():
-        for X_batch, y_batch, mask_batch in data_loader:
-            X_batch = X_batch.to(device)
-            y_batch = y_batch.to(device)
-            mask_batch = mask_batch.to(device)
-
-            outputs = model(X_batch)
-            predictions = outputs.argmax(dim=-1)
-
-            valid_mask = (y_batch != -1) & (mask_batch == 1)
-            baseline_correct += ((predictions == y_batch) & valid_mask).sum().item()
-            baseline_total += valid_mask.sum().item()
-
-    baseline_accuracy = baseline_correct / baseline_total
-    logger.info("Baseline accuracy: %.4f", baseline_accuracy)
-
-    for X_batch, _, _ in data_loader:
-        num_features = X_batch.shape[2]
-        break
-
-    importances = []
-
-    for feature_idx in range(num_features):
-        logger.info("Occluding feature %d / %d", feature_idx + 1, num_features)
-        correct = 0
-        total = 0
-
-        with torch.no_grad():
-            for X_batch, y_batch, mask_batch in data_loader:
-                X_occluded = X_batch.clone()
-                X_occluded[:, :, feature_idx] = occlusion_value
-
-                X_occluded = X_occluded.to(device)
-                y_batch = y_batch.to(device)
-                mask_batch = mask_batch.to(device)
-
-                outputs = model(X_occluded)
-                predictions = outputs.argmax(dim=-1)
-
-                valid_mask = (y_batch != -1) & (mask_batch == 1)
-                correct += ((predictions == y_batch) & valid_mask).sum().item()
-                total += valid_mask.sum().item()
-
-        occluded_accuracy = correct / total
-        importance = baseline_accuracy - occluded_accuracy
-        importances.append(importance)
-
-        logger.info("Feature %d importance: %.4f", feature_idx, importance)
-
-    return np.array(importances)
-
-
-def dropout_importance(model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device, n_repeats: int = 20, dropout_rate: float = 0.5):
-    """
-    Dropout-based importance.
-    
-    Args:
-        model (LSTMSequenceClassifier): Trained sequence classification model.
-        data_loader (DataLoader): DataLoader providing the input data.
-        device (torch.device): Device to run computations on.
-        n_repeats (int): Number of dropout repeats for averaging.
-        
-    Returns:
-        importances (np.ndarray): Array of feature importance scores.
-    """
-    model.eval()
-    logger.info("Calculating dropout-based importance")
-
-    for X_batch, _, _ in data_loader:
-        num_features = X_batch.shape[2]
-        break
-
-    importances = []
-
-    for feature_idx in range(num_features):
-        logger.info("Testing feature %d / %d", feature_idx + 1, num_features)
-        prediction_variances = []
-
-        with torch.no_grad():
-            for X_batch, _, mask_batch in data_loader:
-                X_batch = X_batch.to(device)
-                mask_batch = mask_batch.to(device)
-
-                batch_predictions = []
-
-                for _ in range(n_repeats):
-                    X_dropped = X_batch.clone()
-                    dropout_mask = (
-                        torch.rand(X_batch.shape[0], X_batch.shape[1], device=device)
-                        > dropout_rate
-                    )
-                    X_dropped[:, :, feature_idx] *= dropout_mask.float()
-
-                    outputs = model(X_dropped)
-                    batch_predictions.append(outputs.softmax(dim=-1).cpu().numpy())
-
-                variance = np.var(np.array(batch_predictions), axis=0).mean()
-                prediction_variances.append(variance)
-
-        importance = np.mean(prediction_variances)
-        importances.append(importance)
-
-        logger.info("Feature %d importance: %.6f", feature_idx, importance)
-
-    return np.array(importances)
-
-
-def feature_ablation_importance(model: LSTMSequenceClassifier, data_loader: DataLoader, device: torch.device):
-    """
-    Feature ablation importance.
-    
-    Args:
-        model (LSTMSequenceClassifier): Trained sequence classification model.
-        data_loader (DataLoader): DataLoader providing the input data.
-        device (torch.device): Device to run computations on.
-
-    Returns:
-        importances (np.ndarray): Array of feature importance scores.
-    """
-    model.eval()
-    logger.info("Calculating baseline accuracy (ablation)")
-
-    baseline_correct = 0
-    baseline_total = 0
-
-    with torch.no_grad():
-        for X_batch, y_batch, mask_batch in data_loader:
-            X_batch = X_batch.to(device)
-            y_batch = y_batch.to(device)
-            mask_batch = mask_batch.to(device)
-
-            outputs = model(X_batch)
-            predictions = outputs.argmax(dim=-1)
-
-            valid_mask = (y_batch != -1) & (mask_batch == 1)
-            baseline_correct += ((predictions == y_batch) & valid_mask).sum().item()
-            baseline_total += valid_mask.sum().item()
-
-    baseline_accuracy = baseline_correct / baseline_total
-    logger.info("Baseline accuracy: %.4f", baseline_accuracy)
-
-    for X_batch, _, _ in data_loader:
-        num_features = X_batch.shape[2]
-        break
-
-    importances = []
-
-    for feature_idx in range(num_features):
-        logger.info("Ablating feature %d / %d", feature_idx + 1, num_features)
-        correct = 0
-        total = 0
-
-        with torch.no_grad():
-            for X_batch, y_batch, mask_batch in data_loader:
-                X_ablated = X_batch.clone()
-                X_ablated[:, :, feature_idx] = 0.0
-
-                X_ablated = X_ablated.to(device)
-                y_batch = y_batch.to(device)
-                mask_batch = mask_batch.to(device)
-
-                outputs = model(X_ablated)
-                predictions = outputs.argmax(dim=-1)
-
-                valid_mask = (y_batch != -1) & (mask_batch == 1)
-                correct += ((predictions == y_batch) & valid_mask).sum().item()
-                total += valid_mask.sum().item()
-
-        ablated_accuracy = correct / total
-        importance = baseline_accuracy - ablated_accuracy
-        importances.append(importance)
-
-        logger.info("Feature %d importance: %.4f", feature_idx, importance)
-
-    return np.array(importances)
 
 
 def plot_feature_importance(

@@ -4,74 +4,128 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from src.pipeline.ml.context_extractor.utils.helpers.plot_utils import save_combined_ig_plot, save_individual_ig_plots
+from src.pipeline.ml.context_extractor.utils.plots.plot_integrated_gradients import (
+    save_combined_ig_plot, 
+    save_individual_ig_plots
+)
 import logging
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-def __compute_integrated_gradients(model: nn.Module, X_sample: torch.Tensor,
-                                n_output_features: int) -> list:
-    """Compute Integrated Gradients attributions for all output features."""
+
+def __compute_integrated_gradients(
+    model: nn.Module, 
+    X_sample: torch.Tensor, 
+    springback_sample: torch.Tensor,
+    experiment_config: torch.Tensor,
+    n_output_features: int
+) -> list:
+    """
+    Compute Integrated Gradients attributions for all output features.
+    
+    Note: springback_sample is held constant during integration. Only X_sample
+    is integrated from baseline to actual input.
+    """
     model.eval()
     ig_maps = []
     
     for idx in range(n_output_features):
-        def forward_for_ig(x, target_idx=idx):
-            pred, _ = model(x)
-            return pred[:, :, target_idx].sum(dim=1)
+        # Create wrapper that only takes x as input (springback is fixed)
+        def forward_for_ig(x):
+            # CRITICAL FIX: Expand springback to match batch size of interpolated samples
+            # x will have shape (n_steps, seq_len, features) where n_steps is typically 50
+            # springback_sample has shape (1, 1)
+            batch_size = x.shape[0]
+            springback_base = springback_sample
+            if springback_base.dim() == 1:
+                springback_base = springback_base.unsqueeze(0)
+            springback_expanded = springback_base.expand(batch_size, -1)
 
+            config_expanded = None
+            if experiment_config is not None:
+                config_base = experiment_config
+                if config_base.dim() == 1:
+                    config_base = config_base.unsqueeze(0)
+                config_expanded = config_base.expand(batch_size, -1)
+            
+            pred, _ = model(x, springback_expanded, config_expanded)
+            # Sum over prediction timesteps to get single output per sample
+            return pred[:, :, idx].sum(dim=1)
+        
         ig = IntegratedGradients(forward_for_ig)
-        attributions, _ = ig.attribute(X_sample, return_convergence_delta=True)
+        # n_steps controls how many interpolations between baseline and input
+        # More steps = more accurate but slower. Default is 50, which is good.
+        attributions, _ = ig.attribute(
+            X_sample, 
+            n_steps=50,  # You can change this (e.g., 100 for more accuracy)
+            return_convergence_delta=True
+        )
         attributions = attributions.squeeze(0).cpu().detach().numpy()
         ig_maps.append(attributions)
     
     return ig_maps
 
 
-def __save_ig_csvs(ig_maps: list, sensor_names: list, target_feature_names: list,
-                saving_dir: Path) -> None:
-    """Save Integrated Gradients attributions to CSV files."""
-    cleaned_sensor_names = [name.replace("_mean", "") for name in sensor_names]
-    
-    for idx, attributions in enumerate(ig_maps):
-        attr_df = pd.DataFrame(attributions, columns=cleaned_sensor_names)
-        target_name = target_feature_names[idx] if target_feature_names else idx
-        saving_path = saving_dir/ "06_integrated_gradients" 
-        saving_path.mkdir(parents=True, exist_ok=True)
-        csv_path = saving_path / f"ig_feature_{target_name}.csv"
-        attr_df.to_csv(csv_path, index=False)
-
-
 def save_integrated_gradients_combined(
-    model: torch.nn.Module, X_sample: torch.Tensor,
-    sensor_data: torch.Tensor, sensor_names: list[str],
+    model: torch.nn.Module, 
+    X_sample: torch.Tensor,
+    springback_sample: torch.Tensor,
+    experiment_config: torch.Tensor,
+    sensor_data: torch.Tensor,
+    sensor_names: list[str],
     target_feature_names: list[str],
     saving_dir: Path,
-    machine_part: str,
+    process_part: str,
     annot_timesteps: list[int] = None,
     mandrel_extraction_annot_timesteps: list[int] = None,
     figsize_combined: tuple[int, int] = (25, 3),
 ):
     """Compute and save Integrated Gradients saliency maps."""
     model.eval()
-    X_sample = X_sample.to(next(model.parameters()).device)
+    device = next(model.parameters()).device
     
+    X_sample = X_sample.to(device)
+    springback_sample = springback_sample.to(device)
+    experiment_config = experiment_config.to(device)
+
     with torch.no_grad():
-        pred, _ = model(X_sample)
+        pred, _ = model(X_sample, springback_sample, experiment_config)
     
     n_output_features = pred.shape[2]
     sample_data = sensor_data[-1, :, :]
     colors = plt.cm.tab20(np.linspace(0, 1, len(sensor_names)))
     
-    ig_maps = __compute_integrated_gradients(model, X_sample, n_output_features)
+    # FIXED: Corrected argument order - springback_sample before n_output_features
+    ig_maps = __compute_integrated_gradients(
+        model,
+        X_sample,
+        springback_sample,
+        experiment_config,
+        n_output_features,
+    )
     
-    __save_ig_csvs(ig_maps, sensor_names, target_feature_names, saving_dir)
+    save_combined_ig_plot(
+        ig_maps, 
+        sample_data, 
+        sensor_names, 
+        target_feature_names,
+        saving_dir, 
+        colors, 
+        process_part, 
+        annot_timesteps,
+        mandrel_extraction_annot_timesteps, 
+        figsize_combined
+    )
     
-    save_combined_ig_plot(ig_maps, sample_data, sensor_names, target_feature_names,
-                         saving_dir, colors, machine_part, annot_timesteps,
-                         mandrel_extraction_annot_timesteps, figsize_combined)
-    
-    save_individual_ig_plots(ig_maps, sample_data, sensor_names, target_feature_names,
-                            saving_dir, colors, machine_part, annot_timesteps,
-                            mandrel_extraction_annot_timesteps)
+    save_individual_ig_plots(
+        ig_maps, 
+        sample_data, 
+        sensor_names, 
+        target_feature_names,
+        saving_dir, 
+        colors, 
+        process_part, 
+        annot_timesteps,
+        mandrel_extraction_annot_timesteps
+    )

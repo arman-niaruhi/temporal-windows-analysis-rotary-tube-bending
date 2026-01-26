@@ -7,7 +7,7 @@
   },
   "failed_experiment": [1, 48, 166],
   "normalized_tables": [
-    "df_arc", "df_lin1", "df_lin2", "df_stl_arc",
+    "df_lin1", "df_lin2", "df_stl_arc",
     "df_stl_lin1", "df_stl_lin2", "df_machine",
     "df_sensor", "df_movement", "df_bending"
   ],

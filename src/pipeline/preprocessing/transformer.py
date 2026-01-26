@@ -245,10 +245,18 @@ class DataTransformer:
             if len(numeric_cols) == 0:
                 logger.info(f"No numeric columns to normalize in '{attr_name}'.")
                 continue
-
-            df.loc[:, numeric_cols] = df.groupby("Experiment_ID")[numeric_cols].transform(
-                lambda x: (x - x.min()) / (x.max() - x.min()) if x.max() != x.min() else 0
-            )
+            
+            
+            if attr_name == "df_lin1" or attr_name == "df_lin2":
+                df.loc[:, numeric_cols] = df.groupby("Experiment_ID")[numeric_cols].transform(
+                    lambda x: (x - x.mean()) / x.std(ddof=0) if x.std(ddof=0) != 0 else 0
+                )
+            
+            else:
+                #df.loc[:, numeric_cols] = df[numeric_cols].transform(
+                #    lambda x: (x - x.min()) / (x.max() - x.min()) if x.max() != x.min() else 0
+                #)
+                pass
 
             setattr(self, attr_name, df)
             logger.info(
