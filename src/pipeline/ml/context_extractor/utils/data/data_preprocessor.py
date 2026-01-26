@@ -10,12 +10,45 @@ from src.pipeline.ml.context_extractor.utils.data.data_resampler import (
 import numpy as np
 import pandas as pd
 
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 import json
 
 # Initialize logger for monitoring execution
 logger = logging.getLogger(__name__)
+
+def _fit_scaler(
+    df: pd.DataFrame,
+    cols: list[str],
+    scaler_type: str = "minmax",
+) -> tuple[pd.DataFrame, MinMaxScaler | StandardScaler | None]:
+    if not cols:
+        return df, None
+    scaler_type = scaler_type.lower()
+    if scaler_type == "standard":
+        scaler = StandardScaler()
+    elif scaler_type == "minmax":
+        scaler = MinMaxScaler()
+    else:
+        raise ValueError(f"Unknown scaler type: {scaler_type}")
+    values = df[cols].to_numpy(dtype="float32")
+    scaler.fit(values)
+    df_scaled = df.copy()
+    df_scaled[cols] = scaler.transform(values)
+    return df_scaled, scaler
+
+
+def _apply_scaler(
+    df: pd.DataFrame,
+    cols: list[str],
+    scaler: MinMaxScaler | StandardScaler | None,
+) -> pd.DataFrame:
+    if scaler is None or not cols:
+        return df
+    df_scaled = df.copy()
+    df_scaled[cols] = scaler.transform(df[cols].to_numpy(dtype="float32"))
+    return df_scaled
+
 
 class LSTMPreprocessor:
     """
@@ -168,16 +201,17 @@ class LSTMPreprocessor:
 class ProcessDataset(Dataset):
     """Custom PyTorch Dataset for time-series data."""
 
-    def __init__(self, X: torch.Tensor, Y: torch.Tensor, Springback: torch.Tensor) -> None:
+    def __init__(self, X: torch.Tensor, Y: torch.Tensor, Springback: torch.Tensor, experiment_configurations: torch.Tensor) -> None:
         self.X = X.float()
         self.Y = Y.float()
         self.Springback = Springback.float().squeeze()
+        self.experiment_configurations = experiment_configurations
 
     def __len__(self):
         return len(self.X)
 
     def __getitem__(self, idx):
-        return self.X[idx], self.Y[idx], self.Springback[idx] 
+        return self.X[idx], self.Y[idx], self.Springback[idx], self.experiment_configurations[idx]
 
 
 def _scale_annotation_timesteps(
@@ -232,6 +266,7 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         target_feature_names: target columns
         annot_timesteps: scaled annotation indices
         mandrel_extraction_annot_timesteps: scaled mandrel extraction indices
+        normalization_info: scalers used for normalization (if enabled)
     """
     process_part = input_path_param.get("process_part")
     annotation_json_path = input_path_param.get("annotation_json_path")
@@ -241,6 +276,8 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         raise ValueError("Required input paths or machine part are missing.")
 
     to_58_included = preprocessing_param.get("to_58_included", False)
+    normalize = preprocessing_param.get("normalize", False)
+    scaler_type = preprocessing_param.get("scaler", "minmax")
     preprocessor = LSTMPreprocessor(database_path, process_part, annotation_json_path)
 
     if process_part == "De-Clamping":
@@ -265,17 +302,10 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     crosscuts_list, spring_backs_list = [], []
     for exp_id, g in target_df.groupby("Experiment_ID"):
         g_clean = g.drop(columns=["Experiment_ID"])
-        crosscuts = g_clean.iloc[:45:,:].copy()
-        spring_back = g_clean.iloc[-1:,0:1].copy()
-        mask_less = spring_back['Angle[degree]ORDistance[mm]'] < 45
-        mask_more = spring_back['Angle[degree]ORDistance[mm]'] >= 45
-
-        # do this for < 45
-        spring_back.loc[mask_less, 'Angle[degree]ORDistance[mm]'] -= 44.0
-
-        # subtract 44 for >= 45
-        spring_back.loc[mask_more, 'Angle[degree]ORDistance[mm]'] -= 45.0
-
+        crosscuts = g_clean.iloc[0:45,:].copy()
+        spring_back = g_clean.iloc[-1:,].copy()
+        spring_back['Angle[degree]ORDistance[mm]'] = 46.0 - spring_back['Angle[degree]ORDistance[mm]']
+        
         crosscuts["Experiment_ID"] = exp_id
         spring_back["Experiment_ID"] = exp_id
         crosscuts_list.append(crosscuts)
@@ -284,33 +314,66 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     spring_backs_df = pd.concat(spring_backs_list, ignore_index=True)
 
     sensors_df = sensors_df.reset_index()
-    resampled_sensors = []
-    for exp_id, g in sensors_df.groupby("Experiment_ID"):
-        r = resample_experiment_ultrafast(
-            g,
-            n=preprocessing_param.get("window_num", 40),
-            metric=preprocessing_param.get("agg_metric", "mean"),
-        )
-        r["Experiment_ID"] = exp_id
-        resampled_sensors.append(r)
-    sensors_df = pd.concat(resampled_sensors, ignore_index=True)
+    do_resample = preprocessing_param.get("resample", True)
+    if do_resample:
+        resampled_sensors = []
+        for exp_id, g in sensors_df.groupby("Experiment_ID", sort=False):
+            r = resample_experiment_ultrafast(
+                g,
+                n=preprocessing_param.get("window_num", 40),
+                metric=preprocessing_param.get("agg_metric", "mean"),
+            )
+            r["Experiment_ID"] = exp_id
+            resampled_sensors.append(r)
 
+        sensors_df = pd.concat(resampled_sensors, ignore_index=True)
+    else:
+        # Keep raw sequence ordering when resampling is disabled.
+        if "Time_[s]" in sensors_df.columns:
+            sensors_df = sensors_df.sort_values(["Experiment_ID", "Time_[s]"])
+        else:
+            sensors_df = sensors_df.sort_values(["Experiment_ID"])
+
+    sensors_df = sensors_df.drop(columns=["Time_[s]"], errors="ignore")
     # Select target features
     columns = list(target_df.columns[1:])
     feature_idx_start, feature_idx_end = preprocessing_param.get("feature_indices")
 
     target_feature_names = columns[feature_idx_start - 1: feature_idx_end - 1]
-
+    springback_feature_names = columns[:1]
+    '''
     if to_58_included:
         sensors_df = sensors_df[sensors_df["Experiment_ID"] >= 58]
         target_df = target_df[target_df["Experiment_ID"] >= 58]
         spring_backs_df = spring_backs_df[spring_backs_df["Experiment_ID"] >= 58]
+    '''
+    normalization_info = {
+        "enabled": normalize,
+        "scaler_type": scaler_type,
+        "sensor_scaler": None,
+        "target_scaler": None,
+        "springback_scaler": None,
+        "config_scaler": None,
+    }
+
+    if normalize:
+        sensor_cols = [c for c in sensors_df.columns if c != "Experiment_ID"]
+        sensors_df, sensor_scaler = _fit_scaler(sensors_df, sensor_cols, scaler_type)
+        normalization_info["sensor_scaler"] = sensor_scaler
+
+        target_df, target_scaler = _fit_scaler(target_df, target_feature_names, scaler_type)
+        normalization_info["target_scaler"] = target_scaler
+
+        spring_backs_df, springback_scaler = _fit_scaler(
+            spring_backs_df, springback_feature_names, scaler_type
+        )
+        normalization_info["springback_scaler"] = springback_scaler
 
     # --------------------------------------------------
     # Train / Validation Split
     # --------------------------------------------------
     # Read groups from your existing JSON
-    with open("train_test_split.json", "r") as f:
+    with open("config/data-split-config/train_test_split.json", "r") as f:
         experiment_groups = json.load(f)
 
     if experiment_groups is None:
@@ -321,13 +384,75 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
      
     test_groups = experiment_groups['test_groups']
     test_groups = [item for sublist in test_groups for item in sublist]
-    
+
     train_springbacks = spring_backs_df[spring_backs_df["Experiment_ID"].isin(train_groups)]
     test_springbacks= spring_backs_df[spring_backs_df["Experiment_ID"].isin(test_groups)]
     train_targets = target_df[target_df["Experiment_ID"].isin(train_groups)]
     test_targets = target_df[target_df["Experiment_ID"].isin(test_groups)]
     train_sensors = sensors_df[sensors_df["Experiment_ID"].isin(train_groups)]
     testsensors = sensors_df[sensors_df["Experiment_ID"].isin(test_groups)]
+
+    normalization_info = {
+        "enabled": normalize,
+        "scaler_type": scaler_type,
+        "sensor_scaler": None,
+        "target_scaler": None,
+        "springback_scaler": None,
+        "config_scaler": None,
+    }
+
+    if normalize:
+        sensor_cols = [c for c in train_sensors.columns if c != "Experiment_ID"]
+        train_sensors, sensor_scaler = _fit_scaler(train_sensors, sensor_cols, scaler_type)
+        testsensors = _apply_scaler(testsensors, sensor_cols, sensor_scaler)
+        normalization_info["sensor_scaler"] = sensor_scaler
+
+        train_targets, target_scaler = _fit_scaler(train_targets, target_feature_names, scaler_type)
+        test_targets = _apply_scaler(test_targets, target_feature_names, target_scaler)
+        normalization_info["target_scaler"] = target_scaler
+
+        train_springbacks, springback_scaler = _fit_scaler(
+            train_springbacks, springback_feature_names, scaler_type
+        )
+        test_springbacks = _apply_scaler(
+            test_springbacks, springback_feature_names, springback_scaler
+        )
+        normalization_info["springback_scaler"] = springback_scaler
+
+    # --------------------------------------------------
+    # Experiment configuration alignment + normalization
+    # --------------------------------------------------
+    experiment_configurations = pd.read_csv("config/data-split-config/experiment_setups.csv").reset_index(drop=True)
+    feature_cols = experiment_configurations.columns.drop("Experiment_ID")
+    if normalize:
+        experiment_configurations, config_scaler = _fit_scaler(
+            experiment_configurations, list(feature_cols), scaler_type
+        )
+        normalization_info["config_scaler"] = config_scaler
+
+    train_exp_ids = sorted(train_sensors["Experiment_ID"].unique())
+    test_exp_ids = sorted(testsensors["Experiment_ID"].unique())
+
+    config_by_id = experiment_configurations.set_index("Experiment_ID")
+
+    missing_train = [eid for eid in train_exp_ids if eid not in config_by_id.index]
+    missing_test = [eid for eid in test_exp_ids if eid not in config_by_id.index]
+    if missing_train or missing_test:
+        raise ValueError(
+            f"Missing experiment config for IDs. "
+            f"train_missing={missing_train[:10]} test_missing={missing_test[:10]}"
+        )
+
+    experiment_configurations_train = config_by_id.loc[train_exp_ids, feature_cols]
+    experiment_configurations_test = config_by_id.loc[test_exp_ids, feature_cols]
+
+    experiment_configurations_train = torch.from_numpy(
+        experiment_configurations_train.to_numpy(dtype="float32")
+    )
+    experiment_configurations_test = torch.from_numpy(
+        experiment_configurations_test.to_numpy(dtype="float32")
+    )
+
     # Convert to tensors for targets
     X_train, Y_train = _to_tensor_split(
         preprocessor, train_sensors, train_targets, feature_idx_start, feature_idx_end
@@ -344,7 +469,7 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         preprocessor, testsensors, test_springbacks, 0, 1
     )
 
-    sensor_names = list(sensors_df.columns[:-1])
+    sensor_names = [c for c in sensors_df.columns if c != "Experiment_ID"]
 
     # Scale annotation indices based on training sequence length
     annot_timesteps, mandrel_extraction_annot_timesteps = _scale_annotation_timesteps(
@@ -362,10 +487,13 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         Y_test,
         springbacks_train,
         springbacks_test,
+        experiment_configurations_train,
+        experiment_configurations_test,
         sensor_names,
         target_feature_names,
         annot_timesteps,
         mandrel_extraction_annot_timesteps,
+        normalization_info,
     )
 
 
@@ -373,6 +501,8 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
 def create_data_loaders(X_train: torch.Tensor, Y_train: torch.Tensor,
                         X_val: torch.Tensor, Y_val: torch.Tensor,
                         springbacks_train: torch.Tensor, springbacks_val: torch.Tensor,
+                        experiment_configurations_train: torch.Tensor, 
+                        experiment_configurations_test: torch.Tensor,
                         batch_size: int) -> tuple:
     """
     Create PyTorch DataLoaders for training, validation, and plotting.
@@ -387,8 +517,8 @@ def create_data_loaders(X_train: torch.Tensor, Y_train: torch.Tensor,
     Returns:
         Tuple of (train_loader, val_loader, plot_loader)
     """
-    train_ds = ProcessDataset(X_train, Y_train, springbacks_train)
-    val_ds = ProcessDataset(X_val, Y_val, springbacks_val)
+    train_ds = ProcessDataset(X_train, Y_train, springbacks_train, experiment_configurations_train)
+    val_ds = ProcessDataset(X_val, Y_val, springbacks_val, experiment_configurations_test)
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=32)
