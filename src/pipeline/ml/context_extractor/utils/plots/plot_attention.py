@@ -17,12 +17,18 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from matplotlib import rcParams
 
-def generate_final_attention_plot(model: nn.Module, plot_X: torch.Tensor, springback,
-                                 X_val: torch.Tensor, sensor_names: list,
-                                 machine_part: str,
-                                 attention_lines_dir : Path,
-                                 annot_timesteps: list,
-                                 mandrel_extraction_annot_timesteps: list) -> None:
+def generate_final_attention_plot(
+    model: nn.Module,
+    plot_X: torch.Tensor,
+    springback: torch.Tensor,
+    experiment_config: torch.Tensor,
+    X_val: torch.Tensor,
+    sensor_names: list,
+    machine_part: str,
+    attention_lines_dir: Path,
+    annot_timesteps: list,
+    mandrel_extraction_annot_timesteps: list,
+) -> None:
     """Generate final attention visualization."""
     """
     Plots sensor data and ONE attention head as line plots in two subplots.
@@ -38,7 +44,7 @@ def generate_final_attention_plot(model: nn.Module, plot_X: torch.Tensor, spring
     """
     with torch.no_grad():
         model.eval()
-        _, final_attn = model(plot_X,springback)
+        _, final_attn = model(plot_X, springback, experiment_config)
         final_attn_mean = final_attn.mean(0).cpu().numpy()
 
     

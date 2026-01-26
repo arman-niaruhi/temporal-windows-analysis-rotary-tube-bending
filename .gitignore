@@ -1,4 +1,4 @@
-*.csv
+
 *.pdf
 *.html
 *.stl
@@ -27,6 +27,8 @@ __pycache__/
 *models/*
 *mlruns*
 results/*
+images/*
+research/*
 
 # Ignore virtual environment
 *venv/
