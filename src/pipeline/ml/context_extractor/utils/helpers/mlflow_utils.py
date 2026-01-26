@@ -14,14 +14,14 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # MLflow experiment setup
 # ============================================================
-def setup_mlflow_experiment(machine_part: str, params: dict,
+def setup_mlflow_experiment(process_part: str, params: dict,
                             preprocessing_info: dict, X: torch.Tensor, 
                             Y: torch.Tensor, target_feature_names: list[str]) -> tuple:
     """
     Initialize MLflow experiment and generate experiment description.
 
     Args:
-        machine_part: Name of the machine part for labeling the experiment
+        process_part: Name of the machine part for labeling the experiment
         params: Dictionary of model hyperparameters
         preprocessing_info: Dictionary describing preprocessing applied
         X: Input tensor (N_EXPERIMENTS x TIMESTEPS x FEATURES_IN)
@@ -44,7 +44,7 @@ def setup_mlflow_experiment(machine_part: str, params: dict,
     
     # Detailed experiment description for reproducibility/logging
     experiment_description = f"""
-    {machine_part} PART - LSTM Attention Model
+    {process_part} PART - LSTM Attention Model
     ============== PREPROCESSING INFO ====================
     {preprocessing_info}
     ==================== MODEL INFO ======================
@@ -81,24 +81,31 @@ def log_epoch_metrics(epoch: int, train_loss: float, val_loss: float,
 
     Includes loss values, regression metrics, learning rate, and epoch duration.
     """
-    mlflow.log_metrics(
-        {
-            "train_loss": train_loss,
-            "val_loss": val_loss,
-            "val_mse": metrics["mse"],
-            "val_rmse": metrics["rmse"],
-            "val_mae": metrics["mae"],
-            "val_r2": metrics["r2"],
-            "val_mape": metrics["mape"],
-            "val_max_error": metrics["max_error"],
-            "val_evs": metrics["evs"],
-            "val_mbe": metrics["mbe"],
-            "val_medae": metrics["medae"],
-            "learning_rate": current_lr,
-            "epoch_time": epoch_time,
-        },
-        step=epoch,
-    )
+    metrics_to_log = {
+        "train_loss": train_loss,
+        "val_loss": val_loss,
+        "val_mse": metrics["mse"],
+        "val_rmse": metrics["rmse"],
+        "val_mae": metrics["mae"],
+        "val_r2": metrics["r2"],
+        "val_mape": metrics["mape"],
+        "val_max_error": metrics["max_error"],
+        "val_evs": metrics["evs"],
+        "val_mbe": metrics["mbe"],
+        "val_medae": metrics["medae"],
+        "val_sample_mse_mean": metrics.get("per_sample_mse_mean"),
+        "learning_rate": current_lr,
+        "epoch_time": epoch_time,
+    }
+
+    per_feature_mse = metrics.get("per_feature_mse") or []
+    per_feature_r2 = metrics.get("per_feature_r2") or []
+    for i, mse in enumerate(per_feature_mse):
+        metrics_to_log[f"val_mse_feature_{i}"] = mse
+    for i, r2 in enumerate(per_feature_r2):
+        metrics_to_log[f"val_r2_feature_{i}"] = r2
+
+    mlflow.log_metrics(metrics_to_log, step=epoch)
 
 
 # ============================================================
@@ -130,8 +137,22 @@ def log_final_metrics(all_targets: torch.Tensor, all_preds: torch.Tensor,
         for i, (mse, mae) in enumerate(zip(final_metrics["per_feature_mse"], final_metrics["per_feature_mae"])):
             metrics_to_log[f"final_mse_feature_{i}"] = mse
             metrics_to_log[f"final_mae_feature_{i}"] = mae
+        for i, r2 in enumerate(final_metrics.get("per_feature_r2", [])):
+            metrics_to_log[f"final_r2_feature_{i}"] = r2
+
+    if "per_sample_mse" in final_metrics:
+        metrics_to_log["final_sample_mse_mean"] = float(np.mean(final_metrics["per_sample_mse"]))
 
     mlflow.log_metrics(metrics_to_log)
+
+    if "per_sample_mse" in final_metrics:
+        df = pd.DataFrame({
+            "sample_index": np.arange(len(final_metrics["per_sample_mse"])),
+            "mse": final_metrics["per_sample_mse"],
+        })
+        df.to_csv("final_per_sample_mse.csv", index=False)
+        mlflow.log_artifact("final_per_sample_mse.csv")
+        Path("final_per_sample_mse.csv").unlink()
 
 
 # ============================================================
@@ -216,7 +237,7 @@ def move_images_to_mlflow_artifacts(images_dir_path) -> None | bool:
 # ============================================================
 # Retrieve previous MLflow run
 # ============================================================
-def find_previous_mlflow_run(machine_part: str, preprocessing_info: dict):
+def find_previous_mlflow_run(process_part: str, preprocessing_info: dict):
     """
     Search for the most recent MLflow run matching a naming pattern.
 
@@ -230,10 +251,10 @@ def find_previous_mlflow_run(machine_part: str, preprocessing_info: dict):
         logger.warning(f"No MLflow experiment found with name {experiment_name}.")
         return None, None
 
-    # Construct run name from machine_part and preprocessing info
+    # Construct run name from process_part and preprocessing info
     excluded58 = "" if not preprocessing_info.get('to_58_excluded', False) else "58"
     window_size = str(preprocessing_info.get('window_num', '0'))
-    run_name_to_search = f"{machine_part}_{excluded58}_ws{window_size}"
+    run_name_to_search = f"{process_part}_{excluded58}_ws{window_size}"
 
     # Search runs by run_name tag
     runs = client.search_runs(

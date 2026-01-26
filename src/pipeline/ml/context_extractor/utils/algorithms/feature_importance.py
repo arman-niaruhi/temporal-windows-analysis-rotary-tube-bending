@@ -6,13 +6,11 @@ import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
 
-from src.pipeline.ml.context_extractor.utils.helpers.plot_utils import generate_all_plots
+from src.pipeline.ml.context_extractor.utils.plots.plot_feature_importance import generate_all_plots
 
 import logging
 
 logger = logging.getLogger(__name__)
-
-
 
 
 def collect_attention_data(model, val_loader, device):
@@ -23,9 +21,12 @@ def collect_attention_data(model, val_loader, device):
     all_targets = []
 
     with torch.no_grad():
-        for Xb, Yb in tqdm(val_loader, desc="Attention Importance"):
-            Xb, Yb = Xb.to(device), Yb.to(device)
-            pred, attn_weights = model(Xb)
+        for Xb, Yb, springback, experiment_config in tqdm(val_loader, desc="Attention Importance"):
+            Xb = Xb.to(device)
+            Yb = Yb.to(device)
+            springback = springback.to(device)
+            experiment_config = experiment_config.to(device)
+            pred, attn_weights = model(Xb, springback, experiment_config)
             
             mean_attn = attn_weights.mean(dim=(0, 1))  
             all_attention_weights.append(mean_attn.cpu())
@@ -92,7 +93,7 @@ def compute_attention_importance(
     val_loader: torch.utils.data.DataLoader,
     feature_names: list,
     device,
-    output_dir: str = "images/05_feature_importance",
+    saving_dir: Path,
 ):
     """
     Compute feature importance using attention weights from the LSTM model
@@ -103,15 +104,13 @@ def compute_attention_importance(
         val_loader: DataLoader for validation data
         feature_names: List of feature names corresponding to input features
         device: Device to run computations on (CPU or GPU)
-        output_dir: Directory to save output plots and data
+        saving_dir: Directory to save output plots and data
 
     Returns:
         importance_df: DataFrame with feature importance scores
         plot_paths: Dictionary with paths to saved plots
         attention_data: Dictionary with additional attention statistics
     """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info("Computing attention-based feature importance...")
 
@@ -134,7 +133,7 @@ def compute_attention_importance(
         stats['timestep_attention'], 
         stats['mse'], 
         feature_names, 
-        output_dir
+        saving_dir
     )
     
     logger.info("Enhanced attention analysis complete with 6 individual visualizations")
@@ -146,7 +145,7 @@ def compute_ablation_importance(
     val_loader: torch.utils.data.DataLoader,
     feature_names: list,
     device,
-    output_dir: str = "images/05_feature_importance",
+    saving_dir: Path,
 ):
     """
     Feature importance by ablating (zeroing out) each feature and measuring performance drop
@@ -157,24 +156,25 @@ def compute_ablation_importance(
         val_loader: DataLoader for validation data
         feature_names: List of feature names corresponding to input features
         device: Device to run computations on (CPU or GPU)
-        output_dir: Directory to save output plots
+        saving_dir: Directory to save output plots
     Returns:
         importance_df: DataFrame with feature importance scores
         ablation_path: Path to saved ablation importance plot
     """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
     model.eval()
     criterion = nn.MSELoss()
 
+    # Compute baseline loss
     baseline_loss = 0.0
     n_batches = 0
 
     with torch.no_grad():
-        for Xb, Yb in val_loader:
-            Xb, Yb = Xb.to(device), Yb.to(device)
-            pred, _ = model(Xb)
+        for Xb, Yb, springback, experiment_config in val_loader:
+            Xb = Xb.to(device)
+            Yb = Yb.to(device)
+            springback = springback.to(device)
+            experiment_config = experiment_config.to(device)
+            pred, _ = model(Xb, springback, experiment_config)
             baseline_loss += criterion(pred, Yb).item()
             n_batches += 1
 
@@ -185,18 +185,24 @@ def compute_ablation_importance(
 
     importance_scores = []
 
+    # Ablate each feature
     for feat_idx in tqdm(range(len(feature_names)), desc="Ablating features"):
         ablated_loss = 0.0
         n_batches = 0
 
         with torch.no_grad():
-            for Xb, Yb in val_loader:
-                Xb, Yb = Xb.to(device), Yb.to(device)
+            for Xb, Yb, springback, experiment_config in val_loader:
+                Xb = Xb.to(device)
+                Yb = Yb.to(device)
+                springback = springback.to(device)
+                experiment_config = experiment_config.to(device)
 
+                # FIXED: Only ablate the sequence features, not springback
+                # springback is a scalar (batch_size, 1), not a sequence
                 Xb_ablated = Xb.clone()
                 Xb_ablated[:, :, feat_idx] = 0
 
-                pred, _ = model(Xb_ablated)
+                pred, _ = model(Xb_ablated, springback, experiment_config)
                 ablated_loss += criterion(pred, Yb).item()
                 n_batches += 1
 
@@ -221,7 +227,7 @@ def compute_ablation_importance(
     ax.axvline(x=0, color="black", linestyle="-", linewidth=1)
 
     plt.tight_layout()
-    ablation_path = output_dir / "ablation_importance.png"
+    ablation_path = saving_dir / "ablation_importance.png"
     fig.savefig(ablation_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
@@ -233,7 +239,7 @@ def compute_permutation_importance(
     val_loader: torch.utils.data.DataLoader,
     feature_names: list,
     device,
-    output_dir: str = "images/05_feature_importance",
+    saving_dir: Path,
 ):
     """
     Compute permutation feature importance
@@ -244,24 +250,26 @@ def compute_permutation_importance(
         val_loader: DataLoader for validation data
         feature_names: List of feature names corresponding to input features
         device: Device to run computations on (CPU or GPU)
-        output_dir: Directory to save output plots
+        saving_dir: Directory to save output plots
     Returns:
         importance_df: DataFrame with feature importance scores
         perm_path: Path to saved permutation importance plot
     """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     model.eval()
     criterion = nn.MSELoss()
 
+    # Compute baseline loss
     baseline_loss = 0.0
     n_batches = 0
 
     with torch.no_grad():
-        for Xb, Yb in val_loader:
-            Xb, Yb = Xb.to(device), Yb.to(device)
-            pred, _ = model(Xb)
+        for Xb, Yb, springback, experiment_config in val_loader:
+            Xb = Xb.to(device)
+            Yb = Yb.to(device)
+            springback = springback.to(device)
+            experiment_config = experiment_config.to(device)
+            pred, _ = model(Xb, springback, experiment_config)
             baseline_loss += criterion(pred, Yb).item()
             n_batches += 1
 
@@ -272,19 +280,24 @@ def compute_permutation_importance(
 
     importances = []
 
-    for feat_idx in tqdm(range(len(feature_names)), desc="Features"):
+    # Permute each feature
+    for feat_idx in tqdm(range(len(feature_names)), desc="Permuting features"):
         permuted_loss = 0.0
         n_batches = 0
 
         with torch.no_grad():
-            for Xb, Yb in val_loader:
-                Xb, Yb = Xb.to(device), Yb.to(device)
+            for Xb, Yb, springback, experiment_config in val_loader:
+                Xb = Xb.to(device)
+                Yb = Yb.to(device)
+                springback = springback.to(device)
+                experiment_config = experiment_config.to(device)
 
+                # Permute only the sequence features
                 Xb_perm = Xb.clone()
                 perm_indices = torch.randperm(Xb.size(0))
                 Xb_perm[:, :, feat_idx] = Xb[perm_indices, :, feat_idx]
 
-                pred, _ = model(Xb_perm)
+                pred, _ = model(Xb_perm, springback, experiment_config)
                 permuted_loss += criterion(pred, Yb).item()
                 n_batches += 1
 
@@ -298,7 +311,7 @@ def compute_permutation_importance(
 
     fig, ax = plt.subplots(figsize=(12, max(8, len(feature_names) * 0.3)))
     colors = plt.cm.coolwarm(np.linspace(0, 1, len(feature_names)))
-    bars = ax.barh(
+    ax.barh(
         importance_df["Feature"], importance_df["Permutation_Importance"], color=colors
     )
     ax.set_xlabel("Increase in MSE Loss", fontsize=12, fontweight="bold")
@@ -308,7 +321,7 @@ def compute_permutation_importance(
     ax.axvline(x=0, color="black", linestyle="-", linewidth=1)
 
     plt.tight_layout()
-    perm_path = output_dir / "permutation_importance.png"
+    perm_path = saving_dir / "permutation_importance.png"
     fig.savefig(perm_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
@@ -319,28 +332,25 @@ def analyze_feature_importance(
     model: torch.nn.Module,
     val_loader: torch.utils.data.DataLoader,
     feature_names: list,
-    output_dir: str = "images/05_feature_importance",
+    saving_dir: Path,
     device: str = "cpu",
 ):
     """
-
     Compute comprehensive feature importance analyses for LSTM
     Uses methods appropriate for temporal data
+    
     Args:
         model: Trained LSTM model
         val_loader: DataLoader for validation data
         feature_names: List of feature names corresponding to input features
-        output_dir: Directory to save output plots and data
+        saving_dir: Directory to save output plots and data
         device: Device to run computations on (CPU or GPU)
+        
     Returns:
         importance_dfs: Dictionary of DataFrames with feature importance scores from each method
         all_paths: Dictionary of paths to saved plots from each method
         additional_data: Dictionary of additional data from each method
-
     """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
     all_paths = {}
     importance_dfs = {}
     additional_data = {}
@@ -348,7 +358,7 @@ def analyze_feature_importance(
     try:
         logger.info("[1/3] Computing attention-based importance...")
         attn_df, attn_path, attn_data = compute_attention_importance(
-            model, val_loader, feature_names, device
+            model, val_loader, feature_names, device, saving_dir
         )
         importance_dfs["attention"] = attn_df
         all_paths["attention"] = attn_path
@@ -357,13 +367,12 @@ def analyze_feature_importance(
     except Exception as e:
         logger.error(f"✗ Attention importance failed: {e}")
         import traceback
-
         traceback.print_exc()
 
     try:
         logger.info("[2/3] Computing permutation importance...")
         perm_df, perm_path = compute_permutation_importance(
-            model, val_loader, feature_names, device
+            model, val_loader, feature_names, device, saving_dir
         )
         importance_dfs["permutation"] = perm_df
         all_paths["permutation"] = perm_path
@@ -371,13 +380,12 @@ def analyze_feature_importance(
     except Exception as e:
         logger.error(f"✗ Permutation importance failed: {e}")
         import traceback
-
         traceback.print_exc()
 
     try:
         logger.info("[3/3] Computing ablation importance...")
         ablation_df, ablation_path = compute_ablation_importance(
-            model, val_loader, feature_names, device
+            model, val_loader, feature_names, device, saving_dir
         )
         importance_dfs["ablation"] = ablation_df
         all_paths["ablation"] = ablation_path
@@ -385,9 +393,9 @@ def analyze_feature_importance(
     except Exception as e:
         logger.error(f"✗ Ablation importance failed: {e}")
         import traceback
-
         traceback.print_exc()
 
+    # Optional: Create comparison across methods
     successful_methods = [
         method for method in importance_dfs.keys() if importance_dfs[method] is not None
     ]
@@ -406,4 +414,3 @@ def analyze_feature_importance(
             comparison_data.append(row)
 
     return importance_dfs, all_paths, additional_data
-

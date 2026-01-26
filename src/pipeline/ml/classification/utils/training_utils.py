@@ -15,13 +15,7 @@ from src.pipeline.ml.classification.utils.dataset_utils import (
     SegmentDataset3DSequenceWithMask,
 )
 from src.pipeline.ml.classification.utils.feature_analysis_utils import (
-    compare_methods,
-    dropout_importance,
-    feature_ablation_importance,
-    gradient_importance_sequence,
-    integrated_gradients_importance,
-    occlusion_importance,
-    permutation_importance_sequence,
+    compare_methods,captum_classwise_ig,
     plot_feature_importance,
 )
 from src.pipeline.ml.classification.utils.model import LSTMSequenceClassifier
@@ -30,7 +24,7 @@ from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 logger = logging.getLogger(__name__)
 
 VALID_LABELS = ["All", "Clamping", "Bending", "Mandrel Extraction", "De-Clamping"]
-VALID_MACHINE_PARTS = ["machine_and_movement", "movement"]
+VALID_process_partS = ["machine_and_movement", "movement"]
 EXCLUDED_COLUMNS = ["Experiment_ID", "Label", "Label_encoded"]
 
 
@@ -39,7 +33,7 @@ def _validate_inputs(
     database_path: str,
     experiment_ids_path: str,
     label: str,
-    machine_part: str,
+    process_part: str,
     pipeline_config: Optional[Dict],
 ) -> None:
     """Validate all input parameters before processing.
@@ -49,7 +43,7 @@ def _validate_inputs(
         database_path: Path to SQLite database
         experiment_ids_path: Path to experiment IDs file
         label: Target activity label
-        machine_part: Machine part identifier
+        process_part: Machine part identifier
         pipeline_config: Pipeline configuration dictionary
 
     Raises:
@@ -78,10 +72,10 @@ def _validate_inputs(
             f"Invalid label: {label}. Valid options: {', '.join(VALID_LABELS)}"
         )
 
-    if machine_part not in VALID_MACHINE_PARTS:
+    if process_part not in VALID_process_partS:
         raise ValueError(
-            f"Invalid machine part: {machine_part}. "
-            f"Valid options: {', '.join(VALID_MACHINE_PARTS)}"
+            f"Invalid machine part: {process_part}. "
+            f"Valid options: {', '.join(VALID_process_partS)}"
         )
 
     if pipeline_config is None:
@@ -105,7 +99,7 @@ def _load_experiment_groups(experiment_ids_path: str) -> Dict:
 def _prepare_data(
     database_path: str,
     annotation_json_path: str,
-    machine_part: str,
+    process_part: str,
     eliminated_columns: List[str],
     label: str,
     experiment_groups: Dict,
@@ -115,7 +109,7 @@ def _prepare_data(
     Args:
         database_path: Path to SQLite database
         annotation_json_path: Path to annotations
-        machine_part: Machine part to process
+        process_part: Machine part to process
         eliminated_columns: Columns to remove
         label: Target label
         experiment_groups: Experiment ID groupings
@@ -127,7 +121,7 @@ def _prepare_data(
     dataframes = loader.load_all_data_from_sqlite()
 
     classifier_preprocessor = ClassifierPreprocessor(
-        sensors_df=dataframes[machine_part], annotation_json=annotation_json_path
+        sensors_df=dataframes[process_part], annotation_json=annotation_json_path
     )
 
     sensors_df, _ = classifier_preprocessor.read_data()
@@ -210,7 +204,7 @@ def _train_or_load_model(
     pipeline_config: Dict,
     model_path: str,
     label: str,
-    machine_part: str,
+    process_part: str,
     device: torch.device,
     idx_to_label: Dict,
 ) -> LSTMSequenceClassifier:
@@ -223,7 +217,7 @@ def _train_or_load_model(
         pipeline_config: Training configuration
         model_path: Path to save/load model
         label: Target label name
-        machine_part: Machine part identifier
+        process_part: Machine part identifier
         device: Torch device
         idx_to_label: Index to label mapping
 
@@ -244,7 +238,7 @@ def _train_or_load_model(
             idx_to_label=idx_to_label,
             model_path=model_path,
             run_name=label,
-            experiment_name=machine_part,
+            experiment_name=process_part,
         )
     else:
         logger.info("Loading existing model...")
@@ -262,7 +256,7 @@ def training_pipeline(
     database_path: str,
     annotation_json_path: str,
     experiment_ids_path: str,
-    machine_part: str,
+    process_part: str,
     eliminated_columns: List[str],
     label: str,
     pipeline_config: Dict,
@@ -274,7 +268,7 @@ def training_pipeline(
         database_path: Path to preprocessed data database
         annotation_json_path: Path to activity annotations
         experiment_ids_path: Path to experiment ID groups
-        machine_part: Machine component to analyze
+        process_part: Machine component to analyze
         eliminated_columns: Columns to exclude from training
         label: Target activity label to classify
         pipeline_config: Pipeline configuration parameters
@@ -283,14 +277,14 @@ def training_pipeline(
         Tuple of (model, sensors_df, test_loader, device, feature_cols)
     """
     logger.info("Starting machine activity recognition training pipeline...")
-    logger.info(f"Label: {label}, Machine part: {machine_part}")
+    logger.info(f"Label: {label}, Machine part: {process_part}")
 
     _validate_inputs(
         annotation_json_path,
         database_path,
         experiment_ids_path,
         label,
-        machine_part,
+        process_part,
         pipeline_config,
     )
 
@@ -299,7 +293,7 @@ def training_pipeline(
     train_dataset, val_dataset, test_dataset, feature_cols, sensors_df = _prepare_data(
         database_path,
         annotation_json_path,
-        machine_part,
+        process_part,
         eliminated_columns,
         label,
         experiment_groups,
@@ -321,7 +315,7 @@ def training_pipeline(
     model = _initialize_model(input_size, hidden_size, num_layers, num_classes, device)
 
     idx_to_label = {v: k for k, v in train_dataset.label_to_idx.items()}
-    model_path = f"{model_path_root}/{machine_part}/{label}"
+    model_path = f"{model_path_root}/{process_part}/{label}"
     model = _train_or_load_model(
         model,
         train_loader,
@@ -329,7 +323,7 @@ def training_pipeline(
         pipeline_config,
         model_path,
         label,
-        machine_part,
+        process_part,
         device,
         idx_to_label,
     )
@@ -359,57 +353,17 @@ def _compute_importance_scores(
     all_importances = {}
 
     logger.info("Computing permutation importance...")
-    perm_importances, perm_std = permutation_importance_sequence(
-        model, test_loader, device, n_repeats=10
+    perm_importances = captum_classwise_ig(
+        model, test_loader, device, target_class=0, n_samples=100
     )
     all_importances["Permutation"] = perm_importances
     plot_feature_importance(
-        result_path, perm_importances, perm_std, feature_names, "Permutation"
+        analyze_features_result_path=result_path,
+        importances=perm_importances,
+        feature_names=feature_names,
+        method_name="Permutation"
     )
-
-    logger.info("Computing gradient importance...")
-    grad_importances = gradient_importance_sequence(
-        model, test_loader, device, n_batches=10
-    )
-    all_importances["Gradient"] = grad_importances
-    plot_feature_importance(
-        result_path, grad_importances, None, feature_names, "Gradient"
-    )
-
-    logger.info("Computing integrated gradients...")
-    intgrad_importances = integrated_gradients_importance(
-        model, test_loader, device, n_samples=50, steps=30
-    )
-    all_importances["Integrated Gradients"] = intgrad_importances
-    plot_feature_importance(
-        result_path, intgrad_importances, None, feature_names, "IntegratedGradients"
-    )
-
-    logger.info("Computing occlusion importance...")
-    occlusion_importances = occlusion_importance(
-        model, test_loader, device, occlusion_value=0.0
-    )
-    all_importances["Occlusion"] = occlusion_importances
-    plot_feature_importance(
-        result_path, occlusion_importances, None, feature_names, "Occlusion"
-    )
-
-    logger.info("Computing ablation importance...")
-    ablation_importances = feature_ablation_importance(model, test_loader, device)
-    all_importances["Ablation"] = ablation_importances
-    plot_feature_importance(
-        result_path, ablation_importances, None, feature_names, "Ablation"
-    )
-
-    logger.info("Computing dropout importance...")
-    dropout_importances = dropout_importance(
-        model, test_loader, device, n_repeats=20, dropout_rate=0.5
-    )
-    all_importances["Dropout"] = dropout_importances
-    plot_feature_importance(
-        result_path, dropout_importances, None, feature_names, "Dropout"
-    )
-
+ 
     return all_importances
 
 
@@ -456,12 +410,6 @@ def analyze_features(
     np.savez(
         output_file,
         permutation_importance=all_importances["Permutation"],
-        permutation_std=all_importances.get("Permutation_std"),
-        gradient_importance=all_importances["Gradient"],
-        integrated_gradients_importance=all_importances["Integrated Gradients"],
-        occlusion_importance=all_importances["Occlusion"],
-        ablation_importance=all_importances["Ablation"],
-        dropout_importance=all_importances["Dropout"],
         feature_names=feature_names,
     )
 

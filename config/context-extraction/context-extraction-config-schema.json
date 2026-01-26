@@ -28,7 +28,7 @@
       "type": "object",
       "required": [
         "database_path",
-        "machine_part",
+        "process_part",
         "annotation_json_path"
       ],
       "properties": {
@@ -37,7 +37,7 @@
           "default": "data/processed/tube_geometry.db",
           "description": "Path to the database file"
         },
-        "machine_part": {
+        "process_part": {
           "type": "string",
           "enum": ["All", "Bending", "Clamping", "De-Clamping"],
           "description": "Machine part identifier - must be one of the 'All', 'Bending', 'Clamping', 'De-Clamping'"
@@ -54,7 +54,6 @@
       "type": "object",
       "required": [
         "to_58_excluded",
-        "seperate_test_set",
         "random_seed",
         "agg_metric",
         "window_num",
@@ -65,10 +64,6 @@
           "type": "boolean",
           "description": "Whether to exclude the experiments less equal than 58"
         },
-        "seperate_test_set": {
-          "type": "boolean",
-          "description": "Whether to separate test set"
-        },
         "random_seed": {
           "type": "integer",
           "description": "Random seed for preprocessing"
@@ -76,6 +71,14 @@
         "agg_metric": {
           "type": "string",
           "description": "Aggregation metric"
+        },
+        "normalize": {
+          "type": "boolean",
+          "description": "Whether to normalize inputs and targets for training"
+        },
+        "resample": {
+          "type": "boolean",
+          "description": "Whether to resample sensor sequences into fixed windows"
         },
         "window_num": {
           "type": "integer",
@@ -133,6 +136,11 @@
           "type": "boolean",
           "description": "Whether to train the model"
         },
+        "model_type": {
+          "type": "string",
+          "enum": ["lstm", "tcn", "tcn_lstm", "tcn_mamba", "mamba", "transformer"],
+          "description": "Model backbone to use for context extraction"
+        },
         "hidden_dim": {
           "type": "integer",
           "minimum": 1,
@@ -143,11 +151,51 @@
           "minimum": 1,
           "description": "Number of LSTM layers"
         },
+        "tcn_layers": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of TCN blocks (uses lstm_layers when omitted)"
+        },
+        "tcn_kernel_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Kernel size for TCN convolutions"
+        },
+        "mamba_layers": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of Mamba layers (overrides lstm_layers when set)"
+        },
+        "mamba_d_state": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Mamba state size"
+        },
         "dropout": {
           "type": "number",
           "minimum": 0,
           "maximum": 1,
           "description": "Dropout rate"
+        },
+        "shape_loss_weight": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Weight for normalized shape (z-score) loss"
+        },
+        "derivative_loss_weight": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Weight for first-derivative shape loss"
+        },
+        "second_derivative_loss_weight": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Weight for second-derivative shape loss"
+        },
+        "variance_loss_weight": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Weight for variance-matching penalty"
         },
         "lr": {
           "type": "number",

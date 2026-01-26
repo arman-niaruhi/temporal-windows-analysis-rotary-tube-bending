@@ -85,11 +85,13 @@ class DataPreprocessPipeline:
         df_arc, df_lin1, df_lin2, linear_df, all_geometry_data = (
             transformer.get_geometry_data()
         )
-        df_bending = transformer.get_bending_setup()
+        transformer.get_bending_setup()
 
         loader = DataLoader("data/processed/tube_geometry.db")
         dataframes = {
             "machine_and_movement": df_machine_and_movement,
+            "linear1": df_lin1,
+            "linear2": df_lin2,
             "arc": df_arc,
             "movement": df_movement,
         }

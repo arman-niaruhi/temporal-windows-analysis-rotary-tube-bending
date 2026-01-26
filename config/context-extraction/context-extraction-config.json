@@ -1,0 +1,74 @@
+{
+    "generalSetting": {
+        "seed": 42
+    },
+    "inputPathParams": {
+        "database_path": "data/processed/tube_geometry.db",
+        "process_part": "All",
+        "annotation_json_path": "data/ml/machine-and-movement_complete.json"
+    },
+    "preprocessingParams": {
+        "to_58_excluded": false,
+        "random_seed": 42,
+        "normalize": true,
+        "scaler": "standard",
+        "agg_metric": "mean",
+        "window_num": 400,
+        "feature_indices": [
+            1,
+            3
+        ],
+        "annot_timesteps": [
+            150,
+            340,    
+            820,
+            1280
+        ],
+        "mandrel_extraction_annot_timesteps":[
+            650, 
+            820
+        ]
+    },
+    "trainingParams": {
+        "train": true,
+        "model_type": "tcn_lstm",
+        "hidden_dim": 64,
+        "lstm_layers": 1,
+        "dropout": 0.1,
+        "lr": 2e-4,
+        "weight_decay": 1e-4,
+        "batch_size": 8,
+        "max_epochs": 1000,
+        "model_path": "models/context_extraction",
+        "use_experiment_config": false,
+        "use_scalar": false,
+        "split_output_heads": true,
+        "timestep_sensitivity": true,
+        "main_head_hidden_sizes": [
+            48,
+            24
+        ],
+        "secondary_head_hidden_sizes": [
+            128,
+            64,
+            32
+        ],
+        "feature_loss_weights": [
+            1.0,
+            1.0
+        ],
+        "dynamic_feature_loss_weighting": true,
+        "dynamic_feature_loss_warmup_epochs": 20,
+        "dynamic_feature_loss_end_weights": [
+            1.0,
+            1.0
+        ],
+        "feature_loss_types": [
+            "mse"
+        ]
+    },
+    "occlusionParams": {
+        "occlusion_window_size": 10,
+        "occlusion_stride": 10
+    }
+}
