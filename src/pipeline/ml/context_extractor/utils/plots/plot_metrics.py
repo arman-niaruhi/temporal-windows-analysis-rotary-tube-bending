@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 def __create_metrics_summary_file(metrics_history: dict, train_losses: list,
                                val_losses: list, epoch_times: list,
-                               learning_rates: list, saving_dir):
+                               learning_rates: list, saving_dir,
+                               split_config_path: str | None = None):
     """Create a text file summarizing all training metrics."""
     epochs = list(range(1, len(train_losses) + 1))
     summary_path = saving_dir / "metrics_summary.txt"
@@ -33,7 +34,10 @@ def __create_metrics_summary_file(metrics_history: dict, train_losses: list,
         f.write(f"Total Epochs:          {len(epochs)}\n")
         f.write(f"Best Val Loss:         {min(val_losses):.6f}\n")
         f.write(f"Final Val Loss:        {val_losses[-1]:.6f}\n")
-        f.write(f"Final Train Loss:      {train_losses[-1]:.6f}\n\n")
+        f.write(f"Final Train Loss:      {train_losses[-1]:.6f}\n")
+        if split_config_path:
+            f.write(f"Split Config:          {split_config_path}\n")
+        f.write("\n")
         f.write("-"*60 + "\n")
         f.write("FINAL VALIDATION METRICS:\n")
         f.write("-"*60 + "\n")
@@ -99,7 +103,8 @@ def __plot_loss_curves(epochs: list, train_losses: list, val_losses: list, savin
 
 def plot_all_metrics(metrics_history: dict, train_losses: list[float],
                     val_losses: list[float], learning_rates: list[float],
-                    epoch_times: list[float], saving_dir: Path) -> None:
+                    epoch_times: list[float], saving_dir: Path,
+                    split_config_path: str | None = None) -> None:
     """Create individual plots for each training metric."""
     epochs = list(range(1, len(train_losses) + 1))
     
@@ -175,6 +180,11 @@ def plot_all_metrics(metrics_history: dict, train_losses: list[float],
     plt.close("all")
     gc.collect()
     __create_metrics_summary_file(
-        metrics_history, train_losses, val_losses, epoch_times,
-        learning_rates, saving_dir
+        metrics_history,
+        train_losses,
+        val_losses,
+        epoch_times,
+        learning_rates,
+        saving_dir,
+        split_config_path=split_config_path,
     )

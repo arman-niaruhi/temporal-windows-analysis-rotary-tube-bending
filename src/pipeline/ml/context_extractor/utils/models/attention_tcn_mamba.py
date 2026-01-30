@@ -26,6 +26,8 @@ class AttentionTCNMamba(nn.Module):
         split_output_heads: bool = False,
         main_head_hidden_sizes: list[int] | None = None,
         secondary_head_hidden_sizes: list[int] | None = None,
+        use_angle_embedding: bool = False,
+        angle_embedding_dim: int = 8,
     ):
         super().__init__()
         self.use_scalar = use_scalar
@@ -34,6 +36,7 @@ class AttentionTCNMamba(nn.Module):
         self.hidden_dim = hidden_dim
         self.output_features = output_features
         self.split_output_heads = split_output_heads
+        self.use_angle_embedding = use_angle_embedding
 
         if self.use_scalar:
             self.scalar_embedding = nn.Sequential(
@@ -57,6 +60,14 @@ class AttentionTCNMamba(nn.Module):
             combined_dim = combined_dim + config_embedding_dim
         else:
             self.config_embedding = None
+
+        if self.use_angle_embedding:
+            if angle_embedding_dim <= 0:
+                raise ValueError("angle_embedding_dim must be > 0 when use_angle_embedding=True")
+            self.angle_embedding = nn.Embedding(n_predictions, angle_embedding_dim)
+            combined_dim = combined_dim + angle_embedding_dim
+        else:
+            self.angle_embedding = None
 
         blocks: list[nn.Module] = []
         in_channels = input_features
@@ -160,6 +171,11 @@ class AttentionTCNMamba(nn.Module):
             config_emb = self.config_embedding(config)
             config_emb = config_emb.unsqueeze(1).expand(-1, self.n_predictions, -1)
             combined = torch.cat([combined, config_emb], dim=-1)
+
+        if self.use_angle_embedding:
+            angle_idx = torch.arange(self.n_predictions, device=combined.device)
+            angle_emb = self.angle_embedding(angle_idx).unsqueeze(0).expand(combined.size(0), -1, -1)
+            combined = torch.cat([combined, angle_emb], dim=-1)
 
         if self.fc_heads is not None:
             outs = [head(combined) for head in self.fc_heads]

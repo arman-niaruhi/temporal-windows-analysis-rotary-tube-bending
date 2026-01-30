@@ -93,6 +93,7 @@ class DataPreprocessPipeline:
             "linear1": df_lin1,
             "linear2": df_lin2,
             "arc": df_arc,
+            "sensor": df_sensor,
             "movement": df_movement,
         }
         loader.store_to_sqlite(
@@ -100,5 +101,6 @@ class DataPreprocessPipeline:
             store_index_tables=[
                 "machine_and_movement",
                 "movement",
+                "sensor"
             ],
         )

@@ -100,6 +100,8 @@ class AttentionMamba(nn.Module):
         config_dim: int | None = None,
         config_embedding_dim: int = 16,
         use_config: bool = True,
+        use_angle_embedding: bool = False,
+        angle_embedding_dim: int = 8,
     ):
         super().__init__()
 
@@ -107,6 +109,7 @@ class AttentionMamba(nn.Module):
         self.use_config = use_config
         self.n_predictions = n_predictions
         self.hidden_dim = hidden_dim
+        self.use_angle_embedding = use_angle_embedding
 
         # Scalar embedding (only if enabled) — identical behavior to your LSTM model
         if self.use_scalar:
@@ -130,6 +133,14 @@ class AttentionMamba(nn.Module):
             combined_dim = combined_dim + config_embedding_dim
         else:
             self.config_embedding = None
+
+        if self.use_angle_embedding:
+            if angle_embedding_dim <= 0:
+                raise ValueError("angle_embedding_dim must be > 0 when use_angle_embedding=True")
+            self.angle_embedding = nn.Embedding(n_predictions, angle_embedding_dim)
+            combined_dim = combined_dim + angle_embedding_dim
+        else:
+            self.angle_embedding = None
 
         # Project input features to hidden_dim (LSTM implicitly does this; Mamba needs it explicit)
         self.in_proj = nn.Linear(input_features, hidden_dim)
@@ -206,6 +217,11 @@ class AttentionMamba(nn.Module):
             config_emb = self.config_embedding(config)
             config_emb = config_emb.unsqueeze(1).expand(-1, self.n_predictions, -1)
             combined = torch.cat([combined, config_emb], dim=-1)
+
+        if self.use_angle_embedding:
+            angle_idx = torch.arange(self.n_predictions, device=combined.device)
+            angle_emb = self.angle_embedding(angle_idx).unsqueeze(0).expand(combined.size(0), -1, -1)
+            combined = torch.cat([combined, angle_emb], dim=-1)
 
         out = self.fc(combined)  # (B,A,output_features)
         return out, attn
