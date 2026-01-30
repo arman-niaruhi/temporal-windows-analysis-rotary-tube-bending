@@ -17,6 +17,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.utils.data import DataLoader
 
 # ============================
 # Experiment tracking
@@ -46,6 +47,7 @@ from src.pipeline.ml.context_extractor.utils.algorithms.timestep_sensitivity imp
 # ============================
 from src.pipeline.ml.context_extractor.utils.helpers.mlflow_utils import (
     setup_mlflow_experiment,
+    log_experiment_metadata_to_mlflow,
     log_epoch_metrics,
     log_feature_importance_to_mlflow,
     log_model_parameters,
@@ -66,9 +68,6 @@ from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import (
 # ============================
 # Visualization utilities
 # ============================
-from src.pipeline.ml.context_extractor.utils.plots.plot_attention import (
-    generate_final_attention_plot,
-)
 from src.pipeline.ml.context_extractor.utils.plots.plot_utils import (
     get_plot_batch,
     compute_plot_limits
@@ -79,9 +78,13 @@ from src.pipeline.ml.context_extractor.utils.plots.plot_metrics import (
 from src.pipeline.ml.context_extractor.utils.plots.plot_window_impotance import (
     visualize_window_importance
 ) 
+from src.pipeline.ml.context_extractor.utils.plots.plot_attention import (
+    generate_final_attention_plot,
+)
 from src.pipeline.ml.context_extractor.utils.plots.plot_epoch_results import (
     generate_epoch_plots,
-    save_validation_scatter
+    save_validation_scatter,
+    plot_tcn_feature_maps,
 )
 
 # ============================
@@ -105,6 +108,34 @@ from src.pipeline.ml.context_extractor.utils.helpers.metrics_utils import (
 # Initialize module-level logger
 logger = logging.getLogger(__name__)
 
+def _model_uses_attention(model: nn.Module) -> bool:
+    return bool(getattr(model, "use_attention", True))
+
+def _capture_tcn_activations(
+    model: nn.Module,
+    x: torch.Tensor,
+    springback: torch.Tensor,
+    experiment_config: torch.Tensor,
+) -> torch.Tensor | None:
+    if not hasattr(model, "tcn"):
+        return None
+    activations: dict[str, torch.Tensor] = {}
+
+    def _hook(_module, _inputs, output):
+        activations["tcn"] = output
+
+    handle = model.tcn.register_forward_hook(_hook)
+    was_training = model.training
+    try:
+        model.eval()
+        with torch.no_grad():
+            _ = model(x, springback, experiment_config)
+    finally:
+        handle.remove()
+        if was_training:
+            model.train()
+    return activations.get("tcn")
+
 def _maybe_denormalize_targets(
     targets: torch.Tensor,
     target_scaler,
@@ -115,6 +146,23 @@ def _maybe_denormalize_targets(
     flat = targets.detach().cpu().numpy().reshape(-1, shape[-1])
     denorm = target_scaler.inverse_transform(flat).reshape(shape)
     return torch.from_numpy(denorm).float()
+
+def _log_target_stats(
+    label: str,
+    targets: torch.Tensor,
+    target_scaler,
+    target_feature_names: list[str],
+) -> None:
+    stats_source = _maybe_denormalize_targets(targets, target_scaler)
+    per_feature_std = stats_source.std(dim=(0, 1), unbiased=False).cpu().numpy().tolist()
+    per_feature_mean = stats_source.mean(dim=(0, 1)).cpu().numpy().tolist()
+    names = target_feature_names or [f"feature_{i}" for i in range(len(per_feature_std))]
+    parts = []
+    for i, name in enumerate(names):
+        if i >= len(per_feature_std):
+            break
+        parts.append(f"{name}: mean={per_feature_mean[i]:.4f}, std={per_feature_std[i]:.4f}")
+    logger.info(f"{label} target stats: " + " | ".join(parts))
 
 
 def train_model(
@@ -135,6 +183,8 @@ def train_model(
     annot_timesteps: list[int],
     mandrel_extraction_annot_timesteps: list[int],
     target_scaler = None,
+    input_path_param: dict | None = None,
+    general_setting: dict | None = None,
 ) -> Any:
     """
     Main training and analysis routine for the Attention-LSTM model.
@@ -151,24 +201,22 @@ def train_model(
     process_part = process_part
     
     predictions_dir = base_dir / "01_predictions"
-    loss_dir = base_dir / "02_loss"
-    attention_dir = base_dir / "03_attention"
-    attention_csv_dir = base_dir / "03_attention_csv"
-    attention_lines_dir = base_dir / "04_attention_lines"
-    feature_importance_dir = base_dir / "05_feature_importance"
-    integrated_gradients_dir= base_dir/ "06_integrated_gradients" 
-    window_importance_plots_dir = base_dir / "07_window_importance"
-    training_metric_results_dir = base_dir / "08_metrics"
-    diff_hist_dir = base_dir / "09_diff_hist"
-    diff_bar_dir = base_dir / "10_diff_bar"
-    val_pred_dir = base_dir / "11_val_predictions"
-    val_diff_bar_dir = base_dir / "12_val_diff_bar"
-    timestep_sensitivity_dir = base_dir / "13_timestep_sensitivity"
+    attention_dir = base_dir / "02_attention"
+    attention_csv_dir = base_dir / "02_attention_csv"
+    attention_lines_dir = base_dir / "03_attention_lines"
+    feature_importance_dir = base_dir / "04_feature_importance"
+    integrated_gradients_dir= base_dir/ "05_integrated_gradients" 
+    window_importance_plots_dir = base_dir / "06_window_importance"
+    training_metric_results_dir = base_dir / "07_metrics"
+    val_pred_dir = base_dir / "08_val_predictions"
+    timestep_sensitivity_dir = base_dir / "09_timestep_sensitivity"
+    tcn_train_dir = base_dir / "10_tcn_features_train"
+    tcn_val_dir = base_dir / "11_tcn_features_val"
+    tcn_all_dir = base_dir / "12_tcn_features_all_channels"
 
 
     # Create directories if they do not exist
     for d in [
-        loss_dir, 
         attention_dir,
         predictions_dir, 
         attention_csv_dir, 
@@ -177,11 +225,11 @@ def train_model(
         integrated_gradients_dir,
         window_importance_plots_dir,
         training_metric_results_dir,
-        diff_hist_dir,
-        diff_bar_dir,
         val_pred_dir,
-        val_diff_bar_dir,
         timestep_sensitivity_dir,
+        tcn_train_dir,
+        tcn_val_dir,
+        tcn_all_dir,
     ]:
         d.mkdir(parents=True, exist_ok=True)
     
@@ -191,14 +239,28 @@ def train_model(
 
     excluded58 = "" if not preprocessing_info["to_58_excluded"] else "58"
     window_size = str(preprocessing_info["window_num"])
+    split_config_path = preprocessing_info.get(
+        "split_config_path",
+        "config/data-split-config/train_test_split.json",
+    )
 
     # ============================================================
     # MLflow experiment setup
     # ============================================================
     experiment_desc, features_in, predictions_out, features_out = \
         setup_mlflow_experiment(
-            process_part, params, preprocessing_info, X_train, Y_train, target_feature_names
+            process_part,
+            params,
+            preprocessing_info,
+            X_train,
+            Y_train,
+            target_feature_names,
+            input_path_param=input_path_param,
+            general_setting=general_setting,
         )  
+
+    _log_target_stats("Train", Y_train, target_scaler, target_feature_names)
+    _log_target_stats("Val", Y_test, target_scaler, target_feature_names)
     
     # Create PyTorch DataLoaders using customized dataloader
     train_loader, val_loader, plot_loader = create_data_loaders(
@@ -208,6 +270,22 @@ def train_model(
 
     # Extract a fixed batch for visualization
     plot_X, plot_Y, springback, experiment_config = get_plot_batch(plot_loader, device)
+    plot_train_X = plot_train_Y = plot_train_springback = plot_train_config = None
+    if len(train_loader.dataset) > 0:
+        plot_train_loader = DataLoader(
+            train_loader.dataset,
+            batch_size=min(64, len(train_loader.dataset)),
+            shuffle=False,
+        )
+        plot_train_X, plot_train_Y, plot_train_springback, plot_train_config = get_plot_batch(
+            plot_train_loader,
+            device,
+        )
+    # Fall back to validation batch if train batch is unavailable
+    if plot_train_X is None:
+        plot_train_X = plot_X
+        plot_train_springback = springback
+        plot_train_config = experiment_config
     n_samples = min(4, len(plot_Y))
     
     
@@ -231,30 +309,33 @@ def train_model(
         with mlflow.start_run(run_id=run_id):
             # Load previously trained model
             model = mlflow.pytorch.load_model(model_uri, map_location=device)
+            use_attention = _model_uses_attention(model)
 
-
-            # Generate final attention visualization using the loaded model
-            generate_final_attention_plot(
-                model,
-                plot_X,
-                springback,
-                experiment_config,
-                X_test,
-                sensor_names,
-                process_part,
-                attention_lines_dir,
-                annot_timesteps,
-                mandrel_extraction_annot_timesteps,
-            )
+            if use_attention:
+                generate_final_attention_plot(
+                    model=model,
+                    plot_X=plot_X,
+                    springback=springback,
+                    experiment_config=experiment_config,
+                    X_val=X_test,
+                    sensor_names=sensor_names,
+                    machine_part=process_part,
+                    attention_lines_dir=attention_lines_dir,
+                    annot_timesteps=annot_timesteps,
+                    mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+                    target_feature_names=target_feature_names,
+                )
 
 
             # Compute integrated gradients if importance is available using the loaded model
-            combined_importance_df, _, importance_paths = analyze_feature_importance(
-                model=model,
-                val_loader=val_loader,
-                feature_names=sensor_names,
-                saving_dir=feature_importance_dir
-            )
+            combined_importance_df = None
+            if use_attention:
+                combined_importance_df, _, _ = analyze_feature_importance(
+                    model=model,
+                    val_loader=val_loader,
+                    feature_names=sensor_names,
+                    saving_dir=feature_importance_dir,
+                )
 
             if combined_importance_df is not None:
                 X_sample = plot_X[-1]
@@ -333,7 +414,28 @@ def train_model(
     # ============================================================
     # CASE 2 — TRAIN = TRUE → NEW RUN and Train a new model
     # ============================================================
-    with mlflow.start_run(run_name=f"{process_part}_{excluded58}_ws{window_size}"):
+    model_type = params.get("model_type", "unknown")
+    dataset_type = Path(split_config_path).stem if split_config_path else "default"
+    parts = [process_part, model_type, dataset_type]
+    if excluded58:
+        parts.append(excluded58)
+    if preprocessing_info.get("resample", False):
+        parts.append("resample")
+        parts.append(f"ws{window_size}")
+    run_name = "_".join(parts)
+    if mlflow.active_run() is not None:
+        mlflow.end_run()
+    with mlflow.start_run(run_name=run_name):
+        mlflow.log_param("dataset_name", dataset_type)
+        log_experiment_metadata_to_mlflow(
+            split_config_path=split_config_path,
+            process_part=process_part,
+            model_type=params.get("model_type", "unknown"),
+            general_setting=general_setting,
+            input_path_param=input_path_param,
+            preprocessing_info=preprocessing_info,
+            params=params,
+        )
         # Log experiment metadata
         save_experiment_description_as_text(experiment_desc)
         mlflow.log_param("train_size", len(X_train))
@@ -347,6 +449,7 @@ def train_model(
         # Initialize model
         use_experiment_config = bool(params.get("use_experiment_config", True))
         use_scalar = bool(params.get("use_scalar", True))
+        use_attention = bool(params.get("use_attention", True))
         config_dim = experiment_configurations_train.shape[1] if use_experiment_config else None
         model = create_model(
             features_in,
@@ -367,6 +470,10 @@ def train_model(
             tcn_kernel_size=params.get("tcn_kernel_size", 3),
             mamba_layers=params.get("mamba_layers"),
             mamba_d_state=params.get("mamba_d_state"),
+            use_attention=use_attention,
+            use_feature_attention=bool(params.get("use_feature_attention", False)),
+            use_angle_embedding=bool(params.get("use_angle_embedding", False)),
+            angle_embedding_dim=int(params.get("angle_embedding_dim", 8)),
         )
         
         # Log model architecture parameters
@@ -374,7 +481,7 @@ def train_model(
         
         # Optimizer and scheduler
         optimizer = optim.AdamW(model.parameters(), lr=params["lr"], weight_decay=params["weight_decay"])
-        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=7, factor=0.5, threshold=1e-4)
+        scheduler = ReduceLROnPlateau(optimizer, mode="min", patience=4, factor=0.5, threshold=1e-4)
         # Loss function
         criterion = nn.MSELoss()
 
@@ -424,6 +531,7 @@ def train_model(
         
         # Training loop
         fpbar = tqdm(range(1, params["max_epochs"] + 1), desc="Training")
+        last_epoch = None
         for epoch in fpbar:
             epoch_start = time.time()
 
@@ -521,41 +629,7 @@ def train_model(
             if new_state is not None:
                 best_state = new_state
                 
-            # Periodic plotting
-            if epoch % 2 == 0 or epoch == 1:
-                generate_epoch_plots(
-                    model=model,
-                    plot_X=plot_X, 
-                    plot_Y=plot_Y, 
-                    springback=springback,
-                    experiment_config=experiment_config,
-                    X_train= X_train, 
-                    sensor_names=sensor_names,
-                    target_feature_names=target_feature_names, 
-                    val_losses=val_losses, 
-                    process_part=process_part,
-                    train_losses=train_losses, 
-                    epoch=epoch,
-                    y_lim=y_lim, 
-                    predictions_out=predictions_out, 
-                    train_loss=train_loss, 
-                    val_loss=val_loss,
-                    best_val_loss= best_val_loss, 
-                    predictions_dir=predictions_dir,
-                    attention_csv_dir=attention_csv_dir,
-                    attention_dir=attention_dir,
-                    loss_dir=loss_dir,
-                    diff_hist_dir=diff_hist_dir,
-                    diff_bar_dir=diff_bar_dir,
-                    val_pred_dir=val_pred_dir,
-                    val_diff_bar_dir=val_diff_bar_dir,
-                    annot_timesteps=annot_timesteps, 
-                    mandrel_extraction_annot_timesteps= mandrel_extraction_annot_timesteps,
-                    n_samples = n_samples,
-                    val_targets=val_targets_denorm,
-                    val_preds=val_preds_denorm,
-                    target_scaler=target_scaler,
-                )
+            last_epoch = epoch
             
             progress_info = format_progress_bar(
                 train_loss, val_loss, metrics, best_val_loss, current_lr, patience
@@ -566,11 +640,36 @@ def train_model(
             
             
             # Early stopping condition
-            if patience >= 20:
+            if patience >= 15:
                 mlflow.log_param("stopped_at_epoch", epoch)
                 break
         
         
+        if last_epoch is not None:
+            generate_epoch_plots(
+                model=model,
+                plot_X=plot_X,
+                plot_Y=plot_Y,
+                springback=springback,
+                experiment_config=experiment_config,
+                X_train=X_train,
+                sensor_names=sensor_names,
+                target_feature_names=target_feature_names,
+                val_losses=val_losses,
+                process_part=process_part,
+                train_losses=train_losses,
+                epoch=last_epoch,
+                y_lim=y_lim,
+                predictions_out=predictions_out,
+                predictions_dir=predictions_dir,
+                attention_csv_dir=attention_csv_dir,
+                attention_dir=attention_dir,
+                annot_timesteps=annot_timesteps,
+                mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+                n_samples=n_samples,
+                target_scaler=target_scaler,
+            )
+
         # Load best-performing model
         if best_state is not None:
             model.load_state_dict(best_state)
@@ -581,6 +680,36 @@ def train_model(
         all_targets = _maybe_denormalize_targets(all_targets, target_scaler)
         all_preds = _maybe_denormalize_targets(all_preds, target_scaler)
         log_final_metrics(all_targets, all_preds, val_losses, epoch_times)
+
+        if hasattr(model, "tcn"):
+            if plot_train_X is not None:
+                tcn_train = _capture_tcn_activations(
+                    model,
+                    plot_train_X,
+                    plot_train_springback,
+                    plot_train_config,
+                )
+                if tcn_train is not None:
+                    plot_tcn_feature_maps(
+                        tcn_train,
+                        tcn_all_dir / "tcn_train_all_channels.png",
+                        title="TCN Activations (Train) – All Channels",
+                        channels=None,
+                    )
+
+            tcn_val = _capture_tcn_activations(
+                model,
+                plot_X,
+                springback,
+                experiment_config,
+            )
+            if tcn_val is not None:
+                plot_tcn_feature_maps(
+                    tcn_val,
+                    tcn_all_dir / "tcn_val_all_channels.png",
+                    title="TCN Activations (Val) – All Channels",
+                    channels=None,
+                )
         
         
         # Persist trained model
@@ -589,17 +718,30 @@ def train_model(
         
         
         # Generate final metrics plots
-        plot_all_metrics(metrics_history, train_losses, val_losses,
-                        learning_rates, epoch_times, training_metric_results_dir)
+        split_config_path = preprocessing_info.get(
+            "split_config_path",
+            "config/data-split-config/train_test_split.json",
+        )
+        plot_all_metrics(
+            metrics_history,
+            train_losses,
+            val_losses,
+            learning_rates,
+            epoch_times,
+            training_metric_results_dir,
+            split_config_path=split_config_path,
+        )
         
         
         # Feature importance and interpretability
-        combined_importance_df, _, importance_paths = analyze_feature_importance(
-        model=model,
-        val_loader=val_loader,
-        feature_names=sensor_names,
-        saving_dir=feature_importance_dir
-    )
+        combined_importance_df = None
+        if use_attention:
+            combined_importance_df, _, _ = analyze_feature_importance(
+                model=model,
+                val_loader=val_loader,
+                feature_names=sensor_names,
+                saving_dir=feature_importance_dir,
+            )
         
         if combined_importance_df is not None:
             X_sample = plot_X[:1]
@@ -638,19 +780,20 @@ def train_model(
             )
 
         
-        # Final attention visualization
-        generate_final_attention_plot(
-            model,
-            plot_X,
-            springback,
-            experiment_config,
-            X_test,
-            sensor_names,
-            process_part,
-            attention_lines_dir,
-            annot_timesteps,
-            mandrel_extraction_annot_timesteps,
-        )
+        if use_attention:
+            generate_final_attention_plot(
+                model=model,
+                plot_X=plot_X,
+                springback=springback,
+                experiment_config=experiment_config,
+                X_val=X_test,
+                sensor_names=sensor_names,
+                machine_part=process_part,
+                attention_lines_dir=attention_lines_dir,
+                annot_timesteps=annot_timesteps,
+                mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+                target_feature_names=target_feature_names,
+            )
         
         
         # Window-based occlusion importance (all angles)

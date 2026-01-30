@@ -40,51 +40,48 @@ def main():
     # ============================================================
     # Read and preprocess data
     # ============================================================
-    try:
-        (
-            X_train,
-            Y_train,
-            X_test,
-            Y_test,
-            springbacks_train,
-            springbacks_test,
-            experiment_configurations_train,
-            experiment_configurations_test,
-            sensor_names,
-            target_feature_names,
-            annot_timesteps,
-            mandrel_extraction_annot_timesteps,
-            normalization_info,
-        ) = prepare_data(
-            input_path_param=input_path_param,
-            preprocessing_param=preprocessing_param,
-        )
+    (
+        X_train,
+        Y_train,
+        X_test,
+        Y_test,
+        springbacks_train,
+        springbacks_test,
+        experiment_configurations_train,
+        experiment_configurations_test,
+        sensor_names,
+        target_feature_names,
+        annot_timesteps,
+        mandrel_extraction_annot_timesteps,
+        normalization_info,
+    ) = prepare_data(
+        input_path_param=input_path_param,
+        preprocessing_param=preprocessing_param,
+    )
 
-        train_model(
-            X_train=X_train,
-            Y_train=Y_train,
-            X_test=X_test,
-            Y_test=Y_test,
-            springbacks_train=springbacks_train,
-            springbacks_test=springbacks_test,
-            experiment_configurations_train=experiment_configurations_train,
-            experiment_configurations_test=experiment_configurations_test,
-            params=training_params,
-            occlusion_params=occlusion_params,
-            sensor_names=sensor_names,
-            target_feature_names=target_feature_names,
-            process_part=process_part,
-            preprocessing_info=preprocessing_info,
-            annot_timesteps=annot_timesteps,
-            mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
-            target_scaler=(
-                normalization_info.get("target_scaler") if normalization_info else None
-            ),
-        )
-
-    except Exception as e:
-        logger.error(f"Data preparation failed: {e}")
-        return
+    train_model(
+        X_train=X_train,
+        Y_train=Y_train,
+        X_test=X_test,
+        Y_test=Y_test,
+        springbacks_train=springbacks_train,
+        springbacks_test=springbacks_test,
+        experiment_configurations_train=experiment_configurations_train,
+        experiment_configurations_test=experiment_configurations_test,
+        params=training_params,
+        occlusion_params=occlusion_params,
+        sensor_names=sensor_names,
+        target_feature_names=target_feature_names,
+        process_part=process_part,
+        preprocessing_info=preprocessing_info,
+        annot_timesteps=annot_timesteps,
+        mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+        target_scaler=(
+            normalization_info.get("target_scaler") if normalization_info else None
+        ),
+        input_path_param=input_path_param,
+        general_setting=config.get("generalSetting"),
+    )
 
 
 if __name__ == "__main__":

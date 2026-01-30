@@ -275,13 +275,9 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     if not process_part or not annotation_json_path or not database_path:
         raise ValueError("Required input paths or machine part are missing.")
 
-    to_58_included = preprocessing_param.get("to_58_included", False)
     normalize = preprocessing_param.get("normalize", False)
     scaler_type = preprocessing_param.get("scaler", "minmax")
     preprocessor = LSTMPreprocessor(database_path, process_part, annotation_json_path)
-
-    if process_part == "De-Clamping":
-        to_58_included = True
 
     sensors_df, target_df = preprocessor.read_data(process_part)
 
@@ -293,16 +289,30 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         "PRESSURE-DIE_LATERAL_Movement_[mm]",
         "MACHINE_PRESSURE-DIE_AXIAL_Max_Torque_[%]",
         "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
+        #"MACHINE_BEND_DIE_LATERAL_Max_Torque_[%]",
+        #"MACHINE_BEND_DIE_ROTATING_Max_Torque_[%]",
+        #"MACHINE_BEND_DIE_VERTICAL_Max_Torque_[%]",
+        #"MACHINE_CLAMP_DIE_LATERAL_Max_Torque_[%]",
+        #"MACHINE_COLLET_AXIAL_Max_Torque_[%]",
+        #"MACHINE_MANDREL_AXIAL_Max_Torque_[%]",
+        #"MACHINE_PRESSURE_DIE_LATERAL_Max_Torque_[%]",
+        #"BEND-DIE_LATERAL_Movement_[mm]",
+        #"BEND-DIE_ROTATING_Angle_[°]",
+        #"CLAMP-DIE_LATERAL_Movement_[mm]",
+        #"COLLET_AXIAL_Movement_[mm]",
+        #"MANDREL_AXIAL_Movement_[mm]",
+        #"PRESSURE-DIE_AXIAL_Movement_[mm]",
         
     ]
-    sensors_df.drop(columns=eliminated_columns, inplace=True)
 
+    sensors_df.drop(columns=eliminated_columns, inplace=True)
+  
     # Resample and normalize target and sensor data
     target_df = target_df.reset_index(drop=True)
     crosscuts_list, spring_backs_list = [], []
     for exp_id, g in target_df.groupby("Experiment_ID"):
         g_clean = g.drop(columns=["Experiment_ID"])
-        crosscuts = g_clean.iloc[0:45,:].copy()
+        crosscuts = g_clean.iloc[:45,:].copy()
         spring_back = g_clean.iloc[-1:,].copy()
         spring_back['Angle[degree]ORDistance[mm]'] = 46.0 - spring_back['Angle[degree]ORDistance[mm]']
         
@@ -314,7 +324,8 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     spring_backs_df = pd.concat(spring_backs_list, ignore_index=True)
 
     sensors_df = sensors_df.reset_index()
-    do_resample = preprocessing_param.get("resample", True)
+    
+    do_resample = preprocessing_param.get("resample", False)
     if do_resample:
         resampled_sensors = []
         for exp_id, g in sensors_df.groupby("Experiment_ID", sort=False):
@@ -328,6 +339,7 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
 
         sensors_df = pd.concat(resampled_sensors, ignore_index=True)
     else:
+    
         # Keep raw sequence ordering when resampling is disabled.
         if "Time_[s]" in sensors_df.columns:
             sensors_df = sensors_df.sort_values(["Experiment_ID", "Time_[s]"])
@@ -336,10 +348,10 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
 
     sensors_df = sensors_df.drop(columns=["Time_[s]"], errors="ignore")
     # Select target features
-    columns = list(target_df.columns[1:])
+    columns = target_df.columns.tolist()
     feature_idx_start, feature_idx_end = preprocessing_param.get("feature_indices")
 
-    target_feature_names = columns[feature_idx_start - 1: feature_idx_end - 1]
+    target_feature_names = columns[feature_idx_start: feature_idx_end]
     springback_feature_names = columns[:1]
     '''
     if to_58_included:
@@ -372,8 +384,12 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     # --------------------------------------------------
     # Train / Validation Split
     # --------------------------------------------------
-    # Read groups from your existing JSON
-    with open("config/data-split-config/train_test_split.json", "r") as f:
+    # Read groups from the configured JSON (fallback to legacy default)
+    split_config_path = preprocessing_param.get(
+        "split_config_path",
+        "config/data-split-config/train_test_split.json",
+    )
+    with open(split_config_path, "r") as f:
         experiment_groups = json.load(f)
 
     if experiment_groups is None:
@@ -391,33 +407,6 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
     test_targets = target_df[target_df["Experiment_ID"].isin(test_groups)]
     train_sensors = sensors_df[sensors_df["Experiment_ID"].isin(train_groups)]
     testsensors = sensors_df[sensors_df["Experiment_ID"].isin(test_groups)]
-
-    normalization_info = {
-        "enabled": normalize,
-        "scaler_type": scaler_type,
-        "sensor_scaler": None,
-        "target_scaler": None,
-        "springback_scaler": None,
-        "config_scaler": None,
-    }
-
-    if normalize:
-        sensor_cols = [c for c in train_sensors.columns if c != "Experiment_ID"]
-        train_sensors, sensor_scaler = _fit_scaler(train_sensors, sensor_cols, scaler_type)
-        testsensors = _apply_scaler(testsensors, sensor_cols, sensor_scaler)
-        normalization_info["sensor_scaler"] = sensor_scaler
-
-        train_targets, target_scaler = _fit_scaler(train_targets, target_feature_names, scaler_type)
-        test_targets = _apply_scaler(test_targets, target_feature_names, target_scaler)
-        normalization_info["target_scaler"] = target_scaler
-
-        train_springbacks, springback_scaler = _fit_scaler(
-            train_springbacks, springback_feature_names, scaler_type
-        )
-        test_springbacks = _apply_scaler(
-            test_springbacks, springback_feature_names, springback_scaler
-        )
-        normalization_info["springback_scaler"] = springback_scaler
 
     # --------------------------------------------------
     # Experiment configuration alignment + normalization

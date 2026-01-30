@@ -330,12 +330,27 @@ def split_random_groups(
 def split_based_on_column_value(
     groups: Sequence[Sequence[int]],
     df_expanded: pd.DataFrame,
-    column: str = COLLET_COL,
-    value=0.25,
+    gp: int,
 ) -> SplitResult:
     """
     Any group that contains an Experiment_ID meeting condition goes to test.
     """
+    group_rules = {
+        1: (COLLET_COL, 0.85),
+        2: (COLLET_COL, 0.87),
+        3: (COLLET_COL, 0.90),
+        4: (COLLET_COL, 0.92),
+        5: (COLLET_COL, 0.95),
+        6: (TIMING_COL, 0.0),
+        7: (TIMING_COL, 2.0),
+        8: (TIMING_COL, 5.0),
+        9: (TIMING_COL, 10.0),
+    }
+
+    if gp not in group_rules:
+        raise ValueError(f"Unknown gp={gp}. Expected 1..9.")
+
+    column, value = group_rules[gp]
     _ensure_required_columns(df_expanded, ["Experiment_ID", column])
 
     test_ids: Set[int] = set(
@@ -427,15 +442,17 @@ def split_80_20_per_cell(
 
 def run_and_save(
     strategy: str = "each_setup",
+    gp: int = 1,
     save_dir: Path = SAVE_DIR,
 ) -> None:
     """
     strategy:
       - 'each_setup'      -> 80/20 per DOE cell (collet × timing)
       - 'randomly'        -> random whole groups to ~15% samples
-      - 'based_on_column' -> groups to test if any exp has collet boost == 0.25
+      - 'based_on_column' -> groups to test by collet boost (gp 1-5) or timing (gp 6-9)
     """
-    df_expanded, mappings = load_and_prepare_setup_df(INPUT_CSV, normalize=True)
+    normalize = strategy != "based_on_column"
+    df_expanded, mappings = load_and_prepare_setup_df(INPUT_CSV, normalize=normalize)
 
     # Always save expanded setups (useful for debugging)
     save_csv(df_expanded, save_dir / "experiment_setups.csv")
@@ -443,8 +460,11 @@ def run_and_save(
     if mappings:
         save_json(mappings, save_dir / "normalization_mappings.json")
 
-    out_name = "train_test_split.json"
-    if strategy == "each_setup":
+    if strategy == "based_on_column":
+        out_name = f"train_test_split_{strategy}_gp{gp}.json"
+    else:
+        out_name = f"train_test_split_{strategy}.json"
+    if strategy == "each_setup_80":
         split = split_80_20_per_cell(
             GROUPS, df_expanded, test_ratio=0.20, seed=RANDOM_SEED
         )
@@ -454,7 +474,7 @@ def run_and_save(
 
     elif strategy == "based_on_column":
         split = split_based_on_column_value(
-            GROUPS, df_expanded, column=COLLET_COL, value=0.25
+            GROUPS, df_expanded, gp
         )
 
     else:
@@ -477,7 +497,79 @@ def run_and_save(
 
 
 if __name__ == "__main__":
-    # Choose one:
-    run_and_save(strategy="each_setup")
-    # run_and_save(strategy="randomly")
-    # run_and_save(strategy="based_on_column")
+    # Run all strategies (based_on_column runs gp=1..9)
+    run_and_save(strategy="each_setup_80")
+    run_and_save(strategy="randomly")
+    for gp in range(1, 10):
+        run_and_save(strategy="based_on_column", gp=gp)
+
+
+
+'''
+
+------------------Collet boost-------------------------
+
+    Mandrel retraction timing  Collet boost
+
+Group 1:    
+                    0.0          0.85
+                    2.0          0.85
+                    5.0          0.85
+                    10.0         0.85
+
+
+Group 2:  
+                    0.0          0.87
+                    5.0          0.87
+                    10.0         0.87
+
+
+Group 3:  
+                    0.0          0.90
+                    2.0          0.90
+                    5.0          0.90
+                    10.0         0.90
+
+
+Group 4:  
+                    0.0          0.92
+                    5.0          0.92
+                    10.0         0.92
+
+
+Group 5:  
+                    0.0          0.95
+                    2.0          0.95
+                    5.0          0.95
+                    10.0         0.95
+
+------------------Manderl timing-------------------------
+
+Group 6:      
+                    0.0          0.00
+                    0.0          0.25
+                    0.0          0.50
+                    0.0          0.75
+                    0.0          1.00
+
+
+Group 7:  
+                    2.0          0.00
+                    2.0          0.50
+                    2.0          1.00
+
+
+Group 8:  
+                    5.0          0.00
+                    5.0          0.25
+                    5.0          0.50
+                    5.0          0.75
+                    5.0          1.00
+
+Group 9:  
+                    10.0         0.00
+                    10.0         0.25
+                    10.0         0.50
+                    10.0         0.75
+                    10.0         1.00
+'''

@@ -28,6 +28,7 @@ def generate_final_attention_plot(
     attention_lines_dir: Path,
     annot_timesteps: list,
     mandrel_extraction_annot_timesteps: list,
+    target_feature_names: list | None = None,
 ) -> None:
     """Generate final attention visualization."""
     """
@@ -45,6 +46,8 @@ def generate_final_attention_plot(
     with torch.no_grad():
         model.eval()
         _, final_attn = model(plot_X, springback, experiment_config)
+        if final_attn is None:
+            return
         final_attn_mean = final_attn.mean(0).cpu().numpy()
 
     
@@ -56,6 +59,23 @@ def generate_final_attention_plot(
     rcParams["font.size"] = 10
 
     cleaned_feature_names = [name.replace("_mean", "") for name in sensor_names]
+
+    if attn_mean.ndim == 3:
+        for feat_idx in range(attn_mean.shape[0]):
+            feat_dir = attention_lines_dir / f"feature_{feat_idx:02d}"
+            feat_dir.mkdir(parents=True, exist_ok=True)
+            plot_attention_lines_with_sensors(
+                sensor_data,
+                sensor_names,
+                attn_mean[feat_idx],
+                machine_part,
+                feat_dir,
+                annot_timesteps,
+                mandrel_extraction_annot_timesteps,
+                sample_idx=sample_idx,
+                figsize=figsize,
+            )
+        return
 
     sample_data = sensor_data[sample_idx, :, :]
     main_timesteps = sample_data.shape[0]
