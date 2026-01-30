@@ -17,7 +17,67 @@ import pandas as pd
 import random
 import torch.nn as nn
 
-from src.pipeline.ml.context_extractor.utils.plots.plot_attention import plot_selected_features_with_attn_heatmap
+from src.pipeline.ml.context_extractor.utils.plots.plot_attention import (
+    plot_selected_features_with_attn_heatmap,
+)
+
+
+def plot_tcn_feature_maps(
+    tcn_activations: torch.Tensor,
+    save_path: Path,
+    title: str,
+    channels: list[int] | None = None,
+    sample_index: int = 0,
+) -> None:
+    if tcn_activations is None:
+        return
+    if tcn_activations.dim() != 3:
+        return
+    tcn_np = tcn_activations.detach().cpu().numpy()
+    b, c, t = tcn_np.shape
+    if b == 0 or c == 0 or t == 0:
+        return
+
+    sample_index = max(0, min(sample_index, b - 1))
+    channel_indices = channels if channels is not None else list(range(c))
+    channel_indices = [idx for idx in channel_indices if 0 <= idx < c]
+    if not channel_indices:
+        return
+
+    n_channels = len(channel_indices)
+    ncols = min(4, n_channels)
+    nrows = int(np.ceil(n_channels / ncols))
+
+    fig, axes = plt.subplots(
+        nrows=nrows,
+        ncols=ncols,
+        figsize=(4.5 * ncols, 2.8 * nrows),
+        squeeze=False,
+    )
+
+    x_axis = np.arange(t)
+    for i, ch in enumerate(channel_indices):
+        row = i // ncols
+        col = i % ncols
+        ax = axes[row][col]
+        ax.plot(x_axis, tcn_np[sample_index, ch, :], lw=1.6, color="#1f77b4")
+        ax.set_title(f"Channel {ch}", fontsize=10, weight="bold")
+        ax.grid(alpha=0.3, linestyle=":")
+        if row == nrows - 1:
+            ax.set_xlabel("Time", fontsize=9)
+        if col == 0:
+            ax.set_ylabel("Activation", fontsize=9)
+
+    for idx in range(n_channels, nrows * ncols):
+        row = idx // ncols
+        col = idx % ncols
+        axes[row][col].axis("off")
+
+    fig.suptitle(title, fontsize=14, weight="bold")
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(save_path, dpi=160, bbox_inches="tight")
+    plt.close(fig)
 
 def save_validation_scatter(
     val_targets: torch.Tensor,
@@ -86,22 +146,12 @@ def generate_epoch_plots(
     epoch: int,
     y_lim,
     predictions_out: int,
-    train_loss: float,
-    val_loss: float,
-    best_val_loss: float,
     predictions_dir: Path,
     attention_csv_dir: Path,
     attention_dir: Path,
-    loss_dir: Path,
-    diff_hist_dir: Path,
-    diff_bar_dir: Path,
-    val_pred_dir: Path,
-    val_diff_bar_dir: Path,
     annot_timesteps: list,
     mandrel_extraction_annot_timesteps: list,
     n_samples: int = 4,
-    val_targets: torch.Tensor | None = None,
-    val_preds: torch.Tensor | None = None,
     target_scaler=None,
 ) -> None:
     """Save each subplot as a separate image in organized folders
@@ -131,7 +181,7 @@ def generate_epoch_plots(
         pred, attn = model(plot_X, springback, experiment_config)
         pred_np = pred.cpu().numpy()
         true_np = plot_Y.cpu().numpy()
-        attn_mean = attn.mean(0).cpu().numpy()
+        attn_mean = attn.mean(0).cpu().numpy() if attn is not None else None
 
     if target_scaler is not None:
         flat_pred = pred_np.reshape(-1, pred_np.shape[-1])
@@ -221,59 +271,48 @@ def generate_epoch_plots(
     pred_path = predictions_dir / f"predictions_epoch_{epoch:04d}.png"
     fig_pred.savefig(pred_path, dpi=180, bbox_inches="tight")
     plt.close(fig_pred)
-
-    fig_loss = plt.figure(figsize=(10, 7))
-    ax_loss = fig_loss.add_subplot(111)
-
-    epochs_list, val_losses, train_losses = loss_data
-
-    ax_loss.plot(
-        epochs_list,
-        train_losses,
-        color="#1f77b4",
-        lw=3,
-        alpha=0.7,
-        label="Train MSE",
-    )
-    ax_loss.plot(epochs_list, val_losses, color="#d62728", lw=3, label="Val MSE")
-    ax_loss.plot(
-        epochs_list,
-        [best_val_loss] * len(epochs_list),
-        color="green",
-        lw=2.5,
-        ls="--",
-        label="Best Val MSE",
-    )
-
-    ax_loss.set_xlabel("Epoch", fontsize=12)
-    ax_loss.set_ylabel("MSE", fontsize=12)
-    ax_loss.set_title(
-        f"Training Progress - Epoch {epoch}\nTrain: {train_loss:.6f} | Val: {val_loss:.6f} | Best: {best_val_loss:.6f}",
-        fontweight="bold",
-        fontsize=14,
-    )
-    ax_loss.grid(alpha=0.3)
-    ax_loss.legend(fontsize=10)
-    plt.tight_layout()
-
-    loss_path = loss_dir / f"loss_epoch_{epoch:04d}.png"
-    fig_loss.savefig(loss_path, dpi=150, bbox_inches="tight")
-    plt.close(fig_loss)
-
     
-    attn_mean = attn_data
-    attn_path = attention_dir / f"attention_epoch_{epoch:04d}.png"
-    plot_selected_features_with_attn_heatmap(
-        process_part, sensor_data, feature_names, attn_mean, attn_path, annot_timesteps, mandrel_extraction_annot_timesteps
-    )
-    attn_df = pd.DataFrame(
-        attn_mean,
-        index=[f"Pred_{i}" for i in range(attn_mean.shape[0])],
-        columns=[f"Time_{i}" for i in range(attn_mean.shape[1])],
-    )
+    if attn_data is not None:
+        if attn_data.ndim == 3:
+            for feat_idx in range(attn_data.shape[0]):
+                attn_mean = attn_data[feat_idx]
+                attn_path = attention_dir / f"attention_epoch_{epoch:04d}_feat_{feat_idx:02d}.png"
+                plot_selected_features_with_attn_heatmap(
+                    process_part,
+                    sensor_data,
+                    feature_names,
+                    attn_mean,
+                    attn_path,
+                    annot_timesteps,
+                    mandrel_extraction_annot_timesteps,
+                )
+                attn_df = pd.DataFrame(
+                    attn_mean,
+                    index=[f"Pred_{i}" for i in range(attn_mean.shape[0])],
+                    columns=[f"Time_{i}" for i in range(attn_mean.shape[1])],
+                )
+                csv_path = attention_csv_dir / f"attention_epoch_{epoch:04d}_feat_{feat_idx:02d}.csv"
+                attn_df.to_csv(csv_path, float_format="%.6f")
 
-    csv_path = attention_csv_dir / f"attention_epoch_{epoch:04d}.csv"
-    attn_df.to_csv(csv_path, float_format="%.6f")
+        else:
+            attn_mean = attn_data
+            attn_path = attention_dir / f"attention_epoch_{epoch:04d}.png"
+            plot_selected_features_with_attn_heatmap(
+                process_part,
+                sensor_data,
+                feature_names,
+                attn_mean,
+                attn_path,
+                annot_timesteps,
+                mandrel_extraction_annot_timesteps,
+            )
+            attn_df = pd.DataFrame(
+                attn_mean,
+                index=[f"Pred_{i}" for i in range(attn_mean.shape[0])],
+                columns=[f"Time_{i}" for i in range(attn_mean.shape[1])],
+            )
+            csv_path = attention_csv_dir / f"attention_epoch_{epoch:04d}.csv"
+            attn_df.to_csv(csv_path, float_format="%.6f")
 
 
 '''

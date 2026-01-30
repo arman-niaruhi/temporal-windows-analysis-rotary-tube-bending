@@ -15,8 +15,10 @@ logger = logging.getLogger(__name__)
 # MLflow experiment setup
 # ============================================================
 def setup_mlflow_experiment(process_part: str, params: dict,
-                            preprocessing_info: dict, X: torch.Tensor, 
-                            Y: torch.Tensor, target_feature_names: list[str]) -> tuple:
+                            preprocessing_info: dict, X: torch.Tensor,
+                            Y: torch.Tensor, target_feature_names: list[str],
+                            input_path_param: dict | None = None,
+                            general_setting: dict | None = None) -> tuple:
     """
     Initialize MLflow experiment and generate experiment description.
 
@@ -42,9 +44,20 @@ def setup_mlflow_experiment(process_part: str, params: dict,
     N_EXPERIMENTS, TIMESTEPS_IN, FEATURES_IN = X.shape
     N_EXPERIMENTS, N_CROSSCUT, FEATURES_OUT = Y.shape
     
+    split_config_path = preprocessing_info.get(
+        "split_config_path",
+        "config/data-split-config/train_test_split.json",
+    )
+    model_type = params.get("model_type", "unknown")
     # Detailed experiment description for reproducibility/logging
     experiment_description = f"""
-    {process_part} PART - LSTM Attention Model
+    SPLIT CONFIG: {split_config_path}
+    PART: {process_part}
+    MODEL TYPE: {model_type}
+    ================== GENERAL SETTINGS ==================
+    {general_setting}
+    ==================== INPUT PATHS =====================
+    {input_path_param}
     ============== PREPROCESSING INFO ====================
     {preprocessing_info}
     ==================== MODEL INFO ======================
@@ -58,6 +71,40 @@ def setup_mlflow_experiment(process_part: str, params: dict,
     {params}
     """
     return experiment_description, FEATURES_IN, N_CROSSCUT, FEATURES_OUT
+
+
+def _flatten_dict(data: dict, prefix: str) -> dict:
+    if data is None:
+        return {}
+    flat = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            flat.update(_flatten_dict(value, f"{prefix}{key}."))
+        else:
+            flat[f"{prefix}{key}"] = value
+    return flat
+
+
+def log_experiment_metadata_to_mlflow(
+    *,
+    split_config_path: str | None,
+    process_part: str,
+    model_type: str,
+    general_setting: dict | None,
+    input_path_param: dict | None,
+    preprocessing_info: dict,
+    params: dict,
+) -> None:
+    flat = {}
+    if split_config_path:
+        flat["split_config_path"] = split_config_path
+    flat["process_part"] = process_part
+    flat["model_type"] = model_type
+    flat.update(_flatten_dict(general_setting, "general."))
+    flat.update(_flatten_dict(input_path_param, "input."))
+    flat.update(_flatten_dict(preprocessing_info, "preprocess."))
+    flat.update(_flatten_dict(params, "train."))
+    mlflow.log_params(flat)
 
 
 # ============================================================
