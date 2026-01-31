@@ -4,7 +4,7 @@
     },
     "inputPathParams": {
         "database_path": "data/processed/tube_geometry.db",
-        "process_part": "Bending",
+        "process_part": "All",
         "annotation_json_path": "data/ml/machine-and-movement_complete.json"
     },
     "preprocessingParams": {
@@ -33,10 +33,10 @@
     },
     "trainingParams": {
         "train": true,
-        "model_type": "lstm",
+        "model_type": "tcn_lstm",
         "hidden_dim": 32,
         "lstm_layers": 1,
-        "dropout": 0.1,
+        "dropout": 0.2,
         "lr": 2e-4,
         "weight_decay": 1e-4,
         "batch_size": 16,
