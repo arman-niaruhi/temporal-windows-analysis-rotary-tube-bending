@@ -14,72 +14,45 @@ References:
 import torch
 import torch.nn as nn
 
-
 class MLPAttention(nn.Module):
-    """
-    Implements a multi-layer perceptron (MLP) attention mechanism.
-    
-    Each prediction timestep has its own learnable embedding (angle embedding),
-    which allows the model to focus on different parts of the input sequence
-    for each prediction.
-    """
     def __init__(self, n_predictions: int, hidden_dim: int = 128):
-        """
-        Initialize MLPAttention.
-
-        Args:
-            n_predictions: Number of prediction timesteps
-            hidden_dim: Hidden dimensionality of input features
-        """
         super().__init__()
         self.n_predictions = n_predictions
-
-        # Learnable embeddings for each prediction step
         self.angle_embeddings = nn.Parameter(torch.randn(n_predictions, hidden_dim))
-
-        # Small MLP to compute attention scores
-        self.mlp = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.ReLU(),
-            nn.Linear(hidden_dim // 2, 1)  # Outputs scalar attention score per timestep
-        )
-
-        # Xavier initialization for angle embeddings
+        self.W_h = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.W_q = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.v = nn.Linear(hidden_dim, 1, bias=False)
         nn.init.xavier_uniform_(self.angle_embeddings)
 
     def forward(self, H: torch.Tensor, mask: torch.Tensor | None = None):
-        """
-        Forward pass for attention.
-
-        Args:
-            H: Input tensor of shape (batch_size, sequence_length, hidden_dim)
-            mask: Optional bool mask (batch_size, sequence_length), True=valid
-
-        Returns:
-            contexts: Context vectors of shape (batch_size, n_predictions, hidden_dim)
-            attns: Attention weights of shape (batch_size, n_predictions, sequence_length)
-        """
         B, T, D = H.shape
-        contexts, attns = [], []
 
-        # Compute attention for each prediction timestep
-        for a in range(self.n_predictions):
-            # Attention scores: MLP(H + angle_embedding)
-            scores = self.mlp(H + self.angle_embeddings[a]).squeeze(-1)
-            if mask is not None:
-                mask_bool = mask.to(dtype=torch.bool, device=scores.device)
-                scores = scores.masked_fill(~mask_bool, -1e9)
-            # Normalize scores to probabilities
-            w = torch.softmax(scores, dim=-1)
-            if mask is not None:
-                w = w * mask_bool
-            # Weighted sum of input features to obtain context vector
-            ctx = (w.unsqueeze(-1) * H).sum(1)
-            contexts.append(ctx)
-            attns.append(w)
+        H_proj = self.W_h(H)                       # (B,T,D)
+        Q_proj = self.W_q(self.angle_embeddings)    # (P,D)
 
-        # Stack contexts and attention weights across prediction timesteps
-        return torch.stack(contexts, dim=1), torch.stack(attns, dim=1)
+        scores = self.v(
+            torch.tanh(H_proj.unsqueeze(1) + Q_proj.unsqueeze(0).unsqueeze(2))
+        ).squeeze(-1)                               # (B,P,T)
+
+        mask_bool = None
+        if mask is not None:
+            mask_bool = mask.to(dtype=torch.bool, device=scores.device).unsqueeze(1)  # (B,1,T)
+            scores = scores.masked_fill(~mask_bool, float("-inf"))
+
+        w = torch.softmax(scores, dim=-1)           # (B,P,T)
+
+        # Robustness: if a row was all -inf (shouldn't happen if lengths>=1), softmax gives NaN.
+        # Replace NaNs with zeros.
+        w = torch.nan_to_num(w, nan=0.0)
+
+        if mask_bool is not None:
+            # Renormalize so weights sum to 1 over valid timesteps
+            w = w * mask_bool
+            denom = w.sum(dim=-1, keepdim=True).clamp(min=1e-8)
+            w = w / denom
+
+        ctx = (w.unsqueeze(-1) * H.unsqueeze(1)).sum(dim=2)  # (B,P,D)
+        return ctx, w
 
 
 
