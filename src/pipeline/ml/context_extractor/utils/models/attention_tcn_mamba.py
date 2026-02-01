@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from src.pipeline.ml.context_extractor.utils.models.attention_lstm import MLPAttention
+from src.pipeline.ml.context_extractor.utils.models.attention_lstm import build_attention
 from src.pipeline.ml.context_extractor.utils.models.attention_tcn import TemporalBlock
 from src.pipeline.ml.context_extractor.utils.models.attention_mamba import MambaEncoderCPU
 
@@ -28,6 +28,7 @@ class AttentionTCNMamba(nn.Module):
         secondary_head_hidden_sizes: list[int] | None = None,
         use_angle_embedding: bool = False,
         angle_embedding_dim: int = 8,
+        attention_type: str = "mlp",
     ):
         super().__init__()
         self.use_scalar = use_scalar
@@ -93,7 +94,7 @@ class AttentionTCNMamba(nn.Module):
         )
 
         self.ln = nn.LayerNorm(hidden_dim)
-        self.attention = MLPAttention(n_predictions, hidden_dim)
+        self.attention = build_attention(attention_type, n_predictions, hidden_dim)
 
         def _build_mlp_head(input_dim: int, hidden_sizes: list[int], output_dim: int) -> nn.Sequential:
             layers: list[nn.Module] = []

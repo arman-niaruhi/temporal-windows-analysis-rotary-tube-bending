@@ -15,6 +15,8 @@ import torch.nn as nn
 from mambapy.mamba import Mamba as MambaPy
 from mambapy.mamba import MambaConfig as MambaPyConfig
 
+from src.pipeline.ml.context_extractor.utils.models.attention_lstm import BahdanauAttention
+
 
 class MLPAttention(nn.Module):
     """
@@ -49,6 +51,14 @@ class MLPAttention(nn.Module):
             contexts.append(ctx)
             attns.append(w)
         return torch.stack(contexts, dim=1), torch.stack(attns, dim=1)    # (B,A,D), (B,A,T)
+
+def build_attention(attention_type: str, n_predictions: int, hidden_dim: int) -> nn.Module:
+    attn_type = (attention_type or "mlp").lower()
+    if attn_type in ("bahdanau", "bahdanau_mlp", "mlp_bahdanau", "additive"):
+        return BahdanauAttention(n_predictions, hidden_dim)
+    if attn_type in ("mlp", "mlp_attention"):
+        return MLPAttention(n_predictions, hidden_dim)
+    raise ValueError(f"Unknown attention_type: {attention_type}")
 
 
 class MambaEncoderCPU(nn.Module):
@@ -102,6 +112,7 @@ class AttentionMamba(nn.Module):
         use_config: bool = True,
         use_angle_embedding: bool = False,
         angle_embedding_dim: int = 8,
+        attention_type: str = "mlp",
     ):
         super().__init__()
 
@@ -155,7 +166,7 @@ class AttentionMamba(nn.Module):
 
         # Same normalization + attention as your original module
         self.ln = nn.LayerNorm(hidden_dim)
-        self.attention = MLPAttention(n_predictions, hidden_dim)
+        self.attention = build_attention(attention_type, n_predictions, hidden_dim)
 
         # Same style of prediction head
         self.fc = nn.Sequential(

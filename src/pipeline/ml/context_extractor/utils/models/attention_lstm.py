@@ -55,6 +55,74 @@ class MLPAttention(nn.Module):
         return ctx, w
 
 
+class BahdanauAttention(nn.Module):
+    """
+    Implements a multi-layer perceptron (MLP) attention mechanism.
+    
+    Each prediction timestep has its own learnable embedding (angle embedding),
+    which allows the model to focus on different parts of the input sequence
+    for each prediction.
+    """
+    def __init__(self, n_predictions: int, hidden_dim: int = 128):
+        super().__init__()
+        self.n_predictions = n_predictions
+
+        # Learnable embeddings for each prediction step
+        self.angle_embeddings = nn.Parameter(torch.randn(n_predictions, hidden_dim))
+
+        # Small MLP to compute attention scores
+        self.mlp = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.ReLU(),
+            nn.Linear(hidden_dim // 2, 1)  # Outputs scalar attention score per timestep
+        )
+
+        # Xavier initialization for angle embeddings
+        nn.init.xavier_uniform_(self.angle_embeddings)
+
+    def forward(self, H: torch.Tensor, mask: torch.Tensor | None = None):
+        """
+        Forward pass for attention.
+
+        Args:
+            H: Input tensor of shape (batch_size, sequence_length, hidden_dim)
+            mask: Optional bool mask (batch_size, sequence_length), True=valid
+
+        Returns:
+            contexts: Context vectors of shape (batch_size, n_predictions, hidden_dim)
+            attns: Attention weights of shape (batch_size, n_predictions, sequence_length)
+        """
+        B, T, D = H.shape
+        contexts, attns = [], []
+
+        # Compute attention for each prediction timestep
+        for a in range(self.n_predictions):
+            # Attention scores: MLP(H + angle_embedding)
+            scores = self.mlp(H + self.angle_embeddings[a]).squeeze(-1)
+            if mask is not None:
+                mask_bool = mask.to(dtype=torch.bool, device=scores.device)
+                scores = scores.masked_fill(~mask_bool, -1e9)
+            # Normalize scores to probabilities
+            w = torch.softmax(scores, dim=-1)
+            if mask is not None:
+                w = w * mask_bool
+            # Weighted sum of input features to obtain context vector
+            ctx = (w.unsqueeze(-1) * H).sum(1)
+            contexts.append(ctx)
+            attns.append(w)
+
+        # Stack contexts and attention weights across prediction timesteps
+        return torch.stack(contexts, dim=1), torch.stack(attns, dim=1)
+
+
+def build_attention(attention_type: str, n_predictions: int, hidden_dim: int) -> nn.Module:
+    attn_type = (attention_type or "mlp").lower()
+    if attn_type in ("bahdanau", "bahdanau_mlp", "mlp_bahdanau", "additive"):
+        return BahdanauAttention(n_predictions, hidden_dim)
+    if attn_type in ("mlp", "mlp_attention"):
+        return MLPAttention(n_predictions, hidden_dim)
+    raise ValueError(f"Unknown attention_type: {attention_type}")
+
 
 class AttentionLSTM(nn.Module):
     def __init__(
@@ -76,6 +144,7 @@ class AttentionLSTM(nn.Module):
         use_feature_attention: bool = False,
         use_angle_embedding: bool = False,
         angle_embedding_dim: int = 8,
+        attention_type: str = "mlp",
     ):
         super().__init__()
         print(use_scalar, use_config)
@@ -138,12 +207,12 @@ class AttentionLSTM(nn.Module):
         self.ln = nn.LayerNorm(hidden_dim)
         if self.use_feature_attention:
             self.feature_attentions = nn.ModuleList(
-                [MLPAttention(n_predictions, hidden_dim) for _ in range(output_features)]
+                [build_attention(attention_type, n_predictions, hidden_dim) for _ in range(output_features)]
             )
             self.attention = None
         else:
             self.feature_attentions = None
-            self.attention = MLPAttention(n_predictions, hidden_dim)
+            self.attention = build_attention(attention_type, n_predictions, hidden_dim)
 
         def _build_mlp_head(input_dim: int, hidden_sizes: list[int], output_dim: int) -> nn.Sequential:
             layers: list[nn.Module] = []
