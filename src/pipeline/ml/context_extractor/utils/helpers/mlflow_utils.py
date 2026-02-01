@@ -39,7 +39,7 @@ def setup_mlflow_experiment(process_part: str, params: dict,
     
     # Create experiment
     mlflow.set_experiment("LSTM_Attention-All")
-    mlflow.set_tracking_uri("mlruns")
+    mlflow.set_tracking_uri(str(Path("mlruns").resolve()))
     
     N_EXPERIMENTS, TIMESTEPS_IN, FEATURES_IN = X.shape
     N_EXPERIMENTS, N_CROSSCUT, FEATURES_OUT = Y.shape
@@ -83,6 +83,27 @@ def _flatten_dict(data: dict, prefix: str) -> dict:
         else:
             flat[f"{prefix}{key}"] = value
     return flat
+
+
+def log_scalar_metrics_from_config(config: dict, prefix: str = "config.") -> None:
+    """
+    Log scalar config values as MLflow metrics.
+    Only int/float/bool values are logged; lists and dicts are skipped.
+    """
+    def _collect_scalars(data: dict, key_prefix: str) -> dict:
+        metrics: dict[str, float] = {}
+        for key, value in data.items():
+            if isinstance(value, dict):
+                metrics.update(_collect_scalars(value, f"{key_prefix}{key}."))
+            elif isinstance(value, bool):
+                metrics[f"{key_prefix}{key}"] = float(value)
+            elif isinstance(value, (int, float)):
+                metrics[f"{key_prefix}{key}"] = float(value)
+        return metrics
+
+    metrics = _collect_scalars(config, prefix)
+    if metrics:
+        mlflow.log_metrics(metrics)
 
 
 def log_experiment_metadata_to_mlflow(

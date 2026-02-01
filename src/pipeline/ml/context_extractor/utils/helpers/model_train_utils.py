@@ -39,6 +39,7 @@ def create_model(
     use_feature_attention: bool = False,
     use_angle_embedding: bool = False,
     angle_embedding_dim: int = 8,
+    attention_type: str = "mlp",
 ) -> nn.Module:
     """
     Instantiate and initialize the Attention LSTM model.
@@ -80,6 +81,7 @@ def create_model(
             use_feature_attention=use_feature_attention,
             use_angle_embedding=use_angle_embedding,
             angle_embedding_dim=angle_embedding_dim,
+            attention_type=attention_type,
         ).to(device)
 
     if model_type_norm in ("tcn_mamba", "tcn-mamba", "tcn+mamba"):
@@ -103,6 +105,7 @@ def create_model(
             secondary_head_hidden_sizes=secondary_head_hidden_sizes,
             use_angle_embedding=use_angle_embedding,
             angle_embedding_dim=angle_embedding_dim,
+            attention_type=attention_type,
         ).to(device)
 
     if model_type_norm == "tcn":
@@ -124,6 +127,7 @@ def create_model(
             secondary_head_hidden_sizes=secondary_head_hidden_sizes,
             use_angle_embedding=use_angle_embedding,
             angle_embedding_dim=angle_embedding_dim,
+            attention_type=attention_type,
         ).to(device)
 
     if model_type_norm == "mamba":
@@ -142,6 +146,7 @@ def create_model(
             config_embedding_dim=config_embedding_dim,
             use_angle_embedding=use_angle_embedding,
             angle_embedding_dim=angle_embedding_dim,
+            attention_type=attention_type,
         ).to(device)
 
     if model_type_norm == "transformer":
@@ -171,6 +176,7 @@ def create_model(
         use_feature_attention=use_feature_attention,
         use_angle_embedding=use_angle_embedding,
         angle_embedding_dim=angle_embedding_dim,
+        attention_type=attention_type,
     ).to(device)
 
 def compute_derivative_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
