@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from src.pipeline.ml.context_extractor.utils.models.attention_lstm import MLPAttention
+from src.pipeline.ml.context_extractor.utils.models.attention_lstm import build_attention
 
 
 class TemporalBlock(nn.Module):
@@ -65,6 +65,7 @@ class AttentionTCN(nn.Module):
         split_output_heads: bool = False,
         main_head_hidden_sizes: list[int] | None = None,
         secondary_head_hidden_sizes: list[int] | None = None,
+        attention_type: str = "mlp",
     ):
         super().__init__()
         self.use_scalar = use_scalar
@@ -116,7 +117,7 @@ class AttentionTCN(nn.Module):
 
         self.tcn = nn.Sequential(*blocks)
         self.ln = nn.LayerNorm(hidden_dim)
-        self.attention = MLPAttention(n_predictions, hidden_dim)
+        self.attention = build_attention(attention_type, n_predictions, hidden_dim)
 
         def _build_mlp_head(input_dim: int, hidden_sizes: list[int], output_dim: int) -> nn.Sequential:
             layers: list[nn.Module] = []

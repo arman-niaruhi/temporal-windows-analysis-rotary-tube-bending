@@ -4,7 +4,7 @@
     },
     "inputPathParams": {
         "database_path": "data/processed/tube_geometry.db",
-        "process_part": "All",
+        "process_part": "Bending",
         "annotation_json_path": "data/ml/machine-and-movement_complete.json"
     },
     "preprocessingParams": {
@@ -44,12 +44,10 @@
         "tcn_layers":9,
         "tcn_kernel_size":3,
         "model_path": "models/context_extraction",
-        "use_experiment_config": false,
-        "use_feature_attention": true,
-        "config_embedding_dim": 16,
-        "use_scalar": false,
-        "scalar_embedding_dim": 32,
-        "use_angle_embedding": true,
+        "use_attention": true,
+        "use_feature_attention": false,
+        "attention_type": "bahdanau",
+        "use_angle_embedding": false,
         "angle_embedding_dim": 16,
         "split_output_heads": true,
         "timestep_sensitivity": false,
@@ -59,12 +57,13 @@
             32
         ],
         "secondary_head_hidden_sizes": [
+            128,
             64,
             32
         ],
         "feature_loss_weights": [
-            2.0,
-            0.5
+            1.0,
+            1.0
         ],
         "dynamic_feature_loss_weighting": true,
         "dynamic_feature_loss_warmup_epochs": 20,

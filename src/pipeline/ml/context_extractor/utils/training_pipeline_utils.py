@@ -8,6 +8,7 @@ from pathlib import Path
 import logging
 from typing import Any
 import numpy as np
+import json
 
 # ============================
 # Third-party ML utilities
@@ -55,7 +56,8 @@ from src.pipeline.ml.context_extractor.utils.helpers.mlflow_utils import (
     log_final_metrics,
     move_images_to_mlflow_artifacts,
     save_experiment_description_as_text,
-    update_best_model
+    update_best_model,
+    log_scalar_metrics_from_config
 )
 
 # ============================
@@ -107,6 +109,18 @@ from src.pipeline.ml.context_extractor.utils.helpers.metrics_utils import (
 
 # Initialize module-level logger
 logger = logging.getLogger(__name__)
+
+def _log_context_extraction_config_to_mlflow() -> None:
+    config_path = Path("config/context-extraction/context-extraction-config.json")
+    if config_path.exists():
+        try:
+            config_data = json.loads(config_path.read_text())
+        except json.JSONDecodeError:
+            logger.warning("Context extraction config is not valid JSON: %s", config_path)
+            return
+        mlflow.log_dict(config_data, "context-extraction-config.json")
+    else:
+        logger.warning("Context extraction config not found at %s", config_path)
 
 def _model_uses_attention(model: nn.Module) -> bool:
     return bool(getattr(model, "use_attention", True))
@@ -307,6 +321,7 @@ def train_model(
         logger.info(f"Resuming MLflow run_id={run_id}")
 
         with mlflow.start_run(run_id=run_id):
+            _log_context_extraction_config_to_mlflow()
             # Load previously trained model
             model = mlflow.pytorch.load_model(model_uri, map_location=device)
             use_attention = _model_uses_attention(model)
@@ -426,6 +441,7 @@ def train_model(
     if mlflow.active_run() is not None:
         mlflow.end_run()
     with mlflow.start_run(run_name=run_name):
+        _log_context_extraction_config_to_mlflow()
         mlflow.log_param("dataset_name", dataset_type)
         log_experiment_metadata_to_mlflow(
             split_config_path=split_config_path,
@@ -435,6 +451,14 @@ def train_model(
             input_path_param=input_path_param,
             preprocessing_info=preprocessing_info,
             params=params,
+        )
+        log_scalar_metrics_from_config(
+            {
+                "generalSetting": general_setting,
+                "inputPathParams": input_path_param,
+                "preprocessingParams": preprocessing_info,
+                "trainingParams": params,
+            }
         )
         # Log experiment metadata
         save_experiment_description_as_text(experiment_desc)
@@ -447,9 +471,9 @@ def train_model(
         n_samples = min(4, len(plot_Y))
         
         # Initialize model
-        use_experiment_config = bool(params.get("use_experiment_config", True))
-        use_scalar = bool(params.get("use_scalar", True))
-        use_attention = bool(params.get("use_attention", True))
+        use_experiment_config = bool(params.get("use_experiment_config", False))
+        use_scalar = bool(params.get("use_scalar", False))
+        use_attention = bool(params.get("use_attention", False))
         config_dim = experiment_configurations_train.shape[1] if use_experiment_config else None
         model = create_model(
             features_in,
@@ -474,6 +498,7 @@ def train_model(
             use_feature_attention=bool(params.get("use_feature_attention", False)),
             use_angle_embedding=bool(params.get("use_angle_embedding", False)),
             angle_embedding_dim=int(params.get("angle_embedding_dim", 8)),
+            attention_type=params.get("attention_type", "mlp"),
         )
         
         # Log model architecture parameters
