@@ -20,17 +20,39 @@ def plot_predictions_comparison(y_true, y_pred, model_name="Model", save_path=No
     """
     plt.figure(figsize=(14, 6))
     
-    # Plot true values
-    plt.plot(y_true, label="True", linewidth=2.5, alpha=0.9, color='black')
+    # Plot true values (points only)
+    plt.plot(
+        y_true,
+        label="True",
+        linestyle="None",
+        alpha=0.9,
+        color="black",
+        marker="o",
+        markersize=3,
+    )
     
     # Handle multiple predictions
     if isinstance(y_pred, dict):
         colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
         for idx, (name, pred) in enumerate(y_pred.items()):
-            plt.plot(pred, label=name, linewidth=2, linestyle="--", 
-                    alpha=0.8, color=colors[idx % len(colors)])
+            plt.plot(
+                pred,
+                label=name,
+                linestyle="None",
+                alpha=0.8,
+                color=colors[idx % len(colors)],
+                marker="s",
+                markersize=3,
+            )
     else:
-        plt.plot(y_pred, label=model_name, linewidth=2, linestyle="--", alpha=0.8)
+        plt.plot(
+            y_pred,
+            label=model_name,
+            linestyle="None",
+            alpha=0.8,
+            marker="s",
+            markersize=3,
+        )
     
     plt.title("Predicted vs True Springback Over Samples", fontsize=14, fontweight='bold')
     plt.xlabel("Sample Index", fontsize=12)

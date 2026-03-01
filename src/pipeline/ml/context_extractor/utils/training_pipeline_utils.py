@@ -392,6 +392,7 @@ def train_model(
                 )
 
             # Window-based occlusion importance analysis using the loaded model and plot them
+            '''
             all_importance_data = []
             for n_angle in range(46):
                 importance_df, mean_importance = \
@@ -403,7 +404,6 @@ def train_model(
                         stride=occlusion_params.get("occlusion_stride", 5),
                         device=device
                     )
-                
                 visualize_window_importance(
                 angle=n_angle,
                 feature_names=sensor_names,
@@ -420,6 +420,7 @@ def train_model(
 
             # Persist occlusion results for all angles
             save_window_importance_results(all_importance_data, window_importance_plots_dir)
+            '''
  
             move_images_to_mlflow_artifacts(base_dir)
 
@@ -759,6 +760,7 @@ def train_model(
         
         
         # Feature importance and interpretability
+        '''
         combined_importance_df = None
         if use_attention:
             combined_importance_df, _, _ = analyze_feature_importance(
@@ -786,6 +788,7 @@ def train_model(
             )
             
             log_feature_importance_to_mlflow(combined_importance_df)
+            '''
         
         if params.get("timestep_sensitivity", False):
             run_all_timestep_sensitivity(
@@ -820,7 +823,7 @@ def train_model(
                 target_feature_names=target_feature_names,
             )
         
-        
+        '''
         # Window-based occlusion importance (all angles)
         all_importance_data = []
         for n_angle in range(46):
@@ -847,7 +850,7 @@ def train_model(
             all_importance_data.append((n_angle, importance_df, mean_importance))
 
         save_window_importance_results(all_importance_data, window_importance_plots_dir)
- 
+        '''
  
         # Archive all generated figures
         move_images_to_mlflow_artifacts(base_dir)

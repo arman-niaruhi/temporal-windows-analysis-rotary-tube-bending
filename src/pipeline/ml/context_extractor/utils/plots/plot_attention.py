@@ -55,8 +55,8 @@ def generate_final_attention_plot(
     attn_mean=final_attn_mean
     sample_idx=-1
     figsize: tuple=(20, 10)
-    rcParams["font.family"] = "sans-serif"
-    rcParams["font.size"] = 10
+    rcParams["font.family"] = "arial"
+    rcParams["font.size"] = 12
 
     cleaned_feature_names = [name.replace("_mean", "") for name in sensor_names]
 
@@ -542,8 +542,8 @@ def plot_selected_features_with_attn_heatmap(
         sample_idx: Which sample to plot (default last sample)
         figsize: Figure size tuple
     """
-    rcParams["font.family"] = "sans-serif"
-    rcParams["font.size"] = 10
+    rcParams["font.family"] = "arial"
+    rcParams["font.size"] = 12
 
     cleaned_feature_names = [name.replace("_mean", "") for name in sensor_names]
 
