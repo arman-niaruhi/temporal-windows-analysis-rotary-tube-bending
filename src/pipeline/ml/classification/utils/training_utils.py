@@ -123,9 +123,17 @@ def _prepare_data(
     classifier_preprocessor = ClassifierPreprocessor(
         sensors_df=dataframes[process_part], annotation_json=annotation_json_path
     )
-
     sensors_df, _ = classifier_preprocessor.read_data()
     sensors_df = classifier_preprocessor.delete_columns(eliminated_columns)
+
+    # Exclude identifier column
+    cols_to_normalize = sensors_df.columns.drop('Experiment_ID')
+
+    sensors_df[cols_to_normalize] = (
+        sensors_df[cols_to_normalize] - sensors_df[cols_to_normalize].min()
+    ) / (
+        sensors_df[cols_to_normalize].max() - sensors_df[cols_to_normalize].min()
+    )
 
     if label == "All":
         sensors_df = classifier_preprocessor.assign_labels()
