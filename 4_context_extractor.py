@@ -40,48 +40,72 @@ def main():
     # ============================================================
     # Read and preprocess data
     # ============================================================
-    (
-        X_train,
-        Y_train,
-        X_test,
-        Y_test,
-        springbacks_train,
-        springbacks_test,
-        experiment_configurations_train,
-        experiment_configurations_test,
-        sensor_names,
-        target_feature_names,
-        annot_timesteps,
-        mandrel_extraction_annot_timesteps,
-        normalization_info,
-    ) = prepare_data(
-        input_path_param=input_path_param,
-        preprocessing_param=preprocessing_param,
-    )
+    configurations = [
+                    #["config/data-split-config/train_test_split_based_on_column_gp9.json", "mlp"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp9.json", "bahdanau"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp8.json", "mlp"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp8.json", "bahdanau"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp7.json", "mlp"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp7.json", "bahdanau"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp6.json", "mlp"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp6.json", "bahdanau"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp5.json", "mlp"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp5.json", "bahdanau"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp4.json", "mlp"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp4.json", "bahdanau"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp3.json", "mlp"],
+                    #["config/data-split-config/train_test_split_based_on_column_gp3.json", "bahdanau"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp3.json", "mlp"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp4.json", "mlp"]
+                    ]
+    
+    for configuration in configurations:
+        print(configuration)
+        preprocessing_param['split_config_path'] = configuration[0]
+        training_params['attention_type'] = configuration[1]
 
-    train_model(
-        X_train=X_train,
-        Y_train=Y_train,
-        X_test=X_test,
-        Y_test=Y_test,
-        springbacks_train=springbacks_train,
-        springbacks_test=springbacks_test,
-        experiment_configurations_train=experiment_configurations_train,
-        experiment_configurations_test=experiment_configurations_test,
-        params=training_params,
-        occlusion_params=occlusion_params,
-        sensor_names=sensor_names,
-        target_feature_names=target_feature_names,
-        process_part=process_part,
-        preprocessing_info=preprocessing_info,
-        annot_timesteps=annot_timesteps,
-        mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
-        target_scaler=(
-            normalization_info.get("target_scaler") if normalization_info else None
-        ),
-        input_path_param=input_path_param,
-        general_setting=config.get("generalSetting"),
-    )
+        (
+            X_train,
+            Y_train,
+            X_test,
+            Y_test,
+            springbacks_train,
+            springbacks_test,
+            experiment_configurations_train,
+            experiment_configurations_test,
+            sensor_names,
+            target_feature_names,
+            annot_timesteps,
+            mandrel_extraction_annot_timesteps,
+            normalization_info,
+        ) = prepare_data(
+            input_path_param=input_path_param,
+            preprocessing_param=preprocessing_param,
+        )
+
+        train_model(
+            X_train=X_train,
+            Y_train=Y_train,
+            X_test=X_test,
+            Y_test=Y_test,
+            springbacks_train=springbacks_train,
+            springbacks_test=springbacks_test,
+            experiment_configurations_train=experiment_configurations_train,
+            experiment_configurations_test=experiment_configurations_test,
+            params=training_params,
+            occlusion_params=occlusion_params,
+            sensor_names=sensor_names,
+            target_feature_names=target_feature_names,
+            process_part=process_part,
+            preprocessing_info=preprocessing_info,
+            annot_timesteps=annot_timesteps,
+            mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+            target_scaler=(
+                normalization_info.get("target_scaler") if normalization_info else None
+            ),
+            input_path_param=input_path_param,
+            general_setting=config.get("generalSetting"),
+        )
 
 
 if __name__ == "__main__":

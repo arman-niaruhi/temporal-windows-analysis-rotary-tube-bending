@@ -4,7 +4,7 @@
     },
     "inputPathParams": {
         "database_path": "data/processed/tube_geometry.db",
-        "process_part": "Bending",
+        "process_part": "All",
         "annotation_json_path": "data/ml/machine-and-movement_complete.json"
     },
     "preprocessingParams": {
@@ -15,7 +15,7 @@
         "agg_metric": "mean",
         "resample": false,
         "window_num": 400,
-        "split_config_path": "config/data-split-config/train_test_split_each_setup_80.json",
+        "split_config_path": "config/data-split-config/train_test_split_based_on_column_gp8.json",
         "feature_indices": [
             1,
             3
@@ -33,7 +33,7 @@
     },
     "trainingParams": {
         "train": true,
-        "model_type": "tcn_lstm",
+        "model_type": "lstm",
         "hidden_dim": 32,
         "lstm_layers": 1,
         "dropout": 0.2,
@@ -41,13 +41,13 @@
         "weight_decay": 1e-4,
         "batch_size": 16,
         "max_epochs": 1000,
-        "tcn_layers":9,
+        "tcn_layers":10,
         "tcn_kernel_size":3,
         "model_path": "models/context_extraction",
         "use_attention": true,
-        "use_feature_attention": false,
+        "use_feature_attention": true,
         "attention_type": "bahdanau",
-        "use_angle_embedding": false,
+        "use_angle_embedding": true,
         "angle_embedding_dim": 16,
         "split_output_heads": true,
         "timestep_sensitivity": false,
@@ -75,9 +75,5 @@
             "smoothl1",
             "mse"
         ]
-            },
-    "occlusionParams": {
-        "occlusion_window_size": 200,
-        "occlusion_stride": 200
-    }
+            }
 }
