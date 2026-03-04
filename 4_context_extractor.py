@@ -41,22 +41,20 @@ def main():
     # Read and preprocess data
     # ============================================================
     configurations = [
-                    #["config/data-split-config/train_test_split_based_on_column_gp9.json", "mlp"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp9.json", "bahdanau"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp8.json", "mlp"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp8.json", "bahdanau"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp7.json", "mlp"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp7.json", "bahdanau"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp6.json", "mlp"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp6.json", "bahdanau"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp5.json", "mlp"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp5.json", "bahdanau"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp4.json", "mlp"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp4.json", "bahdanau"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp3.json", "mlp"],
-                    #["config/data-split-config/train_test_split_based_on_column_gp3.json", "bahdanau"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp9.json", "mlp"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp9.json", "bahdanau"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp8.json", "mlp"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp8.json", "bahdanau"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp7.json", "mlp"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp7.json", "bahdanau"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp6.json", "mlp"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp6.json", "bahdanau"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp5.json", "mlp"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp5.json", "bahdanau"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp4.json", "mlp"],
+                    ["config/data-split-config/train_test_split_based_on_column_gp4.json", "bahdanau"],
                     ["config/data-split-config/train_test_split_based_on_column_gp3.json", "mlp"],
-                    ["config/data-split-config/train_test_split_based_on_column_gp4.json", "mlp"]
+                    ["config/data-split-config/train_test_split_based_on_column_gp3.json", "bahdanau"],
                     ]
     
     for configuration in configurations:

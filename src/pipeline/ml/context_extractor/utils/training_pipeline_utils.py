@@ -189,7 +189,7 @@ def train_model(
     experiment_configurations_train: torch.Tensor,
     experiment_configurations_test: torch.Tensor,
     params: dict,
-    occlusion_params: dict,
+    occlusion_params: dict | None,
     sensor_names: list[str],
     target_feature_names: list[str],
     process_part: str,
@@ -207,6 +207,7 @@ def train_model(
     1) Training a new model from scratch
     2) Resuming an existing MLflow run for analysis and visualization only
     """
+    occlusion_params = occlusion_params or {}
     
     # ============================================================
     # Directory structure for storing generated artifacts
@@ -311,7 +312,9 @@ def train_model(
     # ============================================================
     if not params.get("train"):
         run_id, model_uri = find_previous_mlflow_run(
-            process_part, preprocessing_info
+            process_part,
+            preprocessing_info,
+            params.get("model_type", "unknown"),
         )
 
         if run_id is None:
@@ -353,7 +356,7 @@ def train_model(
                 )
 
             if combined_importance_df is not None:
-                X_sample = plot_X[-1]
+                X_sample = plot_X[-1:]
                 sensor_data_sample = X_test[:1].cpu().numpy()
                 save_integrated_gradients_combined(
                     model,
@@ -383,8 +386,8 @@ def train_model(
                     experiment_config=experiment_config[-1:],
                     device=device,
                     saving_dir=timestep_sensitivity_dir,
-                    occluded_window_size=occlusion_params.get("occlusion_window_size", 10),
-                    stride=occlusion_params.get("occlusion_stride", 5),
+                    occluded_window_size=occlusion_params.get("occlusion_window_size", 50),
+                    stride=occlusion_params.get("occlusion_stride", 50),
                     annot_timesteps=annot_timesteps,
                     mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
                     sensor_data=plot_X[-1].detach().cpu().numpy(),
@@ -392,7 +395,7 @@ def train_model(
                 )
 
             # Window-based occlusion importance analysis using the loaded model and plot them
-            '''
+            
             all_importance_data = []
             for n_angle in range(46):
                 importance_df, mean_importance = \
@@ -400,8 +403,8 @@ def train_model(
                         model=model,
                         train_loader=val_loader,
                         n_angle = n_angle,
-                        occluded_window_size=occlusion_params.get("occlusion_window_size", 10),
-                        stride=occlusion_params.get("occlusion_stride", 5),
+                        occluded_window_size=occlusion_params.get("occlusion_window_size", 50),
+                        stride=occlusion_params.get("occlusion_stride", 50),
                         device=device
                     )
                 visualize_window_importance(
@@ -412,15 +415,15 @@ def train_model(
                 window_importance_plots_dir=window_importance_plots_dir,
                 mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
                 process_part=process_part,
-                occluded_window_size=occlusion_params.get("occlusion_window_size", 10),
-                stride=occlusion_params.get("occlusion_stride", 5)
+                occluded_window_size=occlusion_params.get("occlusion_window_size", 50),
+                stride=occlusion_params.get("occlusion_stride", 50)
             )
 
             all_importance_data.append((n_angle, importance_df, mean_importance))
 
             # Persist occlusion results for all angles
             save_window_importance_results(all_importance_data, window_importance_plots_dir)
-            '''
+            
  
             move_images_to_mlflow_artifacts(base_dir)
 
@@ -760,7 +763,6 @@ def train_model(
         
         
         # Feature importance and interpretability
-        '''
         combined_importance_df = None
         if use_attention:
             combined_importance_df, _, _ = analyze_feature_importance(
@@ -788,7 +790,6 @@ def train_model(
             )
             
             log_feature_importance_to_mlflow(combined_importance_df)
-            '''
         
         if params.get("timestep_sensitivity", False):
             run_all_timestep_sensitivity(
@@ -799,8 +800,8 @@ def train_model(
                 experiment_config=experiment_config[-1:],
                 device=device,
                 saving_dir=timestep_sensitivity_dir,
-                occluded_window_size=occlusion_params.get("occlusion_window_size", 10),
-                stride=occlusion_params.get("occlusion_stride", 5),
+                occluded_window_size=occlusion_params.get("occlusion_window_size", 50),
+                stride=occlusion_params.get("occlusion_stride", 50),
                 annot_timesteps=annot_timesteps,
                 mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
                 sensor_data=plot_X[-1].detach().cpu().numpy(),

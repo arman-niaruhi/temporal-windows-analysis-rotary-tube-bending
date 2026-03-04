@@ -1,6 +1,6 @@
 {
   "database_path": "data/processed/tube_geometry.db",
-  "label": "All",
+  "label": "All_and_One",
   "process_part": "machine_and_movement",
   "annotation_json_path": "data/ml/machine-and-movement_complete.json",
   "experiment_ids_path": "data/ml/unique_experiment_ids.json",
