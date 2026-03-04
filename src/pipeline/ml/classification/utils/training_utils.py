@@ -176,6 +176,57 @@ def _create_data_loaders(
     return train_loader, val_loader, test_loader
 
 
+def _write_evaluation_report(report_path: Path, metrics_by_split: Dict[str, Dict]) -> None:
+    """Persist evaluation metrics for train/val/test/all splits."""
+    serializable_metrics = {
+        split: {
+            key: value
+            for key, value in metrics.items()
+            if key not in {"y_true", "y_pred"}
+        }
+        for split, metrics in metrics_by_split.items()
+    }
+
+    with open(report_path, "w") as f:
+        json.dump(serializable_metrics, f, indent=2)
+
+
+def _evaluate_and_store_metrics(
+    model: LSTMSequenceClassifier,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    test_loader: DataLoader,
+    all_loader: DataLoader,
+    model_path: str,
+    device: torch.device,
+) -> Dict[str, Dict]:
+    """Evaluate the trained model on all relevant splits and store metrics."""
+    metrics_by_split = {
+        "train": model.evaluate_loader(train_loader, device),
+        "val": model.evaluate_loader(val_loader, device),
+        "test": model.evaluate_loader(test_loader, device),
+        "all_data": model.evaluate_loader(all_loader, device),
+    }
+
+    for split_name, metrics in metrics_by_split.items():
+        logger.info(
+            "%s metrics | loss: %.6f | acc: %.6f | precision: %.6f | recall: %.6f | f1: %.6f | iou: %.6f",
+            split_name,
+            metrics["loss"],
+            metrics["acc"],
+            metrics["precision"],
+            metrics["recall"],
+            metrics["f1"],
+            metrics["iou"],
+        )
+
+    report_path = Path(model_path) / "evaluation_metrics.json"
+    _write_evaluation_report(report_path, metrics_by_split)
+    logger.info("Saved evaluation metrics to %s", report_path)
+
+    return metrics_by_split
+
+
 def _initialize_model(
     input_size: int,
     hidden_size: int,
@@ -251,7 +302,7 @@ def _train_or_load_model(
     else:
         logger.info("Loading existing model...")
         model_file = Path(model_path) / "activity_detector.pth"
-        state_dict = torch.load(model_file, map_location=device)
+        state_dict = torch.load(model_file, map_location=device, weights_only=True)
         logger.info(f"Loaded model from {model_file}")
         model.load_state_dict(state_dict)
         model.eval()
@@ -312,6 +363,8 @@ def training_pipeline(
     train_loader, val_loader, test_loader = _create_data_loaders(
         train_dataset, val_dataset, test_dataset, batch_size
     )
+    all_dataset = SegmentDataset3DSequenceWithMask(sensors_df, feature_cols)
+    all_loader = DataLoader(all_dataset, batch_size=batch_size, shuffle=False)
 
     model_config = pipeline_config.get("model_config", {})
     input_size = len(feature_cols)
@@ -334,6 +387,16 @@ def training_pipeline(
         process_part,
         device,
         idx_to_label,
+    )
+
+    _evaluate_and_store_metrics(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        test_loader=test_loader,
+        all_loader=all_loader,
+        model_path=model_path,
+        device=device,
     )
 
     return model, sensors_df, test_loader, device, feature_cols

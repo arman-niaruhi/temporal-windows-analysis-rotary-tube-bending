@@ -84,10 +84,20 @@ def save_integrated_gradients_combined(
     """Compute and save Integrated Gradients saliency maps."""
     model.eval()
     device = next(model.parameters()).device
-    
+
+    if X_sample.dim() == 2:
+        X_sample = X_sample.unsqueeze(0)
+    if springback_sample is not None and springback_sample.dim() == 0:
+        springback_sample = springback_sample.unsqueeze(0)
+    if springback_sample is not None and springback_sample.dim() == 1:
+        springback_sample = springback_sample.unsqueeze(-1)
+    if experiment_config is not None and experiment_config.dim() == 1:
+        experiment_config = experiment_config.unsqueeze(0)
+
     X_sample = X_sample.to(device)
     springback_sample = springback_sample.to(device)
-    experiment_config = experiment_config.to(device)
+    if experiment_config is not None:
+        experiment_config = experiment_config.to(device)
 
     with torch.no_grad():
         pred, _ = model(X_sample, springback_sample, experiment_config)
