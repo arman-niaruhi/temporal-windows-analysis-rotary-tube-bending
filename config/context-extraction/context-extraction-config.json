@@ -32,7 +32,7 @@
         ]
     },
     "trainingParams": {
-        "train": true,
+        "train": false,
         "model_type": "lstm",
         "hidden_dim": 32,
         "lstm_layers": 1,

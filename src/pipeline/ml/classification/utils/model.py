@@ -17,6 +17,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     f1_score,
+    jaccard_score,
     confusion_matrix,
 )
 import mlflow
@@ -95,13 +96,17 @@ class LSTMSequenceClassifier(nn.Module):
 
     def _compute_metrics(
         self, y_true: list, y_pred: list
-    ) -> Tuple[float, float, float, float]:
+    ) -> Tuple[float, float, float, float, float]:
         """Compute classification metrics."""
+        if len(y_true) == 0:
+            return 0.0, 0.0, 0.0, 0.0, 0.0
+
         acc = accuracy_score(y_true, y_pred)
         prec = precision_score(y_true, y_pred, average="weighted", zero_division=0)
         rec = recall_score(y_true, y_pred, average="weighted", zero_division=0)
         f1 = f1_score(y_true, y_pred, average="weighted", zero_division=0)
-        return acc, prec, rec, f1
+        iou = jaccard_score(y_true, y_pred, average="weighted", zero_division=0)
+        return acc, prec, rec, f1, iou
 
     def _process_batch(
         self, batch_data: tuple, device: torch.device
@@ -300,14 +305,16 @@ class LSTMSequenceClassifier(nn.Module):
                     f"acc: {train_metrics_history['acc'][e]:.6f}, "
                     f"precision: {train_metrics_history['precision'][e]:.6f}, "
                     f"recall: {train_metrics_history['recall'][e]:.6f}, "
-                    f"f1: {train_metrics_history['f1'][e]:.6f}\n"
+                    f"f1: {train_metrics_history['f1'][e]:.6f}, "
+                    f"iou: {train_metrics_history['iou'][e]:.6f}\n"
                 )
                 f.write(
                     f"  Val   - loss: {val_metrics_history['loss'][e]:.6f}, "
                     f"acc: {val_metrics_history['acc'][e]:.6f}, "
                     f"precision: {val_metrics_history['precision'][e]:.6f}, "
                     f"recall: {val_metrics_history['recall'][e]:.6f}, "
-                    f"f1: {val_metrics_history['f1'][e]:.6f}\n\n"
+                    f"f1: {val_metrics_history['f1'][e]:.6f}, "
+                    f"iou: {val_metrics_history['iou'][e]:.6f}\n\n"
                 )
 
             f.write("===== END OF SUMMARY =====\n")
@@ -354,8 +361,22 @@ class LSTMSequenceClassifier(nn.Module):
         best_val_loss = np.inf
         counter = 0
 
-        train_history = {"loss": [], "acc": [], "precision": [], "recall": [], "f1": []}
-        val_history = {"loss": [], "acc": [], "precision": [], "recall": [], "f1": []}
+        train_history = {
+            "loss": [],
+            "acc": [],
+            "precision": [],
+            "recall": [],
+            "f1": [],
+            "iou": [],
+        }
+        val_history = {
+            "loss": [],
+            "acc": [],
+            "precision": [],
+            "recall": [],
+            "f1": [],
+            "iou": [],
+        }
 
         mlflow.set_experiment(experiment_name)
         with mlflow.start_run(run_name=run_name) as run:
@@ -383,14 +404,14 @@ class LSTMSequenceClassifier(nn.Module):
                 train_loss, y_train_true, y_train_pred = self._train_epoch(
                     train_loader, criterion, optimizer, device, epoch, num_epochs
                 )
-                train_acc, train_prec, train_rec, train_f1 = self._compute_metrics(
+                train_acc, train_prec, train_rec, train_f1, train_iou = self._compute_metrics(
                     y_train_true, y_train_pred
                 )
 
                 val_loss, y_val_true, y_val_pred = self._validate_epoch(
                     val_loader, criterion, device
                 )
-                val_acc, val_prec, val_rec, val_f1 = self._compute_metrics(
+                val_acc, val_prec, val_rec, val_f1, val_iou = self._compute_metrics(
                     y_val_true, y_val_pred
                 )
 
@@ -399,12 +420,14 @@ class LSTMSequenceClassifier(nn.Module):
                 train_history["precision"].append(train_prec)
                 train_history["recall"].append(train_rec)
                 train_history["f1"].append(train_f1)
+                train_history["iou"].append(train_iou)
 
                 val_history["loss"].append(val_loss)
                 val_history["acc"].append(val_acc)
                 val_history["precision"].append(val_prec)
                 val_history["recall"].append(val_rec)
                 val_history["f1"].append(val_f1)
+                val_history["iou"].append(val_iou)
 
                 mlflow.log_metrics(
                     {
@@ -418,6 +441,8 @@ class LSTMSequenceClassifier(nn.Module):
                         "val_recall": val_rec,
                         "train_f1": train_f1,
                         "val_f1": val_f1,
+                        "train_iou": train_iou,
+                        "val_iou": val_iou,
                     },
                     step=epoch,
                 )
@@ -437,6 +462,8 @@ class LSTMSequenceClassifier(nn.Module):
                         "val_acc": f"{val_acc:.3f}",
                         "train_f1": f"{train_f1:.3f}",
                         "val_f1": f"{val_f1:.3f}",
+                        "train_iou": f"{train_iou:.3f}",
+                        "val_iou": f"{val_iou:.3f}",
                     }
                 )
 
@@ -484,4 +511,28 @@ class LSTMSequenceClassifier(nn.Module):
             "train_history": train_history,
             "val_history": val_history,
             "run_id": run_id,
+        }
+
+    def evaluate_loader(
+        self,
+        data_loader: DataLoader,
+        device: Optional[torch.device] = None,
+    ) -> Dict[str, object]:
+        """Evaluate the model on a data loader and return metrics."""
+        if device is None:
+            device = next(self.parameters()).device
+
+        criterion = nn.CrossEntropyLoss(ignore_index=-1)
+        loss, y_true, y_pred = self._validate_epoch(data_loader, criterion, device)
+        acc, prec, rec, f1, iou = self._compute_metrics(y_true, y_pred)
+
+        return {
+            "loss": float(loss),
+            "acc": float(acc),
+            "precision": float(prec),
+            "recall": float(rec),
+            "f1": float(f1),
+            "iou": float(iou),
+            "y_true": y_true,
+            "y_pred": y_pred,
         }
