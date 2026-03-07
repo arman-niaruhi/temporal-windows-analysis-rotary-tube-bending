@@ -2,7 +2,7 @@ import os
 import logging
 import warnings
 from datetime import datetime
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -63,10 +63,10 @@ class LSTMSequenceClassifier(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass for per-timestep classification.
-        
+
         Args:
             x: Input tensor of shape (batch, seq_len, input_size)
-            
+
         Returns:
             Logits of shape (batch, seq_len, num_classes)
         """
@@ -86,8 +86,7 @@ class LSTMSequenceClassifier(nn.Module):
             device=x.device,
         )
 
-        out, _ = self.lstm(x, (h0, c0))  
-
+        out, _ = self.lstm(x, (h0, c0))
         out_reshaped = out.reshape(-1, out.size(2))
         logits_reshaped = self.fc(out_reshaped)
         logits = logits_reshaped.reshape(batch_size, seq_len, self.num_classes)
@@ -116,7 +115,7 @@ class LSTMSequenceClassifier(nn.Module):
             X_batch, y_batch, _ = batch_data
         else:
             X_batch, y_batch = batch_data
-        
+
         return X_batch.to(device), y_batch.to(device)
 
     def _train_epoch(
@@ -162,13 +161,13 @@ class LSTMSequenceClassifier(nn.Module):
             preds = torch.argmax(outputs_flat, dim=1).detach().cpu().numpy()
             y_true = y_batch_flat.cpu().numpy()
             valid_indices = y_true != -1
-            
+
             y_pred_all.extend(preds[valid_indices])
             y_true_all.extend(y_true[valid_indices])
 
             batch_bar.set_postfix(loss=loss.item())
 
-        train_loss /= total_samples
+        train_loss = train_loss / total_samples if total_samples > 0 else 0.0
         return train_loss, y_true_all, y_pred_all
 
     def _validate_epoch(
@@ -201,11 +200,11 @@ class LSTMSequenceClassifier(nn.Module):
                 preds = torch.argmax(outputs_flat, dim=1).cpu().numpy()
                 y_true = y_val_flat.cpu().numpy()
                 valid_indices = y_true != -1
-                
+
                 y_pred_all.extend(preds[valid_indices])
                 y_true_all.extend(y_true[valid_indices])
 
-        val_loss /= total_samples
+        val_loss = val_loss / total_samples if total_samples > 0 else 0.0
         return val_loss, y_true_all, y_pred_all
 
     def _save_confusion_matrix(
@@ -218,9 +217,15 @@ class LSTMSequenceClassifier(nn.Module):
     ) -> Optional[str]:
         """Generate and save confusion matrix."""
         try:
+            if len(y_true) == 0 or len(y_pred) == 0:
+                logger.warning(
+                    f"Skipping confusion matrix at epoch {epoch + 1}: no valid labels."
+                )
+                return None
+
             class_indices = sorted(idx_to_label.keys())
             class_names = [idx_to_label[i] for i in class_indices]
-            
+
             cm = confusion_matrix(y_true, y_pred, labels=class_indices)
 
             fig, ax = plt.subplots(figsize=(6, 5))
@@ -238,7 +243,9 @@ class LSTMSequenceClassifier(nn.Module):
             ax.set_xlabel("Predicted Label")
             ax.set_ylabel("True Label")
 
-            fig_path = os.path.join(model_path, f"confusion_matrix_epoch_{epoch + 1}.png")
+            fig_path = os.path.join(
+                model_path, f"confusion_matrix_epoch_{epoch + 1}.png"
+            )
             plt.savefig(fig_path, bbox_inches="tight")
             plt.close(fig)
 
@@ -259,11 +266,14 @@ class LSTMSequenceClassifier(nn.Module):
         patience: int,
         train_metrics_history: Dict[str, list],
         val_metrics_history: Dict[str, list],
+        scheduler_factor: float,
+        scheduler_patience: int,
+        min_lr: float,
         notes: Optional[str] = None,
     ):
         """Write comprehensive experiment summary to file."""
         timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-        
+
         with open(file_path, "w") as f:
             f.write("===== EXPERIMENT SUMMARY =====\n")
             f.write(f"Timestamp (UTC): {timestamp}\n")
@@ -283,11 +293,15 @@ class LSTMSequenceClassifier(nn.Module):
             f.write("Task: Per-timestep sequence classification\n\n")
 
             f.write("===== TRAINING PARAMETERS =====\n")
-            f.write(f"Learning rate: {learning_rate}\n")
-            f.write(f"Epochs requested: {num_epochs}\n")
+            f.write(f"Initial learning rate: {learning_rate}\n")
+            f.write(f"Epochs completed: {num_epochs}\n")
             f.write(f"Early stopping patience: {patience}\n")
             f.write("Optimizer: AdamW\n")
-            f.write("Loss: CrossEntropyLoss (ignore_index=-1)\n\n")
+            f.write("Loss: CrossEntropyLoss (ignore_index=-1)\n")
+            f.write("Scheduler: ReduceLROnPlateau\n")
+            f.write(f"Scheduler factor: {scheduler_factor}\n")
+            f.write(f"Scheduler patience: {scheduler_patience}\n")
+            f.write(f"Minimum learning rate: {min_lr}\n\n")
 
             f.write("===== MODEL ARCHITECTURE =====\n")
             f.write(f"{self}\n\n")
@@ -306,7 +320,8 @@ class LSTMSequenceClassifier(nn.Module):
                     f"precision: {train_metrics_history['precision'][e]:.6f}, "
                     f"recall: {train_metrics_history['recall'][e]:.6f}, "
                     f"f1: {train_metrics_history['f1'][e]:.6f}, "
-                    f"iou: {train_metrics_history['iou'][e]:.6f}\n"
+                    f"iou: {train_metrics_history['iou'][e]:.6f}, "
+                    f"lr: {train_metrics_history['lr'][e]:.8f}\n"
                 )
                 f.write(
                     f"  Val   - loss: {val_metrics_history['loss'][e]:.6f}, "
@@ -318,7 +333,7 @@ class LSTMSequenceClassifier(nn.Module):
                 )
 
             f.write("===== END OF SUMMARY =====\n")
-        
+
         logger.info(f"Experiment summary saved to {file_path}")
 
     def train_model(
@@ -335,10 +350,14 @@ class LSTMSequenceClassifier(nn.Module):
         experiment_name: str = "LSTM_Activity_Classifier",
         save_confusion_every: int = 5,
         notes: Optional[str] = None,
-    ) -> Dict[str, any]:
+        scheduler_factor: float = 0.5,
+        scheduler_patience: int = 3,
+        min_lr: float = 1e-6,
+    ) -> Dict[str, Any]:
         """
-        Train the model with MLflow tracking and early stopping.
-        
+        Train the model with MLflow tracking, ReduceLROnPlateau scheduler,
+        and early stopping.
+
         Returns:
             Dictionary containing training history, validation history, and run_id
         """
@@ -349,7 +368,7 @@ class LSTMSequenceClassifier(nn.Module):
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             logger.info(f"No device specified. Using device: {device}")
-        
+
         self.to(device)
         logger.info(f"Device: {device}")
         logger.info(
@@ -358,6 +377,15 @@ class LSTMSequenceClassifier(nn.Module):
 
         criterion = nn.CrossEntropyLoss(ignore_index=-1)
         optimizer = optim.AdamW(self.parameters(), lr=learning_rate)
+
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=scheduler_factor,
+            patience=scheduler_patience,
+            min_lr=min_lr,
+        )
+
         best_val_loss = np.inf
         counter = 0
 
@@ -368,6 +396,7 @@ class LSTMSequenceClassifier(nn.Module):
             "recall": [],
             "f1": [],
             "iou": [],
+            "lr": [],
         }
         val_history = {
             "loss": [],
@@ -395,17 +424,23 @@ class LSTMSequenceClassifier(nn.Module):
                     "optimizer": "AdamW",
                     "loss": "CrossEntropyLoss",
                     "task": "per_timestep_classification",
+                    "scheduler": "ReduceLROnPlateau",
+                    "scheduler_factor": scheduler_factor,
+                    "scheduler_patience": scheduler_patience,
+                    "min_lr": min_lr,
                 }
             )
 
-            epoch_bar = tqdm(range(num_epochs), desc="Training", leave=True, colour="blue")
-            
+            epoch_bar = tqdm(
+                range(num_epochs), desc="Training", leave=True, colour="blue"
+            )
+
             for epoch in epoch_bar:
                 train_loss, y_train_true, y_train_pred = self._train_epoch(
                     train_loader, criterion, optimizer, device, epoch, num_epochs
                 )
-                train_acc, train_prec, train_rec, train_f1, train_iou = self._compute_metrics(
-                    y_train_true, y_train_pred
+                train_acc, train_prec, train_rec, train_f1, train_iou = (
+                    self._compute_metrics(y_train_true, y_train_pred)
                 )
 
                 val_loss, y_val_true, y_val_pred = self._validate_epoch(
@@ -415,12 +450,16 @@ class LSTMSequenceClassifier(nn.Module):
                     y_val_true, y_val_pred
                 )
 
+                scheduler.step(val_loss)
+                current_lr = optimizer.param_groups[0]["lr"]
+
                 train_history["loss"].append(train_loss)
                 train_history["acc"].append(train_acc)
                 train_history["precision"].append(train_prec)
                 train_history["recall"].append(train_rec)
                 train_history["f1"].append(train_f1)
                 train_history["iou"].append(train_iou)
+                train_history["lr"].append(current_lr)
 
                 val_history["loss"].append(val_loss)
                 val_history["acc"].append(val_acc)
@@ -443,11 +482,14 @@ class LSTMSequenceClassifier(nn.Module):
                         "val_f1": val_f1,
                         "train_iou": train_iou,
                         "val_iou": val_iou,
+                        "learning_rate_current": current_lr,
                     },
                     step=epoch,
                 )
 
-                if idx_to_label and ((epoch % save_confusion_every == 0) or (epoch == num_epochs - 1)):
+                if idx_to_label and (
+                    (epoch % save_confusion_every == 0) or (epoch == num_epochs - 1)
+                ):
                     fig_path = self._save_confusion_matrix(
                         y_val_true, y_val_pred, idx_to_label, epoch, model_path
                     )
@@ -458,6 +500,7 @@ class LSTMSequenceClassifier(nn.Module):
                     {
                         "train_loss": f"{train_loss:.4f}",
                         "val_loss": f"{val_loss:.4f}",
+                        "lr": f"{current_lr:.2e}",
                         "train_acc": f"{train_acc:.3f}",
                         "val_acc": f"{val_acc:.3f}",
                         "train_f1": f"{train_f1:.3f}",
@@ -474,13 +517,18 @@ class LSTMSequenceClassifier(nn.Module):
                 else:
                     counter += 1
                     if counter >= patience:
-                        logger.info("\n⏹ Early stopping triggered!")
+                        logger.info("Early stopping triggered.")
                         break
 
             if os.path.exists(model_name):
-                best_state = torch.load(model_name, map_location=device, weights_only=True)
-                self.load_state_dict(best_state)
-                logger.info(f"Training complete. Best model loaded from: {model_name}")
+                try:
+                    best_state = torch.load(model_name, map_location=device)
+                    self.load_state_dict(best_state)
+                    logger.info(f"Training complete. Best model loaded from: {model_name}")
+                except TypeError:
+                    best_state = torch.load(model_name, map_location=device)
+                    self.load_state_dict(best_state)
+                    logger.info(f"Training complete. Best model loaded from: {model_name}")
 
             try:
                 mlflow.pytorch.log_model(self, artifact_path="model")
@@ -499,6 +547,9 @@ class LSTMSequenceClassifier(nn.Module):
                     patience=patience,
                     train_metrics_history=train_history,
                     val_metrics_history=val_history,
+                    scheduler_factor=scheduler_factor,
+                    scheduler_patience=scheduler_patience,
+                    min_lr=min_lr,
                     notes=notes,
                 )
                 mlflow.log_artifact(summary_path)
@@ -517,7 +568,7 @@ class LSTMSequenceClassifier(nn.Module):
         self,
         data_loader: DataLoader,
         device: Optional[torch.device] = None,
-    ) -> Dict[str, object]:
+    ) -> Dict[str, Any]:
         """Evaluate the model on a data loader and return metrics."""
         if device is None:
             device = next(self.parameters()).device

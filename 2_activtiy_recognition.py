@@ -14,6 +14,7 @@ from src.pipeline.ml.classification.utils.training_utils import (
 from src.pipeline.ml.classification.utils.inference_one_label import (
     get_all_predictions,
     inference_one_label_in_one,
+    save_validation_confusion_matrices,
 )
 
 
@@ -99,6 +100,21 @@ def main():
 
     if inference_config:
         try:
+            save_validation_confusion_matrices(
+                database_path=config.get("database_path"),
+                annotation_json_path=config.get("annotation_json_path"),
+                experiment_ids_path=config.get("experiment_ids_path"),
+                eliminated_columns=config.get("eliminated_columns"),
+                models_path=inference_config.get("models_path"),
+                model_config=config.get("pipeline_config").get("model_config"),
+                labels=inference_config.get("labels"),
+                process_part=config.get("process_part", "machine_and_movement"),
+                save_dir_path=inference_config.get("save_dir_path"),
+                batch_size=config.get("pipeline_config", {})
+                .get("dataloader_config", {})
+                .get("batch_size", 8),
+            )
+
             TEST_EXPERIMENT_IDS = [
                 2,
                 3,

@@ -26,9 +26,9 @@ from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 # Set Arial as the default font
 matplotlib.rcParams["font.family"] = "sans-serif"
 matplotlib.rcParams["font.sans-serif"] = ["Arial", "Helvetica", "DejaVu Sans"]
-matplotlib.rcParams["font.size"] = 12
-matplotlib.rcParams["axes.titlesize"] = 12
-matplotlib.rcParams["axes.labelsize"] = 12
+matplotlib.rcParams["font.size"] = 17
+matplotlib.rcParams["axes.titlesize"] = 17
+matplotlib.rcParams["axes.labelsize"] = 17
 matplotlib.rcParams["xtick.labelsize"] = 12
 matplotlib.rcParams["ytick.labelsize"] = 12
 matplotlib.rcParams["legend.fontsize"] = 12
@@ -205,10 +205,13 @@ class Annotator(QWidget):
     def _plot_experiment(self):
         if self.df is None or self.exp_selector.currentText() == "":
             return
+
         self.current_exp = int(self.exp_selector.currentText())
         exp_df = self.df[self.df["Experiment_ID"] == self.current_exp]
+
         self.click_stage = "start"
         self.temp_label = {"start": None, "end": None, "label": None}
+
         self.ax.clear()
         self.ax.set_facecolor("white")
         self.ax.grid(True, alpha=0.2, linestyle="--", linewidth=0.8)
@@ -217,10 +220,13 @@ class Annotator(QWidget):
         self.ax.spines["right"].set_visible(False)
         self.ax.spines["left"].set_linewidth(1.2)
         self.ax.spines["bottom"].set_linewidth(1.2)
+
         self.lines_by_col = {}
         cols = [c for c in exp_df.columns if c != "Experiment_ID"]
+
         cmap = plt.get_cmap("tab20")
         colors_sensors = cmap(np.linspace(0, 1, len(cols)))
+
         for col, color in zip(cols, colors_sensors):
             (line,) = self.ax.plot(
                 exp_df.index,
@@ -236,6 +242,7 @@ class Annotator(QWidget):
             visible = self.col_visibility.get(col, True)
             line.set_visible(visible)
             self.lines_by_col[col] = line
+
         self.annotation_legend_items = []
         for lbl in self.labels:
             if lbl["Experiment_ID"] == self.current_exp:
@@ -249,58 +256,67 @@ class Annotator(QWidget):
                         f"{lbl['label']} ({duration:.1f})",
                     )
                 )
+
         self.ax.set_title(
             f"Experiment {self.current_exp} - Sensor Data",
-            fontsize=11,
+            fontsize=15,
             fontweight="semibold",
             pad=8,
             y=1.01,
         )
-        self.ax.set_xlabel("Time Step", fontsize=11, fontweight="semibold", labelpad=6)
-        self.ax.set_ylabel("Sensor Values", fontsize=11, fontweight="semibold", labelpad=6)
+        self.ax.set_xlabel("Time Step", fontsize=15, fontweight="semibold", labelpad=6)
+        self.ax.set_ylabel("Sensor Values", fontsize=15, fontweight="semibold", labelpad=6)
+
         if len(exp_df.index) > 0:
             self.ax.set_xlim(exp_df.index.min(), exp_df.index.max())
-        self.figure.subplots_adjust(left=0.07, right=0.75, top=0.88, bottom=0.18)
+
+        # More bottom space so legend is visible in GUI
+        self.figure.subplots_adjust(left=0.07, right=0.97, top=0.88, bottom=0.32)
+
         self._update_legend()
         self._populate_column_checks(cols)
         self._update_y_axis_limits()
         self.canvas.draw_idle()
+
     def _update_legend(self):
         if self.legend is not None:
             self.legend.remove()
+            self.legend = None
+
         legend_handles = []
         legend_labels = []
+
         for col, line in self.lines_by_col.items():
             if line.get_visible():
                 legend_handles.append(line)
                 legend_labels.append(col)
+
         for handle, label in self.annotation_legend_items:
             legend_handles.append(handle)
             legend_labels.append(label)
+
         if legend_handles:
             self.legend = self.ax.legend(
                 legend_handles,
                 legend_labels,
-                bbox_to_anchor=(1.02, 1),
-                loc="upper left",
-                borderaxespad=0.0,
+                loc="upper center",
+                bbox_to_anchor=(0.5, -0.20),   # below axes
+                ncol=3,                        # 3 columns
                 frameon=True,
                 fancybox=True,
                 shadow=False,
-                fontsize=8,
+                fontsize=14,
                 framealpha=1.0,
                 edgecolor="#cccccc",
-                ncol=1,
                 labelspacing=0.35,
                 borderpad=0.4,
                 handlelength=1.6,
                 handletextpad=0.5,
-                columnspacing=1.1,
+                columnspacing=1.2,
             )
             self.legend.get_frame().set_facecolor("white")
             self.legend.get_frame().set_linewidth(0.8)
-        else:
-            self.legend = None
+
     def _populate_column_checks(self, cols):
         self._block_collist_signal = True
         try:
@@ -423,17 +439,18 @@ class Annotator(QWidget):
         )
         if not path:
             return
+
         if not path.lower().endswith(".pdf"):
             path += ".pdf"
+
         try:
-            # Save the current figure without tight-bbox recomputation.
-            # The embedded Qt figure plus external legend can become unstable
-            # during PDF export when Matplotlib recomputes a tight layout.
             self.canvas.draw()
             self.figure.savefig(
                 path,
                 format="pdf",
                 facecolor="white",
+                bbox_inches="tight",   # important: include legend outside axes
+                pad_inches=0.2,
             )
             self._set_status(f"Plot saved as PDF: {path}")
         except Exception as e:
