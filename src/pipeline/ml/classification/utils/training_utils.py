@@ -298,6 +298,10 @@ def _train_or_load_model(
             model_path=model_path,
             run_name=label,
             experiment_name=process_part,
+            save_confusion_every=20,
+            scheduler_factor=0.5,
+            scheduler_patience=2,
+            min_lr=1e-6,
         )
     else:
         logger.info("Loading existing model...")
