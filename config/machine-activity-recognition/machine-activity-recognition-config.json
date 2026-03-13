@@ -1,9 +1,9 @@
 {
-  "database_path": "data/processed/tube_geometry.db",
+  "database_path": "data/processed/tube_geometry",
   "label": "All_and_One",
   "process_part": "movement",
   "annotation_json_path": "data/ml/machine-and-movement_complete.json",
-  "experiment_ids_path": "data/ml/unique_experiment_ids.json",
+  "experiment_ids_path": "data/ml/unique_bending_setups.csv",
   "model_path_root": "models/classifier",
   "eliminated_columns": [
     "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
@@ -20,7 +20,7 @@
       "num_layers": 2
     },
     "training_config": {
-      "training": true,
+      "training": false,
       "num_epochs": 100,
       "learning_rate": 1e-3,
       "patience": 4
