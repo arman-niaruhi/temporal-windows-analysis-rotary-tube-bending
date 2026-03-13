@@ -3,8 +3,8 @@
         "seed": 42
     },
     "inputPathParams": {
-        "database_path": "data/processed/tube_geometry.db",
-        "process_part": "All",
+        "database_path": "data/processed/tube_geometry",
+        "process_part": "Bending",
         "annotation_json_path": "data/ml/machine-and-movement_complete.json"
     },
     "preprocessingParams": {
@@ -15,7 +15,7 @@
         "agg_metric": "mean",
         "resample": false,
         "window_num": 400,
-        "split_config_path": "config/data-split-config/train_test_split_based_on_column_gp8.json",
+        "split_config_path": "config/data-split-config/train_test_split_each_setup_80.json",
         "feature_indices": [
             1,
             3
@@ -29,11 +29,11 @@
         "mandrel_extraction_annot_timesteps":[
             650, 
             820
-        ]
+        ]   
     },
     "trainingParams": {
         "train": false,
-        "model_type": "lstm",
+        "model_type": "tcn_lstm",
         "hidden_dim": 32,
         "lstm_layers": 1,
         "dropout": 0.2,
@@ -75,5 +75,9 @@
             "smoothl1",
             "mse"
         ]
-            }
+    },
+    "occlusionParams": {
+    "occlusion_window_size": 2,
+    "occlusion_stride": 2
+  }
 }

@@ -4,7 +4,7 @@ End-to-end pipeline for tube bending data: ETL from raw experiments, activity re
 
 ## What is in this repo
 
-- ETL pipeline that reads a pickled dataset and builds a SQLite database.
+- ETL pipeline that reads a pickled dataset and writes processed CSV tables.
 - Annotation GUI for machine activity labels.
 - Activity recognition training and inference.
 - Context extraction models and interpretability plots.
@@ -33,7 +33,7 @@ The dataset can be downloaded from:
 https://github.com/zeyneddinoz/tubebend
 ```
 
-3) Run the ETL pipeline to build the SQLite database:
+3) Run the ETL pipeline to build the processed CSV tables:
 
 ```bash
 python 0_data_etl.py
@@ -72,7 +72,7 @@ streamlit run 5_dashboard_app.py
 ## Data layout
 
 - `data/raw/experiments_process_and_results.pkl` raw dataset input
-- `data/processed/tube_geometry.db` SQLite database produced by ETL
+- `data/processed/tube_geometry/` CSV tables produced by ETL
 - `data/ml/` annotations and experiment ID lists used by ML pipelines
 
 ## Main pipelines and scripts
@@ -95,7 +95,7 @@ streamlit run 5_dashboard_app.py
 
 ## Outputs
 
-- `data/processed/` SQLite database from ETL.
+- `data/processed/` CSV outputs from ETL.
 - `models/` trained model artifacts.
 - `results/` plots, predictions, and feature analyses.
 - `mlruns/` MLflow tracking runs (used by the dashboard).

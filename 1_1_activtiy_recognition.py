@@ -26,6 +26,43 @@ activity_recognition_config_path = (
 )
 
 
+TEST_EXPERIMENT_IDS = [
+                2,
+                3,
+                22,
+                23,
+                40,
+                54,
+                83,
+                85,
+                110,
+                112,
+                119,
+                120,
+                121,
+                122,
+                123,
+                178,
+                179,
+                182,
+                183,
+                211,
+                212,
+                213,
+                255,
+                258,
+                261,
+                271,
+                272,
+                273,
+                302,
+                303,
+                304,
+                317,
+                318,
+            ]
+
+
 def main():
     setup_logging()
     with open(activity_recognition_config_path, "r") as f:
@@ -115,41 +152,6 @@ def main():
                 .get("batch_size", 8),
             )
 
-            TEST_EXPERIMENT_IDS = [
-                2,
-                3,
-                22,
-                23,
-                40,
-                54,
-                83,
-                85,
-                110,
-                112,
-                119,
-                120,
-                121,
-                122,
-                123,
-                178,
-                179,
-                182,
-                183,
-                211,
-                212,
-                213,
-                255,
-                258,
-                261,
-                271,
-                272,
-                273,
-                302,
-                303,
-                304,
-                317,
-                318,
-            ]
             for i in TEST_EXPERIMENT_IDS:
                 inference_one_label_in_one(
                     exp_id=i,
