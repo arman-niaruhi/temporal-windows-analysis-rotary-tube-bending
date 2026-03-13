@@ -19,6 +19,7 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QMessageBox,
     QAbstractItemView,
+    QSizePolicy,
 )
 from PyQt5.QtCore import Qt
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
@@ -43,8 +44,7 @@ class Annotator(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MAR Annotator")
-        # ✅ Wider, shorter window
-        self.setGeometry(100, 100, 1700, 620)
+        self.showMaximized()
         # Always white background
         self.setStyleSheet("background-color: white; color: black;")
         self.df = None
@@ -91,11 +91,12 @@ class Annotator(QWidget):
         plot_frame = QVBoxLayout()
         plot_frame.setContentsMargins(0, 0, 0, 0)
         plot_frame.setSpacing(6)
-        # ✅ Figure shape (secondary; Qt will stretch unless canvas height is constrained)
-        self.figure = plt.Figure(figsize=(18, 3.2), constrained_layout=False)
+        self.figure = plt.Figure(figsize=(18, 6.2), constrained_layout=False)
         self.figure.set_facecolor("white")
-        # Single subplot for sensors
-        self.ax = self.figure.add_subplot(111)
+        grid = self.figure.add_gridspec(nrows=2, ncols=1, height_ratios=[4.8, 1.6], hspace=0.18)
+        self.ax = self.figure.add_subplot(grid[0])
+        self.legend_ax = self.figure.add_subplot(grid[1])
+        self.legend_ax.axis("off")
         self.ax.set_facecolor("white")
         self.ax.grid(True, alpha=0.2, linestyle="--", linewidth=0.8)
         self.ax.set_axisbelow(True)
@@ -106,12 +107,10 @@ class Annotator(QWidget):
         self.ax.spines["bottom"].set_linewidth(1.2)
         self.ax.spines["left"].set_color("#333333")
         self.ax.spines["bottom"].set_color("#333333")
-        # Keep title/labels visible while reserving space for the external legend.
-        self.figure.subplots_adjust(left=0.07, right=0.82, top=0.88, bottom=0.18)
+        self.figure.subplots_adjust(left=0.07, right=0.98, top=0.92, bottom=0.08)
         self.canvas = FigureCanvas(self.figure)
-        # ✅ KEY FIX: force the plot area to be about half height
-        self.canvas.setMinimumHeight(360)
-        self.canvas.setMaximumHeight(420)
+        self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.canvas.setMinimumHeight(620)
         self.canvas.mpl_connect("button_press_event", self.on_click)
         plot_frame.addWidget(self.canvas, 1)
         self.hide_btn = QPushButton("Toggle All Sensors")
@@ -221,6 +220,10 @@ class Annotator(QWidget):
         self.ax.spines["right"].set_visible(False)
         self.ax.spines["left"].set_linewidth(1.2)
         self.ax.spines["bottom"].set_linewidth(1.2)
+        self.ax.spines["left"].set_color("#333333")
+        self.ax.spines["bottom"].set_color("#333333")
+        self.legend_ax.clear()
+        self.legend_ax.axis("off")
 
         self.lines_by_col = {}
         cols = [c for c in exp_df.columns if c != "Experiment_ID"]
@@ -271,9 +274,6 @@ class Annotator(QWidget):
         if len(exp_df.index) > 0:
             self.ax.set_xlim(exp_df.index.min(), exp_df.index.max())
 
-        # More bottom space so legend is visible in GUI
-        self.figure.subplots_adjust(left=0.07, right=0.97, top=0.88, bottom=0.32)
-
         self._update_legend()
         self._populate_column_checks(cols)
         self._update_y_axis_limits()
@@ -297,20 +297,20 @@ class Annotator(QWidget):
             legend_labels.append(label)
 
         if legend_handles:
-            self.legend = self.ax.legend(
+            ncols = min(3, max(1, len(legend_handles)))
+            self.legend = self.legend_ax.legend(
                 legend_handles,
                 legend_labels,
-                loc="upper center",
-                bbox_to_anchor=(0.5, -0.20),   # below axes
-                ncol=3,                        # 3 columns
+                loc="center",
+                ncol=ncols,
                 frameon=True,
                 fancybox=True,
                 shadow=False,
-                fontsize=14,
+                fontsize=13,
                 framealpha=1.0,
                 edgecolor="#cccccc",
                 labelspacing=0.35,
-                borderpad=0.4,
+                borderpad=0.55,
                 handlelength=1.6,
                 handletextpad=0.5,
                 columnspacing=1.2,
