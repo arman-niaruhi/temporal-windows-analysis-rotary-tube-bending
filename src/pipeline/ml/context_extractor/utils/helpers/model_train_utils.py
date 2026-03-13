@@ -35,6 +35,11 @@ def create_model(
     tcn_kernel_size: int = 3,
     mamba_layers: int | None = None,
     mamba_d_state: int | None = None,
+    use_attention: bool = True,
+    use_feature_attention: bool = False,
+    use_angle_embedding: bool = False,
+    angle_embedding_dim: int = 8,
+    attention_type: str = "mlp",
 ) -> nn.Module:
     """
     Instantiate and initialize the Attention LSTM model.
@@ -72,6 +77,11 @@ def create_model(
             split_output_heads=split_output_heads,
             main_head_hidden_sizes=main_head_hidden_sizes,
             secondary_head_hidden_sizes=secondary_head_hidden_sizes,
+            use_attention=use_attention,
+            use_feature_attention=use_feature_attention,
+            use_angle_embedding=use_angle_embedding,
+            angle_embedding_dim=angle_embedding_dim,
+            attention_type=attention_type,
         ).to(device)
 
     if model_type_norm in ("tcn_mamba", "tcn-mamba", "tcn+mamba"):
@@ -93,6 +103,9 @@ def create_model(
             split_output_heads=split_output_heads,
             main_head_hidden_sizes=main_head_hidden_sizes,
             secondary_head_hidden_sizes=secondary_head_hidden_sizes,
+            use_angle_embedding=use_angle_embedding,
+            angle_embedding_dim=angle_embedding_dim,
+            attention_type=attention_type,
         ).to(device)
 
     if model_type_norm == "tcn":
@@ -112,6 +125,9 @@ def create_model(
             split_output_heads=split_output_heads,
             main_head_hidden_sizes=main_head_hidden_sizes,
             secondary_head_hidden_sizes=secondary_head_hidden_sizes,
+            use_angle_embedding=use_angle_embedding,
+            angle_embedding_dim=angle_embedding_dim,
+            attention_type=attention_type,
         ).to(device)
 
     if model_type_norm == "mamba":
@@ -128,13 +144,18 @@ def create_model(
             use_config=use_experiment_config,
             config_dim=config_dim,
             config_embedding_dim=config_embedding_dim,
+            use_angle_embedding=use_angle_embedding,
+            angle_embedding_dim=angle_embedding_dim,
+            attention_type=attention_type,
         ).to(device)
 
     if model_type_norm == "transformer":
         return TransformerAttention(
             input_features=input_features,
             n_predictions=n_predictions,
-            output_features=output_features
+            output_features=output_features,
+            use_angle_embedding=use_angle_embedding,
+            angle_embedding_dim=angle_embedding_dim,
         ).to(device)
 
     return AttentionLSTM(
@@ -152,8 +173,24 @@ def create_model(
         split_output_heads=split_output_heads,
         main_head_hidden_sizes=main_head_hidden_sizes,
         secondary_head_hidden_sizes=secondary_head_hidden_sizes,
+        use_feature_attention=use_feature_attention,
+        use_angle_embedding=use_angle_embedding,
+        angle_embedding_dim=angle_embedding_dim,
+        attention_type=attention_type,
     ).to(device)
 
+def compute_derivative_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """
+    Computes the MSE between the temporal derivatives of predictions and targets.
+    Helps the model capture oscillations and sharp changes.
+    """
+    # pred/target shape: (batch, timesteps, features)
+    if pred.shape[1] < 2:
+        return torch.tensor(0.0, device=pred.device)
+    
+    d_pred = pred[:, 1:, :] - pred[:, :-1, :]
+    d_target = target[:, 1:, :] - target[:, :-1, :]
+    return F.mse_loss(d_pred, d_target)
 
 def train_one_epoch(
     model: nn.Module,
@@ -164,51 +201,47 @@ def train_one_epoch(
     feature_weights: Optional[torch.Tensor] = None,
     feature_loss_types: Optional[Sequence[str]] = None,
     extra_l2_reg: float = 0.0,
+    derivative_loss_weight: float = 0.0, # <--- NEW PARAMETER
 ) -> float:
     model.train()
     train_loss = 0.0
     for Xb, Yb, sprinback, experiment_config in train_loader:
-        # Move data to device
-        Xb = Xb.to(device)
-        Yb = Yb.to(device)
-        sprinback = sprinback.to(device)
-        experiment_config = experiment_config.to(device)
-        # Forward pass
+        Xb, Yb = Xb.to(device), Yb.to(device)
+        sprinback, experiment_config = sprinback.to(device), experiment_config.to(device)
+
         pred, _ = model(Xb, sprinback, experiment_config)
-        if feature_weights is None and not feature_loss_types:
-            loss = criterion(pred, Yb)
+        
+        # Standard Point-wise Loss
+        if feature_loss_types:
+            base_loss = 0.0
+            weights = feature_weights.to(device) if feature_weights is not None else None
+            for i, loss_type in enumerate(feature_loss_types):
+                part = F.smooth_l1_loss(pred[:, :, i], Yb[:, :, i]) if loss_type == "smoothl1" else F.mse_loss(pred[:, :, i], Yb[:, :, i])
+                if weights is not None:
+                    part = part * weights[i]
+                base_loss += part
+            base_loss = base_loss / len(feature_loss_types)
         else:
-            if feature_loss_types:
-                loss = 0.0
-                weights = feature_weights.to(device) if feature_weights is not None else None
-                for i, loss_type in enumerate(feature_loss_types):
-                    if loss_type == "smoothl1":
-                        part = F.smooth_l1_loss(pred[:, :, i], Yb[:, :, i])
-                    else:
-                        part = F.mse_loss(pred[:, :, i], Yb[:, :, i])
-                    if weights is not None:
-                        part = part * weights[i]
-                    loss = loss + part
-                loss = loss / len(feature_loss_types)
-            else:
-                weights = feature_weights.to(device).view(1, 1, -1)
-                loss = ((pred - Yb) ** 2 * weights).mean()
+            weights = feature_weights.to(device).view(1, 1, -1) if feature_weights is not None else 1.0
+            base_loss = (criterion(pred, Yb) * weights).mean()
+
+        # NEW: Temporal Derivative Loss
+        loss = base_loss
+        if derivative_loss_weight > 0.0:
+            d_loss = compute_derivative_loss(pred, Yb)
+            loss += derivative_loss_weight * d_loss
 
         if extra_l2_reg > 0.0:
             l2_penalty = sum(p.pow(2).sum() for p in model.parameters())
-            loss = loss + extra_l2_reg * l2_penalty
+            loss += extra_l2_reg * l2_penalty
         
-        # Backpropagation
         optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
-        
-        # Accumulate loss
         train_loss += loss.item()
 
     return train_loss / len(train_loader)
-
 
 def validate_one_epoch(
     model: nn.Module,
@@ -217,46 +250,42 @@ def validate_one_epoch(
     device: torch.device,
     feature_weights: Optional[torch.Tensor] = None,
     feature_loss_types: Optional[Sequence[str]] = None,
+    derivative_loss_weight: float = 0.0, # <--- NEW PARAMETER
 ) -> tuple[float, torch.Tensor, torch.Tensor]:
     model.eval()
     val_loss = 0.0
-    val_preds_epoch = []
-    val_targets_epoch = []
+    val_preds_epoch, val_targets_epoch = [], []
 
     with torch.no_grad():
         for Xb, Yb, springback, experiment_config in val_loader:
-            Xb = Xb.to(device, non_blocking=True)
-            Yb = Yb.to(device, non_blocking=True)
-            springback = springback.to(device, non_blocking=True).view(-1, 1)
-            experiment_config = experiment_config.to(device, non_blocking=True)
+            Xb, Yb = Xb.to(device), Yb.to(device)
+            springback = springback.view(-1, 1).to(device)
+            experiment_config = experiment_config.to(device)
 
             pred, _ = model(Xb, springback, experiment_config)
-            if feature_weights is None and not feature_loss_types:
-                loss = criterion(pred, Yb)
+            
+            # Base Validation Loss
+            if feature_loss_types:
+                v_loss = 0.0
+                weights = feature_weights.to(device) if feature_weights is not None else None
+                for i, loss_type in enumerate(feature_loss_types):
+                    part = F.smooth_l1_loss(pred[:, :, i], Yb[:, :, i]) if loss_type == "smoothl1" else F.mse_loss(pred[:, :, i], Yb[:, :, i])
+                    if weights is not None:
+                        part = part * weights[i]
+                    v_loss += part
+                v_loss /= len(feature_loss_types)
             else:
-                if feature_loss_types:
-                    loss = 0.0
-                    weights = feature_weights.to(device) if feature_weights is not None else None
-                    for i, loss_type in enumerate(feature_loss_types):
-                        if loss_type == "smoothl1":
-                            part = F.smooth_l1_loss(pred[:, :, i], Yb[:, :, i])
-                        else:
-                            part = F.mse_loss(pred[:, :, i], Yb[:, :, i])
-                        if weights is not None:
-                            part = part * weights[i]
-                        loss = loss + part
-                    loss = loss / len(feature_loss_types)
-                else:
-                    weights = feature_weights.view(1, 1, -1)
-                    loss = ((pred - Yb) ** 2 * weights).mean()
+                v_loss = criterion(pred, Yb).item()
 
-            val_loss += loss.item()
+            # Add Derivative Component to Val Loss
+            if derivative_loss_weight > 0.0:
+                v_loss += derivative_loss_weight * compute_derivative_loss(pred, Yb).item()
 
-            val_preds_epoch.append(pred.detach().cpu())
-            val_targets_epoch.append(Yb.detach().cpu())
+            val_loss += v_loss
+            val_preds_epoch.append(pred.cpu())
+            val_targets_epoch.append(Yb.cpu())
 
-    val_loss /= len(val_loader)
-    return val_loss, torch.cat(val_preds_epoch, dim=0), torch.cat(val_targets_epoch, dim=0)
+    return val_loss / len(val_loader), torch.cat(val_preds_epoch, dim=0), torch.cat(val_targets_epoch, dim=0)
 
 
 def format_progress_bar(train_loss: float, val_loss: float, metrics: dict,

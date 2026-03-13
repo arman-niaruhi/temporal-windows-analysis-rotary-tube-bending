@@ -1,12 +1,19 @@
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import numpy as np
 import torch
 import os
 import logging
+import json
 from pathlib import Path
 from typing import Any
+from torch.utils.data import DataLoader
+from sklearn.metrics import confusion_matrix
 
 from src.pipeline.ml.classification.utils.model import LSTMSequenceClassifier
+from src.pipeline.ml.classification.utils.dataset_utils import (
+    SegmentDataset3DSequenceWithMask,
+)
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 from src.pipeline.ml.classification.utils.preprocessing_utils import (
     ClassifierPreprocessor,
@@ -20,6 +27,234 @@ TEST_EXPERIMENT_IDS = [
     178, 179, 182, 183, 211, 212, 213, 255, 258, 261, 271, 272, 273,
     302, 303, 304, 317, 318
 ]
+
+PREFERRED_LABEL_ORDER = [
+    "Clamping",
+    "Bending",
+    "Mandrel Extraction",
+    "De-Clamping",
+]
+
+
+def _save_confusion_matrix_plot(
+    cm: np.ndarray,
+    axis_labels: list[str],
+    title: str,
+    output_file: Path,
+) -> None:
+    n_classes = len(axis_labels)
+    fig_w = max(7.0, 1.8 * n_classes)
+    fig_h = max(6.0, 1.4 * n_classes)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
+    ax.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    tick_positions = np.arange(len(axis_labels))
+    ax.set(
+        xticks=tick_positions,
+        yticks=tick_positions,
+        xticklabels=axis_labels,
+        yticklabels=axis_labels,
+        ylabel="True Label",
+        xlabel="Predicted Label",
+    )
+    x_tick_labels = [label.replace(" ", "\n") for label in axis_labels]
+    ax.set_xticklabels(x_tick_labels)
+    ax.xaxis.set_label_position("top")
+    ax.xaxis.tick_top()
+    ax.tick_params(
+        axis="x",
+        top=True,
+        labeltop=True,
+        bottom=False,
+        labelbottom=False,
+        pad=16,
+        labelsize=12,
+    )
+    plt.setp(ax.get_xticklabels(), rotation=0, ha="center", va="bottom")
+    ax.tick_params(axis="y", labelsize=14)
+    ax.xaxis.label.set_size(18)
+    ax.xaxis.labelpad = 18
+    ax.yaxis.label.set_size(18)
+
+    thresh = cm.max() / 2.0 if cm.size else 0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(
+                j,
+                i,
+                f"{cm[i, j]}",
+                ha="center",
+                va="center",
+                fontsize=12,
+                color="white" if cm[i, j] > thresh else "black",
+            )
+
+    fig.tight_layout()
+    fig.savefig(output_file, dpi=300, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
+def save_validation_confusion_matrices(
+    database_path: str,
+    annotation_json_path: str,
+    experiment_ids_path: str,
+    eliminated_columns: list[str],
+    models_path: str,
+    model_config: dict,
+    labels: list[str],
+    process_part: str,
+    save_dir_path: Any,
+    batch_size: int = 8,
+) -> None:
+    """Save one validation-set confusion matrix per label into inference output dir."""
+    output_dir = Path(save_dir_path) / process_part / "All_in_One"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(experiment_ids_path, "r") as f:
+        experiment_groups = json.load(f)
+
+    loader = DataLoaderETL(database_path)
+    dataframes = loader.load_all_data_from_csv()
+    base_df = dataframes[process_part]
+
+    ordered_labels = [lbl for lbl in PREFERRED_LABEL_ORDER if lbl in labels]
+    ordered_labels += [lbl for lbl in labels if lbl not in PREFERRED_LABEL_ORDER]
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    hidden_size = model_config["hidden_size"]
+    num_layers = model_config["num_layers"]
+
+    for label in ordered_labels:
+        classifier_preprocessor = ClassifierPreprocessor(
+            sensors_df=base_df.copy(), annotation_json=annotation_json_path
+        )
+        sensors_df, _ = classifier_preprocessor.read_data()
+        sensors_df = classifier_preprocessor.delete_columns(
+            eliminated_columns=eliminated_columns
+        )
+
+        cols_to_normalize = sensors_df.columns.drop("Experiment_ID")
+        sensors_df[cols_to_normalize] = (
+            sensors_df[cols_to_normalize] - sensors_df[cols_to_normalize].min()
+        ) / (
+            sensors_df[cols_to_normalize].max() - sensors_df[cols_to_normalize].min()
+        )
+        sensors_df = classifier_preprocessor.assign_one_label(target_label=label)
+        sensors_df = classifier_preprocessor.normalize_and_encode_labels()
+        feature_cols = classifier_preprocessor.get_feature_cols()
+
+        _, val_df, _, _ = classifier_preprocessor.split_experiments(experiment_groups)
+        if val_df.empty:
+            logger.warning("Validation set is empty for label %s. Skipping.", label)
+            continue
+
+        val_dataset = SegmentDataset3DSequenceWithMask(val_df, feature_cols)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+        model_path = os.path.join(models_path, process_part, label, "activity_detector.pth")
+        try:
+            state_dict = torch.load(model_path, map_location=device)
+        except FileNotFoundError:
+            logger.warning("Model file not found for label %s at %s", label, model_path)
+            continue
+
+        num_classes = state_dict["fc.weight"].shape[0]
+        model = LSTMSequenceClassifier(
+            input_size=len(feature_cols),
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            num_classes=num_classes,
+            bidirectional=True,
+        ).to(device)
+        model.load_state_dict(state_dict)
+        model.eval()
+
+        metrics = model.evaluate_loader(val_loader, device)
+        y_true = metrics.get("y_true", [])
+        y_pred = metrics.get("y_pred", [])
+        if not y_true or not y_pred:
+            logger.warning("No validation predictions for label %s. Skipping.", label)
+            continue
+
+        safe_label = label.replace(" ", "_").replace("/", "_")
+        class_indices = sorted(val_dataset.label_to_idx.values())
+        idx_to_label = {v: k for k, v in val_dataset.label_to_idx.items()}
+        axis_labels = [idx_to_label[idx] for idx in class_indices]
+        cm = confusion_matrix(y_true, y_pred, labels=class_indices)
+        target = output_dir / f"00_validation_confusion_matrix_{safe_label}.png"
+        _save_confusion_matrix_plot(
+            cm=cm,
+            axis_labels=axis_labels,
+            title=f"{label} CM - Validation",
+            output_file=target,
+        )
+
+    all_label = "All"
+    all_model_path = os.path.join(
+        models_path, process_part, all_label, "activity_detector.pth"
+    )
+    if not Path(all_model_path).exists():
+        logger.warning(
+            "All_and_One validation confusion matrix skipped: model not found at %s",
+            all_model_path,
+        )
+        return
+
+    classifier_preprocessor = ClassifierPreprocessor(
+        sensors_df=base_df.copy(), annotation_json=annotation_json_path
+    )
+    sensors_df, _ = classifier_preprocessor.read_data()
+    sensors_df = classifier_preprocessor.delete_columns(
+        eliminated_columns=eliminated_columns
+    )
+    cols_to_normalize = sensors_df.columns.drop("Experiment_ID")
+    sensors_df[cols_to_normalize] = (
+        sensors_df[cols_to_normalize] - sensors_df[cols_to_normalize].min()
+    ) / (
+        sensors_df[cols_to_normalize].max() - sensors_df[cols_to_normalize].min()
+    )
+    sensors_df = classifier_preprocessor.assign_labels()
+    sensors_df = classifier_preprocessor.normalize_and_encode_labels()
+    feature_cols = classifier_preprocessor.get_feature_cols()
+    _, val_df, _, _ = classifier_preprocessor.split_experiments(experiment_groups)
+    if val_df.empty:
+        logger.warning("Validation set is empty for All_and_One. Skipping.")
+        return
+
+    val_dataset = SegmentDataset3DSequenceWithMask(val_df, feature_cols)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+    state_dict = torch.load(all_model_path, map_location=device)
+    num_classes = state_dict["fc.weight"].shape[0]
+    all_model = LSTMSequenceClassifier(
+        input_size=len(feature_cols),
+        hidden_size=hidden_size,
+        num_layers=num_layers,
+        num_classes=num_classes,
+        bidirectional=True,
+    ).to(device)
+    all_model.load_state_dict(state_dict)
+    all_model.eval()
+
+    all_metrics = all_model.evaluate_loader(val_loader, device)
+    all_y_true = all_metrics.get("y_true", [])
+    all_y_pred = all_metrics.get("y_pred", [])
+    if not all_y_true or not all_y_pred:
+        logger.warning("No validation predictions for All_and_One. Skipping.")
+        return
+
+    all_class_indices = sorted(val_dataset.label_to_idx.values())
+    all_idx_to_label = {v: k for k, v in val_dataset.label_to_idx.items()}
+    all_axis_labels = [all_idx_to_label[idx] for idx in all_class_indices]
+    all_cm = confusion_matrix(all_y_true, all_y_pred, labels=all_class_indices)
+    all_target = output_dir / "00_validation_confusion_matrix_All_and_One.png"
+    _save_confusion_matrix_plot(
+        cm=all_cm,
+        axis_labels=all_axis_labels,
+        title="All_and_One CM - Validation",
+        output_file=all_target,
+    )
 
 
 def get_all_predictions(
@@ -36,7 +271,7 @@ def get_all_predictions(
 
     Args:
         Label: Target label for which predictions are made.
-        database_path: Path to the SQLite database.
+        database_path: Path to the ETL CSV directory.
         annotation_json_path: Path to the JSON file with annotations.
         eliminated_columns: List of columns to eliminate from the data.
         models_path: Path to the directory containing trained models.
@@ -46,13 +281,20 @@ def get_all_predictions(
         exp_data: DataFrame with sensor data for the experiment.
     """
     loader = DataLoaderETL(database_path)
-    dataframes = loader.load_all_data_from_sqlite()
+    dataframes = loader.load_all_data_from_csv()
     classifier_preprocessor = ClassifierPreprocessor(
         sensors_df=dataframes[process_part], annotation_json=annotation_json_path
     )
     sensors_df, _ = classifier_preprocessor.read_data()
     sensors_df = classifier_preprocessor.delete_columns(
         eliminated_columns=eliminated_columns
+    )
+    # Match training preprocessing: min-max normalize all sensor features.
+    cols_to_normalize = sensors_df.columns.drop("Experiment_ID")
+    sensors_df[cols_to_normalize] = (
+        sensors_df[cols_to_normalize] - sensors_df[cols_to_normalize].min()
+    ) / (
+        sensors_df[cols_to_normalize].max() - sensors_df[cols_to_normalize].min()
     )
     sensors_df = classifier_preprocessor.assign_one_label(target_label=label)
     sensors_df = classifier_preprocessor.normalize_and_encode_labels()
@@ -111,7 +353,7 @@ def inference_one_label_in_one(
 
     Args:
         exp_id: Experiment ID to plot.
-        database_path: Path to the SQLite database.
+        database_path: Path to the ETL CSV directory.
         annotation_json_path: Path to the JSON file with annotations.
         eliminated_columns: List of columns to eliminate from the data.
         models_path: Path to the directory containing trained models.
@@ -164,10 +406,46 @@ def inference_one_label_in_one(
 
     logger.info(f"Starting inference for Experiment ID: {exp_id} with labels: {labels}")
 
-    base_colors = list(mcolors.TABLEAU_COLORS.values())[: len(labels)] 
-    
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as mcolors
+
+    ordered_labels = [lbl for lbl in PREFERRED_LABEL_ORDER if lbl in labels]
+    ordered_labels += [lbl for lbl in labels if lbl not in PREFERRED_LABEL_ORDER]
+
+    plot_labels = ordered_labels.copy()
+
+    SENSOR_COLOR_MAP = {
+        "BEND-DIE_LATERAL_Movement_[mm]": "#00429d",
+        "BEND-DIE_ROTATING_Angle_[°]": "#ff6f00",
+        "CLAMP-DIE_LATERAL_Movement_[mm]": "#2ca25f",
+        "COLLET_AXIAL_Movement_[mm]": "#d73027",
+        "MACHINE_BEND-DIE_LATERAL_Max_Torque_[%]": "#7b3294",
+        "MACHINE_BEND-DIE_ROTATING_Max_Torque_[%]": "#8c510a",
+        "MACHINE_BEND-DIE_VERTICAL_Max_Torque_[%]": "#c51b7d",
+        "MACHINE_CLAMP-DIE_LATERAL_Max_Torque_[%]": "#636363",
+        "MACHINE_COLLET_AXIAL_Max_Torque_[%]": "#b8a200",
+        "MACHINE_MANDREL_AXIAL_Max_Torque_[%]": "#008fd5",
+        "MACHINE_PRESSURE-DIE_AXIAL_Max_Torque_[%]": "#542788",
+        "MACHINE_PRESSURE-DIE_LATERAL_Max_Torque_[%]": "#e69f00",
+        "MANDREL_AXIAL_Movement_[mm]": "#00a9a5",
+        "PRESSURE-DIE_AXIAL_Movement_[mm]": "#f46d43",
+    }
+
+    LABEL_ABBREVIATIONS = {
+        "Bending": "B",
+        "Mandrel Extraction": "M",
+        "Clamping": "C",
+        "De-Clamping": "D"
+    }
+
+    fallback_colors = list(mcolors.TABLEAU_COLORS.values())
+    phase_color_map = {
+        label: fallback_colors[i % len(fallback_colors)]
+        for i, label in enumerate(plot_labels)
+    }
+
     all_data = {}
-    for label in labels:
+    for label in ordered_labels:
         exp_data, mask_pred, mask_true = get_all_predictions_fn(
             label=label,
             database_path=database_path,
@@ -177,50 +455,97 @@ def inference_one_label_in_one(
             model_config=model_config,
             process_part=process_part,
             exp_id=exp_id,
-        )   # type: ignore
+        )
+
         all_data[label] = {
             "exp_data": exp_data,
             "mask_pred": mask_pred,
             "mask_true": mask_true,
         }
-    fig_width = 16  
-    fig_height = 5  
-    figsize = (fig_width, fig_height)
 
-    _, axs = plt.subplots(2, 1, figsize=figsize, sharex=True, height_ratios=[2, 1])  
+    # Make bottom subplot taller
+    fig, axs = plt.subplots(
+        2,
+        1,
+        figsize=(16, 9),
+        sharex=True,
+        height_ratios=[2, 1.3],
+    )
 
+    # -------------------------
+    # Top plot
+    # -------------------------
     sensor_plotted = set()
-    for label in labels:
+    width_cycle = [2.8, 2.4, 2.1, 1.8]
+    width_index = 0
+
+    for label in ordered_labels:
         exp_data = all_data[label]["exp_data"]
+
         sensor_cols = [
-            col
-            for col in exp_data.columns
+            col for col in exp_data.columns
             if col not in ["Label", "Label_encoded", "Experiment_ID"]
         ]
 
         for col in sensor_cols:
+            color = SENSOR_COLOR_MAP.get(col, "#333333")
+            linewidth = width_cycle[width_index % len(width_cycle)]
+            y = exp_data[col].values
+
+            axs[0].plot(
+                y,
+                color="white",
+                linewidth=linewidth + 1.2,
+                alpha=0.95,
+                solid_capstyle="round",
+                antialiased=True,
+                zorder=2,
+            )
+
+            axs[0].plot(
+                y,
+                color=color,
+                linewidth=linewidth,
+                marker="o",
+                markersize=1,
+                markevery=50,
+                markeredgewidth=0,
+                alpha=0.98,
+                solid_capstyle="round",
+                antialiased=True,
+                zorder=3,
+            )
+
             if col not in sensor_plotted:
-                axs[0].plot(exp_data[col].values, linewidth=.8, label=col)
                 sensor_plotted.add(col)
-            else:
-                axs[0].plot(exp_data[col].values, linewidth=.8)
+                width_index += 1
 
-    axs[0].set_ylabel("Sensor Value")
-    axs[0].set_title(f"Sensor Signals – Experiment {exp_id}")
-    axs[0].grid(True, linestyle="--", alpha=0.5)
-    axs[0].legend(loc="center left", bbox_to_anchor=(1, 0.5), fontsize="small")
+    axs[0].grid(True, linestyle="--", linewidth=0.6, alpha=0.35)
+    axs[0].margins(x=0.01)
+    axs[0].spines["top"].set_visible(False)
+    axs[0].spines["right"].set_visible(False)
+    axs[0].tick_params(axis="both", labelsize=12)
 
-    axs[0].margins(x=0.01)  
-
+    # -------------------------
+    # Bottom plot
+    # -------------------------
     categories, starts, ends, colors = [], [], [], []
 
-    for i, label in enumerate(labels):
+    for i, label in enumerate(plot_labels):
+        display_label = LABEL_ABBREVIATIONS.get(label, label)
+
         mask_true = all_data[label]["mask_true"]
         mask_pred = all_data[label]["mask_pred"]
 
-        base_color = base_colors[i]
-        true_color = mcolors.to_rgba(base_color, alpha=0.7)
-        pred_color = mcolors.to_rgba(base_color, alpha=0.3)
+        if label == "Bending" and "Mandrel Extraction" in all_data:
+            mandrel_true = all_data["Mandrel Extraction"]["mask_true"]
+            mandrel_pred = all_data["Mandrel Extraction"]["mask_pred"]
+            mask_true = mask_true | mandrel_true
+            mask_pred = mask_pred | mandrel_pred
+
+        base_color = phase_color_map[label]
+        true_color = mcolors.to_rgba(base_color, alpha=0.80)
+        pred_color = mcolors.to_rgba(base_color, alpha=0.35)
 
         def extract_segments(mask, category, color):
             start = None
@@ -239,8 +564,8 @@ def inference_one_label_in_one(
                 ends.append(len(mask) - 1)
                 colors.append(color)
 
-        extract_segments(mask_true, f"{label} True", true_color)
-        extract_segments(mask_pred, f"{label} Pred", pred_color)
+        extract_segments(mask_true, f"True {display_label}", true_color)
+        extract_segments(mask_pred, f"Predicted {display_label}", pred_color)
 
     if categories:
         axs[1].barh(
@@ -248,7 +573,8 @@ def inference_one_label_in_one(
             [e - s for s, e in zip(starts, ends)],
             left=starts,
             color=colors,
-            height=0.6,
+            height=0.72,
+            edgecolor="none",
         )
     else:
         axs[1].text(
@@ -258,15 +584,20 @@ def inference_one_label_in_one(
             transform=axs[1].transAxes,
             ha="center",
             va="center",
+            fontsize=12,
         )
 
-    axs[1].set_xlabel("Time Index")
+    axs[1].set_xlabel("Time Index", fontsize=16, fontweight="bold")
+    axs[1].grid(True, axis="x", linestyle="--", linewidth=0.6, alpha=0.30)
     axs[1].margins(x=0.01)
+    axs[1].spines["top"].set_visible(False)
+    axs[1].spines["right"].set_visible(False)
 
-    plt.tight_layout()
-    output_dir = save_dir_path / process_part /"All_in_One"
+    plt.subplots_adjust(left=0.12, hspace=0.08)
+
+    output_dir = save_dir_path / process_part / "All_in_One"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_file = output_dir / f"individual_labels_{exp_id}.png"
     plt.savefig(output_file, dpi=300, bbox_inches="tight", facecolor="white")
-
+    plt.close(fig)

@@ -17,6 +17,14 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from matplotlib import rcParams
 
+
+def _set_portable_font(size: int = 12) -> None:
+    """Prefer Arial when available, with safe cross-platform fallbacks."""
+    rcParams["font.family"] = "sans-serif"
+    rcParams["font.sans-serif"] = ["Arial", "Helvetica", "DejaVu Sans", "Liberation Sans"]
+    rcParams["font.size"] = size
+
+
 def generate_final_attention_plot(
     model: nn.Module,
     plot_X: torch.Tensor,
@@ -28,6 +36,7 @@ def generate_final_attention_plot(
     attention_lines_dir: Path,
     annot_timesteps: list,
     mandrel_extraction_annot_timesteps: list,
+    target_feature_names: list | None = None,
 ) -> None:
     """Generate final attention visualization."""
     """
@@ -45,6 +54,8 @@ def generate_final_attention_plot(
     with torch.no_grad():
         model.eval()
         _, final_attn = model(plot_X, springback, experiment_config)
+        if final_attn is None:
+            return
         final_attn_mean = final_attn.mean(0).cpu().numpy()
 
     
@@ -52,10 +63,26 @@ def generate_final_attention_plot(
     attn_mean=final_attn_mean
     sample_idx=-1
     figsize: tuple=(20, 10)
-    rcParams["font.family"] = "sans-serif"
-    rcParams["font.size"] = 10
+    _set_portable_font(size=12)
 
     cleaned_feature_names = [name.replace("_mean", "") for name in sensor_names]
+
+    if attn_mean.ndim == 3:
+        for feat_idx in range(attn_mean.shape[0]):
+            feat_dir = attention_lines_dir / f"feature_{feat_idx:02d}"
+            feat_dir.mkdir(parents=True, exist_ok=True)
+            plot_attention_lines_with_sensors(
+                sensor_data,
+                sensor_names,
+                attn_mean[feat_idx],
+                machine_part,
+                feat_dir,
+                annot_timesteps,
+                mandrel_extraction_annot_timesteps,
+                sample_idx=sample_idx,
+                figsize=figsize,
+            )
+        return
 
     sample_data = sensor_data[sample_idx, :, :]
     main_timesteps = sample_data.shape[0]
@@ -522,8 +549,7 @@ def plot_selected_features_with_attn_heatmap(
         sample_idx: Which sample to plot (default last sample)
         figsize: Figure size tuple
     """
-    rcParams["font.family"] = "sans-serif"
-    rcParams["font.size"] = 10
+    _set_portable_font(size=12)
 
     cleaned_feature_names = [name.replace("_mean", "") for name in sensor_names]
 

@@ -3,7 +3,7 @@ import logging
 
 from src.logging.logging_config import setup_logging
 from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import prepare_data
-from src.pipeline.ml.spring_back_predictior.training import train_model_springback_lstm, train_model_springback_random_forest
+from src.pipeline.ml.spring_back_predictior.training import train_model_springback_tcn_lstm, train_model_springback_random_forest
 from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import create_data_loaders
 
 
@@ -33,7 +33,6 @@ def main():
             input_path_param=input_path_param,
             preprocessing_param=preprocessing_param,
         )
-    
     # Train RF
     train_model_springback_random_forest(
         X_train=X_train,
@@ -55,8 +54,9 @@ def main():
         experiment_configurations_test,
         lstm_training_params["batch_size"],
     )
+
     
-    train_model_springback_lstm( 
+    train_model_springback_tcn_lstm( 
     seed=seed,
     model_input_size=X_train.shape[2],
     model_output_size=springbacks_train.shape[2],
@@ -65,6 +65,7 @@ def main():
     train_loader=train_loader,
     val_loader=val_loader,
     plot_loader=plot_loader,
+    model_name="tcn_lstm",
     )
         
         

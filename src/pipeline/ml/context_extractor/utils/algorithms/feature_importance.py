@@ -27,8 +27,19 @@ def collect_attention_data(model, val_loader, device):
             springback = springback.to(device)
             experiment_config = experiment_config.to(device)
             pred, attn_weights = model(Xb, springback, experiment_config)
-            
-            mean_attn = attn_weights.mean(dim=(0, 1))  
+
+            if attn_weights.dim() == 4:
+                # (B, F, A, T) -> keep feature/angle/time, average over batch
+                mean_attn = attn_weights.mean(dim=0)
+            elif attn_weights.dim() == 3:
+                # (B, A, T) -> average over batch
+                mean_attn = attn_weights.mean(dim=0)
+            elif attn_weights.dim() == 2:
+                # (B, T) -> average over batch
+                mean_attn = attn_weights.mean(dim=0)
+            else:
+                raise ValueError(f"Unexpected attention shape: {attn_weights.shape}")
+
             all_attention_weights.append(mean_attn.cpu())
             all_predictions.append(pred.cpu())
             all_targets.append(Yb.cpu())
@@ -43,11 +54,29 @@ def compute_attention_statistics(all_attention_weights, all_predictions, all_tar
             'global_attn': None,
             'timestep_attention': np.zeros(10),
             'feature_importance': np.ones(len(feature_names)),
-            'mse': 0.0
+            'mse': 0.0,
+            'per_feature_timestep_attention': None,
+            'angle_attention_by_feature': None,
         }
     
     global_attn = torch.stack(all_attention_weights).mean(dim=0)
-    timestep_attention = global_attn.numpy()
+    per_feature_timestep_attention = None
+    angle_attention_by_feature = None
+
+    if global_attn.dim() == 3:
+        # (F, A, T)
+        timestep_attention = global_attn.mean(dim=(0, 1)).numpy()
+        per_feature_timestep_attention = global_attn.mean(dim=1).numpy()
+        angle_attention_by_feature = global_attn.mean(dim=2).numpy()
+    elif global_attn.dim() == 2:
+        # (A, T)
+        timestep_attention = global_attn.mean(dim=0).numpy()
+        angle_attention_by_feature = global_attn.mean(dim=1).numpy()
+    elif global_attn.dim() == 1:
+        # (T)
+        timestep_attention = global_attn.numpy()
+    else:
+        raise ValueError(f"Unexpected global attention shape: {global_attn.shape}")
     
     predictions = torch.cat(all_predictions, dim=0)
     targets = torch.cat(all_targets, dim=0)
@@ -61,7 +90,9 @@ def compute_attention_statistics(all_attention_weights, all_predictions, all_tar
         'global_attn': global_attn,
         'timestep_attention': timestep_attention,
         'feature_importance': feature_importance,
-        'mse': mse
+        'mse': mse,
+        'per_feature_timestep_attention': per_feature_timestep_attention,
+        'angle_attention_by_feature': angle_attention_by_feature,
     }
 
 
@@ -127,6 +158,36 @@ def compute_attention_importance(
     attention_data = create_attention_metadata(
         importance_df, stats['timestep_attention'], stats['mse']
     )
+    if stats.get("angle_attention_by_feature") is not None:
+        angle_values = stats["angle_attention_by_feature"]
+        rows = []
+        if angle_values.ndim == 2:
+            if len(feature_names) == angle_values.shape[0]:
+                angle_feature_names = feature_names
+            else:
+                angle_feature_names = [f"feature_{i:02d}" for i in range(angle_values.shape[0])]
+            for feat_idx, feature in enumerate(angle_feature_names):
+                for angle_idx, value in enumerate(angle_values[feat_idx]):
+                    rows.append(
+                        {
+                            "Feature": feature,
+                            "Angle_Index": int(angle_idx),
+                            "Mean_Attention": float(value),
+                        }
+                    )
+        else:
+            for angle_idx, value in enumerate(angle_values):
+                rows.append(
+                    {
+                        "Feature": "ALL",
+                        "Angle_Index": int(angle_idx),
+                        "Mean_Attention": float(value),
+                    }
+                )
+        angle_df = pd.DataFrame(rows)
+        angle_path = saving_dir / "feature_angle_attention.csv"
+        angle_df.to_csv(angle_path, index=False)
+        attention_data["feature_angle_attention_path"] = str(angle_path)
     
     plot_paths = generate_all_plots(
         importance_df, 
@@ -395,7 +456,6 @@ def analyze_feature_importance(
         import traceback
         traceback.print_exc()
 
-    # Optional: Create comparison across methods
     successful_methods = [
         method for method in importance_dfs.keys() if importance_dfs[method] is not None
     ]

@@ -14,6 +14,7 @@ from src.pipeline.ml.classification.utils.training_utils import (
 from src.pipeline.ml.classification.utils.inference_one_label import (
     get_all_predictions,
     inference_one_label_in_one,
+    save_validation_confusion_matrices,
 )
 
 
@@ -23,6 +24,43 @@ logger = logging.getLogger(__name__)
 activity_recognition_config_path = (
     "config/machine-activity-recognition/machine-activity-recognition-config.json"
 )
+
+
+TEST_EXPERIMENT_IDS = [
+                2,
+                3,
+                22,
+                23,
+                40,
+                54,
+                83,
+                85,
+                110,
+                112,
+                119,
+                120,
+                121,
+                122,
+                123,
+                178,
+                179,
+                182,
+                183,
+                211,
+                212,
+                213,
+                255,
+                258,
+                261,
+                271,
+                272,
+                273,
+                302,
+                303,
+                304,
+                317,
+                318,
+            ]
 
 
 def main():
@@ -99,41 +137,21 @@ def main():
 
     if inference_config:
         try:
-            TEST_EXPERIMENT_IDS = [
-                2,
-                3,
-                22,
-                23,
-                40,
-                54,
-                83,
-                85,
-                110,
-                112,
-                119,
-                120,
-                121,
-                122,
-                123,
-                178,
-                179,
-                182,
-                183,
-                211,
-                212,
-                213,
-                255,
-                258,
-                261,
-                271,
-                272,
-                273,
-                302,
-                303,
-                304,
-                317,
-                318,
-            ]
+            save_validation_confusion_matrices(
+                database_path=config.get("database_path"),
+                annotation_json_path=config.get("annotation_json_path"),
+                experiment_ids_path=config.get("experiment_ids_path"),
+                eliminated_columns=config.get("eliminated_columns"),
+                models_path=inference_config.get("models_path"),
+                model_config=config.get("pipeline_config").get("model_config"),
+                labels=inference_config.get("labels"),
+                process_part=config.get("process_part", "machine_and_movement"),
+                save_dir_path=inference_config.get("save_dir_path"),
+                batch_size=config.get("pipeline_config", {})
+                .get("dataloader_config", {})
+                .get("batch_size", 8),
+            )
+
             for i in TEST_EXPERIMENT_IDS:
                 inference_one_label_in_one(
                     exp_id=i,

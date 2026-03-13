@@ -1,39 +1,63 @@
-import sqlite3
-import pandas as pd
-from typing import Dict, List, Optional
 from pathlib import Path
+from typing import Dict, List, Optional
+
+import pandas as pd
 
 from src.logging.log_utils import log_function
 
 
-class DataLoader:
-    def __init__(self, db_path: str) -> None:
-        """
-        Initialize the DataLoader with a path to the SQLite database.
-        If the database file or its parent directories do not exist, they will be created.
+DEFAULT_INDEX_TABLES = [
+    "machine_and_movement",
+    "movement",
+    "sensor",
+    "machine",
+]
 
-        Args:
-            db_path (str): Path to SQLite database file.
+
+class DataLoader:
+    def __init__(self, storage_path: str) -> None:
         """
-        self.db_path = db_path
-        db_dir = Path(db_path).parent
-        db_dir.mkdir(parents=True, exist_ok=True)
+        Initialize the loader with a directory used to store ETL CSV tables.
+
+        If an old SQLite-like path such as ``tube_geometry.db`` is passed, the
+        suffix is stripped and the CSV tables are stored in ``tube_geometry/``.
+        """
+        self.storage_path = storage_path
+        self.storage_dir = self._resolve_storage_dir(storage_path)
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _resolve_storage_dir(storage_path: str) -> Path:
+        path = Path(storage_path)
+        if path.suffix.lower() == ".db":
+            return path.with_suffix("")
+        return path
+
+    @staticmethod
+    def _prepare_frame_for_write(df: pd.DataFrame, include_index: bool) -> pd.DataFrame:
+        if include_index:
+            return df.reset_index()
+        return df.copy()
+
+    @staticmethod
+    def _restore_index(df: pd.DataFrame, table_name: str, store_index_tables: List[str]) -> pd.DataFrame:
+        if table_name in store_index_tables and "Time_[s]" in df.columns:
+            df = df.set_index("Time_[s]")
+        return df
+
+    def _table_path(self, table_name: str) -> Path:
+        return self.storage_dir / f"{table_name}.csv"
+
+    def _list_tables(self) -> List[str]:
+        return sorted(path.stem for path in self.storage_dir.glob("*.csv"))
 
     @log_function
-    def store_to_sqlite(
-        self, 
-        dataframes: Optional[Dict[str, pd.DataFrame]] = None, 
-        store_index_tables: Optional[List[str]] = None
+    def store_to_csv(
+        self,
+        dataframes: Optional[Dict[str, pd.DataFrame]] = None,
+        store_index_tables: Optional[List[str]] = None,
     ) -> None:
-        """
-        Save multiple DataFrames to a SQLite database and create indexes on all columns.
-
-        Args:
-            dataframes (dict, optional): Dictionary where keys are table names 
-                                         and values are DataFrames to save.
-            store_index_tables (list, optional): List of table names for which the 
-                                                 DataFrame index should be stored as a column.
-        """
+        """Save multiple DataFrames as CSV files inside the storage directory."""
         if not dataframes:
             print("No dataframes provided. Nothing to store.")
             return
@@ -41,125 +65,55 @@ class DataLoader:
         if store_index_tables is None:
             store_index_tables = []
 
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
         for table_name, df in dataframes.items():
             if not isinstance(df, pd.DataFrame):
                 print(f"Skipped {table_name}: not a valid DataFrame.")
                 continue
 
-            index = table_name in store_index_tables
-
-            df.to_sql(table_name, conn, index=index, if_exists="replace")
-            print(f"Saved table '{table_name}' with shape {df.shape} to SQLite.")
-
-            for col in df.columns:
-                index_name = f"idx_{table_name}_{col}"
-                try:
-                    cursor.execute(
-                        f'CREATE INDEX IF NOT EXISTS "{index_name}" ON "{table_name}"("{col}")'
-                    )
-                    print(f"Created index on {table_name}({col})")
-                except sqlite3.OperationalError as e:
-                    print(f"Failed to create index on {table_name}({col}): {e}")
-
-        conn.commit()
-        conn.close()
+            include_index = table_name in store_index_tables
+            output_df = self._prepare_frame_for_write(df, include_index=include_index)
+            output_path = self._table_path(table_name)
+            output_df.to_csv(output_path, index=False)
+            print(f"Saved table '{table_name}' with shape {df.shape} to CSV: {output_path}")
 
     @log_function
-    def load_all_data_from_sqlite(self, store_index_tables=[
-            "df_machine",
-            "df_sensor",
-            "df_machine_and_movement",
-            "df_movement",
-        ]) -> Dict[str, pd.DataFrame]:
-        """
-        Load all tables from the SQLite database into a dictionary of DataFrames.
-
-        Tables listed in `store_index_tables` will have 'Time_[s]' set as the index
-        if that column exists. Each table name is used as the key in the returned dictionary.
-
-        Args:
-            store_index_tables (list): List of table names for which 'Time_[s]' should be used as index.
-
-        Returns:
-            Dict[str, pd.DataFrame]: Dictionary mapping table names to their respective DataFrames.
-        """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = [row[0] for row in cursor.fetchall()]
-
-        dataframes = {}
-        for table in tables:
-            df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
-
-            if table in store_index_tables and "Time_[s]" in df.columns:
-                df.set_index("Time_[s]", inplace=True)
-
-            dataframes[table] = df
-
-        conn.close()
-        return dataframes
-
-    @log_function
-    def load_data_by_experiment_from_sqlite(
+    def load_all_data_from_csv(
         self,
-        experiment_id,
-        store_index_tables=[
-            "df_machine",
-            "df_sensor",
-            "df_machine_and_movement",
-            "df_movement",
-        ],
+        store_index_tables: Optional[List[str]] = None,
     ) -> Dict[str, pd.DataFrame]:
-        """
-        Load tables from the SQLite database filtered by a specific Experiment_ID.
-
-        Only rows with the specified `experiment_id` are loaded. For tables listed
-        in `store_index_tables`, 'Time_[s]' is set as the index if present.
-        Returns a dictionary mapping table names to their filtered DataFrames.
-
-        Args:
-            experiment_id (int): The Experiment_ID to filter rows by.
-            store_index_tables (list): List of table names for which 'Time_[s]' should be used as index.
-
-        Returns:
-            Dict[str, pd.DataFrame]: Dictionary mapping table names to their filtered DataFrames.
-        """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = [row[0] for row in cursor.fetchall()]
+        """Load all CSV tables from the storage directory into a dataframe dict."""
+        if store_index_tables is None:
+            store_index_tables = DEFAULT_INDEX_TABLES
 
         dataframes = {}
-        for table in tables:
-            df = pd.read_sql_query(
-                f"SELECT * FROM {table} WHERE Experiment_ID = ?",
-                conn,
-                params=(experiment_id,),
-            )
-            if table in store_index_tables and "Time_[s]" in df.columns:
-                df.set_index("Time_[s]", inplace=True)
-            dataframes[table] = df
+        for table in self._list_tables():
+            df = pd.read_csv(self._table_path(table))
+            dataframes[table] = self._restore_index(df, table, store_index_tables)
 
-        conn.close()
         return dataframes
-    
-    @log_function
-    def load_experiment_ids_from_sqlite(
-        self):
-        """
-        Load Experiment_ID from the SQLite database.
 
-        Returns:
-            pd.DataFrame: panda dataframe of experiment ids.
-        """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        df = pd.read_sql_query(f"SELECT * FROM machine_and_movement", conn)
-        conn.close()
-        experiment_ids = df["Experiment_ID"].unique()
-        return experiment_ids
+    @log_function
+    def load_data_by_experiment_from_csv(
+        self,
+        experiment_id: int,
+        store_index_tables: Optional[List[str]] = None,
+    ) -> Dict[str, pd.DataFrame]:
+        """Load all CSV tables and keep only rows for the requested experiment."""
+        if store_index_tables is None:
+            store_index_tables = DEFAULT_INDEX_TABLES
+
+        dataframes = {}
+        for table in self._list_tables():
+            df = pd.read_csv(self._table_path(table))
+            if "Experiment_ID" in df.columns:
+                df = df[df["Experiment_ID"].astype(str) == str(experiment_id)].copy()
+            dataframes[table] = self._restore_index(df, table, store_index_tables)
+
+        return dataframes
+
+    @log_function
+    def load_experiment_ids_from_csv(self):
+        """Load unique experiment IDs from the machine_and_movement CSV."""
+        table_path = self._table_path("machine_and_movement")
+        df = pd.read_csv(table_path)
+        return df["Experiment_ID"].unique()

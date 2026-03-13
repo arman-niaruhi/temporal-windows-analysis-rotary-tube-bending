@@ -13,7 +13,7 @@ import os
 
 class DataVisualizer:
     def __init__(self):
-        self.loader = DataLoader("data/processed/tube_geometry.db")
+        self.loader = DataLoader("data/processed/tube_geometry")
 
     @log_function
     def multi_sensor_experiment(
@@ -78,7 +78,7 @@ class DataVisualizer:
         return fig
 
     def load_experiment_data(self, experiment_id, selected_df_names):
-        loaded_dfs = self.loader.load_data_by_experiment_from_sqlite(experiment_id)
+        loaded_dfs = self.loader.load_data_by_experiment_from_csv(experiment_id)
         dfs = [loaded_dfs[name] for name in selected_df_names if name in loaded_dfs]
         return dfs, loaded_dfs
 

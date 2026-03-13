@@ -14,8 +14,48 @@ References:
 import torch
 import torch.nn as nn
 
-
 class MLPAttention(nn.Module):
+    def __init__(self, n_predictions: int, hidden_dim: int = 128):
+        super().__init__()
+        self.n_predictions = n_predictions
+        self.angle_embeddings = nn.Parameter(torch.randn(n_predictions, hidden_dim))
+        self.W_h = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.W_q = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.v = nn.Linear(hidden_dim, 1, bias=False)
+        nn.init.xavier_uniform_(self.angle_embeddings)
+
+    def forward(self, H: torch.Tensor, mask: torch.Tensor | None = None):
+        B, T, D = H.shape
+
+        H_proj = self.W_h(H)                       # (B,T,D)
+        Q_proj = self.W_q(self.angle_embeddings)    # (P,D)
+
+        scores = self.v(
+            torch.tanh(H_proj.unsqueeze(1) + Q_proj.unsqueeze(0).unsqueeze(2))
+        ).squeeze(-1)                               # (B,P,T)
+
+        mask_bool = None
+        if mask is not None:
+            mask_bool = mask.to(dtype=torch.bool, device=scores.device).unsqueeze(1)  # (B,1,T)
+            scores = scores.masked_fill(~mask_bool, float("-inf"))
+
+        w = torch.softmax(scores, dim=-1)           # (B,P,T)
+
+        # Robustness: if a row was all -inf (shouldn't happen if lengths>=1), softmax gives NaN.
+        # Replace NaNs with zeros.
+        w = torch.nan_to_num(w, nan=0.0)
+
+        if mask_bool is not None:
+            # Renormalize so weights sum to 1 over valid timesteps
+            w = w * mask_bool
+            denom = w.sum(dim=-1, keepdim=True).clamp(min=1e-8)
+            w = w / denom
+
+        ctx = (w.unsqueeze(-1) * H.unsqueeze(1)).sum(dim=2)  # (B,P,D)
+        return ctx, w
+
+
+class BahdanauAttention(nn.Module):
     """
     Implements a multi-layer perceptron (MLP) attention mechanism.
     
@@ -24,13 +64,6 @@ class MLPAttention(nn.Module):
     for each prediction.
     """
     def __init__(self, n_predictions: int, hidden_dim: int = 128):
-        """
-        Initialize MLPAttention.
-
-        Args:
-            n_predictions: Number of prediction timesteps
-            hidden_dim: Hidden dimensionality of input features
-        """
         super().__init__()
         self.n_predictions = n_predictions
 
@@ -82,6 +115,14 @@ class MLPAttention(nn.Module):
         return torch.stack(contexts, dim=1), torch.stack(attns, dim=1)
 
 
+def build_attention(attention_type: str, n_predictions: int, hidden_dim: int) -> nn.Module:
+    attn_type = (attention_type or "mlp").lower()
+    if attn_type in ("bahdanau", "bahdanau_mlp", "mlp_bahdanau", "additive"):
+        return BahdanauAttention(n_predictions, hidden_dim)
+    if attn_type in ("mlp", "mlp_attention"):
+        return MLPAttention(n_predictions, hidden_dim)
+    raise ValueError(f"Unknown attention_type: {attention_type}")
+
 
 class AttentionLSTM(nn.Module):
     def __init__(
@@ -100,6 +141,10 @@ class AttentionLSTM(nn.Module):
         split_output_heads: bool = False,
         main_head_hidden_sizes: list[int] | None = None,
         secondary_head_hidden_sizes: list[int] | None = None,
+        use_feature_attention: bool = False,
+        use_angle_embedding: bool = False,
+        angle_embedding_dim: int = 8,
+        attention_type: str = "mlp",
     ):
         super().__init__()
         print(use_scalar, use_config)
@@ -109,6 +154,13 @@ class AttentionLSTM(nn.Module):
         self.hidden_dim = hidden_dim
         self.output_features = output_features
         self.split_output_heads = split_output_heads
+        self.use_feature_attention = bool(use_feature_attention) and output_features > 1
+        self.use_angle_embedding = use_angle_embedding
+
+        if self.use_feature_attention and not self.split_output_heads:
+            raise ValueError(
+                "use_feature_attention=True requires split_output_heads=True when output_features > 1."
+            )
 
         # Scalar embedding (only if enabled)
         if self.use_scalar:
@@ -135,6 +187,14 @@ class AttentionLSTM(nn.Module):
         else:
             self.config_embedding = None
 
+        if self.use_angle_embedding:
+            if angle_embedding_dim <= 0:
+                raise ValueError("angle_embedding_dim must be > 0 when use_angle_embedding=True")
+            self.angle_embedding = nn.Embedding(n_predictions, angle_embedding_dim)
+            combined_dim = combined_dim + angle_embedding_dim
+        else:
+            self.angle_embedding = None
+
         # LSTM encoder
         self.lstm = nn.LSTM(
             input_features,
@@ -145,7 +205,14 @@ class AttentionLSTM(nn.Module):
         )
 
         self.ln = nn.LayerNorm(hidden_dim)
-        self.attention = MLPAttention(n_predictions, hidden_dim)
+        if self.use_feature_attention:
+            self.feature_attentions = nn.ModuleList(
+                [build_attention(attention_type, n_predictions, hidden_dim) for _ in range(output_features)]
+            )
+            self.attention = None
+        else:
+            self.feature_attentions = None
+            self.attention = build_attention(attention_type, n_predictions, hidden_dim)
 
         def _build_mlp_head(input_dim: int, hidden_sizes: list[int], output_dim: int) -> nn.Sequential:
             layers: list[nn.Module] = []
@@ -206,40 +273,68 @@ class AttentionLSTM(nn.Module):
         o = self.ln(o)
 
         # Attention
-        ctx, attn = self.attention(o, mask=attention_mask)  # (B, n_predictions, hidden_dim)
-
-        combined = ctx
+        if self.use_feature_attention:
+            ctx_list = []
+            attn_list = []
+            for attn_module in self.feature_attentions:
+                ctx_f, attn_f = attn_module(o, mask=attention_mask)
+                ctx_list.append(ctx_f)
+                attn_list.append(attn_f)
+            ctx = torch.stack(ctx_list, dim=1)  # (B, F, n_predictions, hidden_dim)
+            attn = torch.stack(attn_list, dim=1)  # (B, F, n_predictions, seq_len)
+        else:
+            ctx, attn = self.attention(o, mask=attention_mask)  # (B, n_predictions, hidden_dim)
 
         use_scalar = getattr(self, "use_scalar", False)
         use_config = getattr(self, "use_config", False)
 
+        scalar_emb = None
+        config_emb = None
+        angle_emb = None
+
         if use_scalar:
             if scalar is None:
                 raise ValueError("scalar input is required when use_scalar=True")
-
             if scalar.dim() == 1:
                 scalar = scalar.unsqueeze(-1)
-
             scalar_emb = self.scalar_embedding(scalar)
             scalar_emb = scalar_emb.unsqueeze(1).expand(-1, self.n_predictions, -1)
-
-            combined = torch.cat([combined, scalar_emb], dim=-1)
 
         if use_config:
             if config is None:
                 raise ValueError("config input is required when use_config=True")
-
             if config.dim() == 1:
                 config = config.unsqueeze(-1)
-
             config_emb = self.config_embedding(config)
             config_emb = config_emb.unsqueeze(1).expand(-1, self.n_predictions, -1)
 
-            combined = torch.cat([combined, config_emb], dim=-1)
+        if self.use_angle_embedding:
+            angle_idx = torch.arange(self.n_predictions, device=o.device)
+            angle_emb = self.angle_embedding(angle_idx).unsqueeze(0).expand(o.size(0), -1, -1)
 
-        if self.fc_heads is not None:
-            outs = [head(combined) for head in self.fc_heads]
+        if self.use_feature_attention:
+            outs = []
+            for i, head in enumerate(self.fc_heads):
+                combined = ctx[:, i, :, :]
+                if scalar_emb is not None:
+                    combined = torch.cat([combined, scalar_emb], dim=-1)
+                if config_emb is not None:
+                    combined = torch.cat([combined, config_emb], dim=-1)
+                if angle_emb is not None:
+                    combined = torch.cat([combined, angle_emb], dim=-1)
+                outs.append(head(combined))
             out = torch.cat(outs, dim=-1)
         else:
-            out = self.fc(combined)
+            combined = ctx
+            if scalar_emb is not None:
+                combined = torch.cat([combined, scalar_emb], dim=-1)
+            if config_emb is not None:
+                combined = torch.cat([combined, config_emb], dim=-1)
+            if angle_emb is not None:
+                combined = torch.cat([combined, angle_emb], dim=-1)
+            if self.fc_heads is not None:
+                outs = [head(combined) for head in self.fc_heads]
+                out = torch.cat(outs, dim=-1)
+            else:
+                out = self.fc(combined)
         return out, attn

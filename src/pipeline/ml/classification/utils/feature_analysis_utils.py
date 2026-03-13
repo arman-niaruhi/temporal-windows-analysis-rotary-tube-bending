@@ -5,12 +5,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
-from src.pipeline.ml.classification.utils.model import LSTMSequenceClassifier
-from src.pipeline.preprocessing.loader import DataLoader
 
 logger = logging.getLogger(__name__)
 
 from captum.attr import IntegratedGradients
+
+
 def compute_feature_mean_baseline(data_loader, device):
     all_feats = []
 
@@ -29,6 +29,7 @@ def compute_feature_mean_baseline(data_loader, device):
 
     return torch.cat(all_feats, dim=0).mean(dim=0)
 
+
 class LSTMWrapper(torch.nn.Module):
     def __init__(self, model, target_class):
         super().__init__()
@@ -39,6 +40,7 @@ class LSTMWrapper(torch.nn.Module):
         # x: (B, T, F)
         logits = self.model(x)  # (B, T, C)
         return logits[:, :, self.target_class].sum(dim=1)
+
 
 def captum_classwise_ig(
     model,
@@ -85,8 +87,6 @@ def captum_classwise_ig(
             break
 
     return np.mean(all_attr, axis=0)
-
-
 
 
 def plot_feature_importance(

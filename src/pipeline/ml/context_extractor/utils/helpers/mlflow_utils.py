@@ -8,6 +8,7 @@ from mlflow.tracking import MlflowClient
 from pathlib import Path
 import logging
 import pandas as pd
+from urllib.parse import unquote, urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +16,10 @@ logger = logging.getLogger(__name__)
 # MLflow experiment setup
 # ============================================================
 def setup_mlflow_experiment(process_part: str, params: dict,
-                            preprocessing_info: dict, X: torch.Tensor, 
-                            Y: torch.Tensor, target_feature_names: list[str]) -> tuple:
+                            preprocessing_info: dict, X: torch.Tensor,
+                            Y: torch.Tensor, target_feature_names: list[str],
+                            input_path_param: dict | None = None,
+                            general_setting: dict | None = None) -> tuple:
     """
     Initialize MLflow experiment and generate experiment description.
 
@@ -37,14 +40,25 @@ def setup_mlflow_experiment(process_part: str, params: dict,
     
     # Create experiment
     mlflow.set_experiment("LSTM_Attention-All")
-    mlflow.set_tracking_uri("mlruns")
+    mlflow.set_tracking_uri(str(Path("mlruns").resolve()))
     
     N_EXPERIMENTS, TIMESTEPS_IN, FEATURES_IN = X.shape
     N_EXPERIMENTS, N_CROSSCUT, FEATURES_OUT = Y.shape
     
+    split_config_path = preprocessing_info.get(
+        "split_config_path",
+        "config/data-split-config/train_test_split.json",
+    )
+    model_type = params.get("model_type", "unknown")
     # Detailed experiment description for reproducibility/logging
     experiment_description = f"""
-    {process_part} PART - LSTM Attention Model
+    SPLIT CONFIG: {split_config_path}
+    PART: {process_part}
+    MODEL TYPE: {model_type}
+    ================== GENERAL SETTINGS ==================
+    {general_setting}
+    ==================== INPUT PATHS =====================
+    {input_path_param}
     ============== PREPROCESSING INFO ====================
     {preprocessing_info}
     ==================== MODEL INFO ======================
@@ -58,6 +72,61 @@ def setup_mlflow_experiment(process_part: str, params: dict,
     {params}
     """
     return experiment_description, FEATURES_IN, N_CROSSCUT, FEATURES_OUT
+
+
+def _flatten_dict(data: dict, prefix: str) -> dict:
+    if data is None:
+        return {}
+    flat = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            flat.update(_flatten_dict(value, f"{prefix}{key}."))
+        else:
+            flat[f"{prefix}{key}"] = value
+    return flat
+
+
+def log_scalar_metrics_from_config(config: dict, prefix: str = "config.") -> None:
+    """
+    Log scalar config values as MLflow metrics.
+    Only int/float/bool values are logged; lists and dicts are skipped.
+    """
+    def _collect_scalars(data: dict, key_prefix: str) -> dict:
+        metrics: dict[str, float] = {}
+        for key, value in data.items():
+            if isinstance(value, dict):
+                metrics.update(_collect_scalars(value, f"{key_prefix}{key}."))
+            elif isinstance(value, bool):
+                metrics[f"{key_prefix}{key}"] = float(value)
+            elif isinstance(value, (int, float)):
+                metrics[f"{key_prefix}{key}"] = float(value)
+        return metrics
+
+    metrics = _collect_scalars(config, prefix)
+    if metrics:
+        mlflow.log_metrics(metrics)
+
+
+def log_experiment_metadata_to_mlflow(
+    *,
+    split_config_path: str | None,
+    process_part: str,
+    model_type: str,
+    general_setting: dict | None,
+    input_path_param: dict | None,
+    preprocessing_info: dict,
+    params: dict,
+) -> None:
+    flat = {}
+    if split_config_path:
+        flat["split_config_path"] = split_config_path
+    flat["process_part"] = process_part
+    flat["model_type"] = model_type
+    flat.update(_flatten_dict(general_setting, "general."))
+    flat.update(_flatten_dict(input_path_param, "input."))
+    flat.update(_flatten_dict(preprocessing_info, "preprocess."))
+    flat.update(_flatten_dict(params, "train."))
+    mlflow.log_params(flat)
 
 
 # ============================================================
@@ -237,13 +306,76 @@ def move_images_to_mlflow_artifacts(images_dir_path) -> None | bool:
 # ============================================================
 # Retrieve previous MLflow run
 # ============================================================
-def find_previous_mlflow_run(process_part: str, preprocessing_info: dict):
+def _mlflow_uri_to_path(uri: str) -> Path | None:
+    """Convert a local MLflow file URI or path string into a filesystem path."""
+    if not uri:
+        return None
+    parsed = urlparse(uri)
+    if parsed.scheme == "file":
+        return Path(unquote(parsed.path))
+    if parsed.scheme:
+        return None
+    return Path(uri)
+
+
+def _resolve_logged_model_uri(run, tracking_root: Path) -> str | None:
     """
-    Search for the most recent MLflow run matching a naming pattern.
+    Resolve the logged model URI for both legacy run artifacts and newer MLflow model outputs.
+    """
+    artifact_dir = _mlflow_uri_to_path(run.info.artifact_uri)
+    if artifact_dir is not None:
+        legacy_model_dir = artifact_dir / "model"
+        if legacy_model_dir.exists():
+            return f"runs:/{run.info.run_id}/model"
+
+    outputs_dir = tracking_root / run.info.experiment_id / run.info.run_id / "outputs"
+    if not outputs_dir.exists():
+        return None
+
+    for model_link in sorted(outputs_dir.iterdir(), reverse=True):
+        meta_path = model_link / "meta.yaml"
+        if not meta_path.exists():
+            continue
+
+        destination_id = None
+        for line in meta_path.read_text().splitlines():
+            if line.startswith("destination_id:"):
+                destination_id = line.split(":", 1)[1].strip()
+                break
+
+        if not destination_id:
+            continue
+
+        model_meta_candidates = [
+            tracking_root / run.info.experiment_id / "models" / destination_id / "meta.yaml",
+            tracking_root / "models" / destination_id / "meta.yaml",
+        ]
+        for model_meta_path in model_meta_candidates:
+            if not model_meta_path.exists():
+                continue
+            for line in model_meta_path.read_text().splitlines():
+                if line.startswith("artifact_location:"):
+                    model_artifact_uri = line.split(":", 1)[1].strip()
+                    model_artifact_path = _mlflow_uri_to_path(model_artifact_uri)
+                    if model_artifact_path is not None and model_artifact_path.exists():
+                        return str(model_artifact_path)
+
+    return None
+
+
+def find_previous_mlflow_run(
+    process_part: str,
+    preprocessing_info: dict,
+    params: dict | None = None,
+):
+    """
+    Search for the most recent compatible MLflow run for context extractor resume mode.
 
     Returns:
         tuple: (run_id, model_uri) if found, else (None, None)
     """
+    tracking_root = Path("mlruns").resolve()
+    mlflow.set_tracking_uri(str(tracking_root))
     client = MlflowClient()
     experiment_name = "LSTM_Attention-All"
     experiment = client.get_experiment_by_name(experiment_name)
@@ -251,24 +383,63 @@ def find_previous_mlflow_run(process_part: str, preprocessing_info: dict):
         logger.warning(f"No MLflow experiment found with name {experiment_name}.")
         return None, None
 
-    # Construct run name from process_part and preprocessing info
-    excluded58 = "" if not preprocessing_info.get('to_58_excluded', False) else "58"
-    window_size = str(preprocessing_info.get('window_num', '0'))
-    run_name_to_search = f"{process_part}_{excluded58}_ws{window_size}"
+    split_config_path = preprocessing_info.get(
+        "split_config_path",
+        "config/data-split-config/train_test_split.json",
+    )
+    dataset_name = Path(split_config_path).stem if split_config_path else None
 
-    # Search runs by run_name tag
+    filter_parts = [
+        f"params.process_part = '{process_part}'"
+    ]
+
+    if dataset_name:
+        filter_parts.append(f"params.dataset_name = '{dataset_name}'")
+
+    if "window_num" in preprocessing_info:
+        filter_parts.append(
+            f"params.preprocess.window_num = '{preprocessing_info['window_num']}'"
+        )
+
+    if "resample" in preprocessing_info:
+        filter_parts.append(
+            f"params.preprocess.resample = '{preprocessing_info['resample']}'"
+        )
+
+    use_feature_attention = params.get("use_feature_attention")
+    filter_parts.append(f"params.train.use_feature_attention = '{use_feature_attention}'")
+
+    attention_type = params.get("attention_type")
+    filter_parts.append(f"params.train.attention_type = '{attention_type}'")
+
+    use_angle_embedding = params.get("use_angle_embedding")
+    filter_parts.append(f"params.train.use_angle_embedding = '{use_angle_embedding}'")
+
+    model_type = params.get("model_type")
+    filter_parts.append(f"params.model_type = '{model_type}'")
+
+    logger.info(" AND ".join(filter_parts))
     runs = client.search_runs(
         experiment_ids=[experiment.experiment_id],
-        filter_string=f"tags.mlflow.runName = '{run_name_to_search}'",
+        filter_string=" AND ".join(filter_parts),
         order_by=["attributes.start_time DESC"],
-        max_results=1
+        max_results=25,
     )
 
-    if runs:
-        run = runs[0]
-        logger.info(f"Found previous run: {run.info.run_name} (run_id: {run.info.run_id})")
-        model_uri = f"runs:/{run.info.run_id}/model"
-        return run.info.run_id, model_uri
+    for run in runs:
+        model_uri = _resolve_logged_model_uri(run, tracking_root)
+        if model_uri:
+            logger.info(
+                "Found previous run: %s (run_id: %s)",
+                run.info.run_name,
+                run.info.run_id,
+            )
+            return run.info.run_id, model_uri
 
-    logger.info(f"No previous run found with run_name: {run_name_to_search}")
+    logger.info(
+        "No previous compatible run found for process_part=%s, dataset_name=%s, split_config_path=%s, model_type=%s",
+        process_part,
+        dataset_name,
+        split_config_path
+    )
     return None, None

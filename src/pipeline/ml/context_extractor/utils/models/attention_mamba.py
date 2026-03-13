@@ -15,6 +15,8 @@ import torch.nn as nn
 from mambapy.mamba import Mamba as MambaPy
 from mambapy.mamba import MambaConfig as MambaPyConfig
 
+from src.pipeline.ml.context_extractor.utils.models.attention_lstm import BahdanauAttention
+
 
 class MLPAttention(nn.Module):
     """
@@ -49,6 +51,14 @@ class MLPAttention(nn.Module):
             contexts.append(ctx)
             attns.append(w)
         return torch.stack(contexts, dim=1), torch.stack(attns, dim=1)    # (B,A,D), (B,A,T)
+
+def build_attention(attention_type: str, n_predictions: int, hidden_dim: int) -> nn.Module:
+    attn_type = (attention_type or "mlp").lower()
+    if attn_type in ("bahdanau", "bahdanau_mlp", "mlp_bahdanau", "additive"):
+        return BahdanauAttention(n_predictions, hidden_dim)
+    if attn_type in ("mlp", "mlp_attention"):
+        return MLPAttention(n_predictions, hidden_dim)
+    raise ValueError(f"Unknown attention_type: {attention_type}")
 
 
 class MambaEncoderCPU(nn.Module):
@@ -100,6 +110,9 @@ class AttentionMamba(nn.Module):
         config_dim: int | None = None,
         config_embedding_dim: int = 16,
         use_config: bool = True,
+        use_angle_embedding: bool = False,
+        angle_embedding_dim: int = 8,
+        attention_type: str = "mlp",
     ):
         super().__init__()
 
@@ -107,6 +120,7 @@ class AttentionMamba(nn.Module):
         self.use_config = use_config
         self.n_predictions = n_predictions
         self.hidden_dim = hidden_dim
+        self.use_angle_embedding = use_angle_embedding
 
         # Scalar embedding (only if enabled) — identical behavior to your LSTM model
         if self.use_scalar:
@@ -131,6 +145,14 @@ class AttentionMamba(nn.Module):
         else:
             self.config_embedding = None
 
+        if self.use_angle_embedding:
+            if angle_embedding_dim <= 0:
+                raise ValueError("angle_embedding_dim must be > 0 when use_angle_embedding=True")
+            self.angle_embedding = nn.Embedding(n_predictions, angle_embedding_dim)
+            combined_dim = combined_dim + angle_embedding_dim
+        else:
+            self.angle_embedding = None
+
         # Project input features to hidden_dim (LSTM implicitly does this; Mamba needs it explicit)
         self.in_proj = nn.Linear(input_features, hidden_dim)
 
@@ -144,7 +166,7 @@ class AttentionMamba(nn.Module):
 
         # Same normalization + attention as your original module
         self.ln = nn.LayerNorm(hidden_dim)
-        self.attention = MLPAttention(n_predictions, hidden_dim)
+        self.attention = build_attention(attention_type, n_predictions, hidden_dim)
 
         # Same style of prediction head
         self.fc = nn.Sequential(
@@ -206,6 +228,11 @@ class AttentionMamba(nn.Module):
             config_emb = self.config_embedding(config)
             config_emb = config_emb.unsqueeze(1).expand(-1, self.n_predictions, -1)
             combined = torch.cat([combined, config_emb], dim=-1)
+
+        if self.use_angle_embedding:
+            angle_idx = torch.arange(self.n_predictions, device=combined.device)
+            angle_emb = self.angle_embedding(angle_idx).unsqueeze(0).expand(combined.size(0), -1, -1)
+            combined = torch.cat([combined, angle_emb], dim=-1)
 
         out = self.fc(combined)  # (B,A,output_features)
         return out, attn

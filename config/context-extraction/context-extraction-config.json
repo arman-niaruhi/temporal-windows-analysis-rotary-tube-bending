@@ -3,8 +3,8 @@
         "seed": 42
     },
     "inputPathParams": {
-        "database_path": "data/processed/tube_geometry.db",
-        "process_part": "All",
+        "database_path": "data/processed/tube_geometry",
+        "process_part": "Bending",
         "annotation_json_path": "data/ml/machine-and-movement_complete.json"
     },
     "preprocessingParams": {
@@ -13,7 +13,9 @@
         "normalize": true,
         "scaler": "standard",
         "agg_metric": "mean",
+        "resample": false,
         "window_num": 400,
+        "split_config_path": "config/data-split-config/train_test_split_each_setup_80.json",
         "feature_indices": [
             1,
             3
@@ -27,26 +29,32 @@
         "mandrel_extraction_annot_timesteps":[
             650, 
             820
-        ]
+        ]   
     },
     "trainingParams": {
-        "train": true,
+        "train": false,
         "model_type": "tcn_lstm",
-        "hidden_dim": 64,
+        "hidden_dim": 32,
         "lstm_layers": 1,
-        "dropout": 0.1,
+        "dropout": 0.2,
         "lr": 2e-4,
         "weight_decay": 1e-4,
-        "batch_size": 8,
+        "batch_size": 16,
         "max_epochs": 1000,
+        "tcn_layers":10,
+        "tcn_kernel_size":3,
         "model_path": "models/context_extraction",
-        "use_experiment_config": false,
-        "use_scalar": false,
+        "use_attention": true,
+        "use_feature_attention": true,
+        "attention_type": "bahdanau",
+        "use_angle_embedding": true,
+        "angle_embedding_dim": 16,
         "split_output_heads": true,
-        "timestep_sensitivity": true,
+        "timestep_sensitivity": false,
         "main_head_hidden_sizes": [
-            48,
-            24
+            128,
+            64,
+            32
         ],
         "secondary_head_hidden_sizes": [
             128,
@@ -64,11 +72,12 @@
             1.0
         ],
         "feature_loss_types": [
+            "smoothl1",
             "mse"
         ]
     },
     "occlusionParams": {
-        "occlusion_window_size": 10,
-        "occlusion_stride": 10
-    }
+    "occlusion_window_size": 2,
+    "occlusion_stride": 2
+  }
 }
