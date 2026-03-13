@@ -265,11 +265,13 @@ def train_model_springback_tcn_lstm(
     plot_loader,
     device: Optional[torch.device] = None,
     experiment_name: str = "Springback",
+    model_name: str = "tcn_lstm",
 ) -> Tuple[nn.Module, Dict[str, list], Dict[str, float]]:
     mlflow.set_experiment(experiment_name)
 
-    with mlflow.start_run():
-        mlflow.set_tag("model_type", "tcn_lstm")
+    with mlflow.start_run(run_name=f"springback_{model_name}"):
+        mlflow.set_tag("model_type", model_name)
+        mlflow.set_tag("model_name", model_name)
 
         set_seed(seed)
 
@@ -300,6 +302,7 @@ def train_model_springback_tcn_lstm(
 
         mlflow.log_params(
             {
+                "model_name": model_name,
                 "seed": seed,
                 "input_size": model_input_size,
                 "output_size": model_output_size,
@@ -539,31 +542,31 @@ def train_model_springback_tcn_lstm(
             plot_predictions_comparison(
                 y_true_dn,
                 y_pred_dn,
-                model_name="TCN-LSTM",
+                model_name=model_name.upper().replace("_", "-"),
                 save_path=os.path.join(tmpdir, "00_true_vs_pred_line.png"),
             )
             plot_true_vs_pred_scatter(
                 y_true_dn,
                 y_pred_dn,
-                model_name="TCN-LSTM",
+                model_name=model_name.upper().replace("_", "-"),
                 save_path=os.path.join(tmpdir, "01_true_vs_pred_scatter.png"),
             )
             plot_residuals_analysis(
                 y_true_dn,
                 y_pred_dn,
-                model_name="TCN-LSTM",
+                model_name=model_name.upper().replace("_", "-"),
                 save_path=os.path.join(tmpdir, "02_residuals_analysis.png"),
             )
             plot_prediction_difference_bars(
                 y_true_dn,
                 y_pred_dn,
-                model_name="TCN-LSTM",
+                model_name=model_name.upper().replace("_", "-"),
                 save_path=os.path.join(tmpdir, "03_residuals_bar.png"),
             )
             metrics_df = plot_metrics_comparison(
                 y_true_dn,
                 y_pred_dn,
-                model_name="TCN-LSTM",
+                model_name=model_name.upper().replace("_", "-"),
                 save_path=os.path.join(tmpdir, "04_metrics.png"),
             )
             metrics_df.to_csv(os.path.join(tmpdir, "metrics.csv"), index=False)
@@ -577,11 +580,11 @@ def train_model_springback_tcn_lstm(
                     "residual": y_pred_dn - y_true_dn,
                     "abs_error": np.abs(y_pred_dn - y_true_dn),
                 }
-            ).to_csv(os.path.join(tmpdir, "tcn_lstm_predictions.csv"), index=False)
+            ).to_csv(os.path.join(tmpdir, f"{model_name}_predictions.csv"), index=False)
 
             mlflow.log_artifacts(tmpdir)
 
-        mlflow.pytorch.log_model(model, "tcn_lstm_model")
+        mlflow.pytorch.log_model(model, f"{model_name}_model")
         return model, history, evaluation
 
 
@@ -605,94 +608,126 @@ def train_model_springback_random_forest(
     assert len(sensor_names) == n_features, "sensor_names must match feature dimension"
 
     mlflow.set_experiment(experiment_name)
-    with mlflow.start_run():
-        mlflow.set_tag("model_type", "rf")
 
-        # Flattened
-        X_tr_flat = X_tr.reshape(n_samples, -1)
-        X_val_flat = X_val.reshape(X_val.shape[0], -1)
+    def _run_rf_variant(
+        variant_name: str,
+        X_train_variant: np.ndarray,
+        X_test_variant: np.ndarray,
+        min_samples_leaf: Optional[int] = None,
+    ):
+        model_name = f"rf_{variant_name}"
+        with mlflow.start_run(run_name=f"springback_{model_name}"):
+            mlflow.set_tag("model_type", "rf")
+            mlflow.set_tag("model_name", model_name)
+            mlflow.log_param("model_name", model_name)
+            mlflow.log_param("feature_variant", variant_name)
+            mlflow.log_param("n_timesteps", int(n_timesteps))
+            mlflow.log_param("n_features", int(n_features))
+            mlflow.log_param("n_train_samples", int(X_train_variant.shape[0]))
+            mlflow.log_param("n_test_samples", int(X_test_variant.shape[0]))
 
-        rf_flat = RandomForestRegressor(
-            n_estimators=500,
-            max_depth=None,
-            random_state=42,
-            n_jobs=-1,
-            min_samples_leaf=2,
-            bootstrap=True,
-            verbose=1,
-        )
-        rf_flat.fit(X_tr_flat, y_tr)
-        y_pred_flat = rf_flat.predict(X_val_flat)
-
-        mse_flat = float(mean_squared_error(y_val, y_pred_flat))
-        rmse_flat = float(np.sqrt(mse_flat))
-        mae_flat = float(mean_absolute_error(y_val, y_pred_flat))
-        r2_flat = float(r2_score(y_val, y_pred_flat))
-        expl_var_flat = float(explained_variance_score(y_val, y_pred_flat))
-
-        mlflow.log_params(
-            {
-                "rf_flat_n_estimators": rf_flat.n_estimators,
-                "rf_flat_max_depth": rf_flat.max_depth,
-                "rf_flat_min_samples_leaf": rf_flat.min_samples_leaf,
+            rf_kwargs = {
+                "n_estimators": 500,
+                "max_depth": None,
+                "random_state": 42,
+                "n_jobs": -1,
+                "bootstrap": True,
+                "verbose": 1,
             }
-        )
-        mlflow.log_metrics(
-            {
-                "mse_flat": mse_flat,
-                "rmse_flat": rmse_flat,
-                "mae_flat": mae_flat,
-                "r2_flat": r2_flat,
-                "expl_var_flat": expl_var_flat,
+            if min_samples_leaf is not None:
+                rf_kwargs["min_samples_leaf"] = min_samples_leaf
+
+            model = RandomForestRegressor(**rf_kwargs)
+            model.fit(X_train_variant, y_tr)
+            y_pred = model.predict(X_test_variant)
+
+            metrics = {
+                "mse": float(mean_squared_error(y_val, y_pred)),
+                "rmse": float(np.sqrt(mean_squared_error(y_val, y_pred))),
+                "mae": float(mean_absolute_error(y_val, y_pred)),
+                "r2": float(r2_score(y_val, y_pred)),
+                "expl_var": float(explained_variance_score(y_val, y_pred)),
             }
-        )
-        mlflow.sklearn.log_model(rf_flat, "rf_flat_model")
 
-        # Aggregated
-        def aggregate_features(X: np.ndarray) -> np.ndarray:
-            blocks = []
-            for feat in range(X.shape[2]):
-                d = X[:, :, feat]
-                blocks.append(d.mean(axis=1))
-                blocks.append(d.std(axis=1))
-                blocks.append(d.min(axis=1))
-                blocks.append(d.max(axis=1))
-            return np.column_stack(blocks)
+            mlflow.log_params(
+                {
+                    "rf_n_estimators": model.n_estimators,
+                    "rf_max_depth": model.max_depth,
+                    "rf_min_samples_leaf": model.min_samples_leaf,
+                }
+            )
+            mlflow.log_metrics(metrics)
 
-        X_tr_agg = aggregate_features(X_tr)
-        X_val_agg = aggregate_features(X_val)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                display_name = model_name.upper().replace("_", "-")
 
-        rf_agg = RandomForestRegressor(
-            n_estimators=500,
-            max_depth=None,
-            random_state=42,
-            n_jobs=-1,
-            verbose=1,
-        )
-        rf_agg.fit(X_tr_agg, y_tr)
-        y_pred_agg = rf_agg.predict(X_val_agg)
+                plot_predictions_comparison(
+                    y_val,
+                    y_pred,
+                    model_name=display_name,
+                    save_path=os.path.join(tmpdir, "00_true_vs_pred_line.png"),
+                )
+                plot_true_vs_pred_scatter(
+                    y_val,
+                    y_pred,
+                    model_name=display_name,
+                    save_path=os.path.join(tmpdir, "01_true_vs_pred_scatter.png"),
+                )
+                plot_residuals_analysis(
+                    y_val,
+                    y_pred,
+                    model_name=display_name,
+                    save_path=os.path.join(tmpdir, "02_residuals_analysis.png"),
+                )
+                plot_prediction_difference_bars(
+                    y_val,
+                    y_pred,
+                    model_name=display_name,
+                    save_path=os.path.join(tmpdir, "03_residuals_bar.png"),
+                )
+                plot_metrics_comparison(
+                    y_val,
+                    y_pred,
+                    model_name=display_name,
+                    save_path=os.path.join(tmpdir, "04_metrics.png"),
+                )
 
-        mse_agg = float(mean_squared_error(y_val, y_pred_agg))
-        rmse_agg = float(np.sqrt(mse_agg))
-        mae_agg = float(mean_absolute_error(y_val, y_pred_agg))
-        r2_agg = float(r2_score(y_val, y_pred_agg))
-        expl_var_agg = float(explained_variance_score(y_val, y_pred_agg))
+                pd.DataFrame(
+                    {
+                        "y_true": y_val,
+                        "y_pred": y_pred,
+                        "residual": y_pred - y_val,
+                        "abs_error": np.abs(y_pred - y_val),
+                    }
+                ).to_csv(
+                    os.path.join(tmpdir, f"{model_name}_predictions.csv"), index=False
+                )
+                pd.DataFrame([metrics]).to_csv(
+                    os.path.join(tmpdir, f"{model_name}_metrics.csv"), index=False
+                )
+                mlflow.log_artifacts(tmpdir)
 
-        mlflow.log_params(
-            {
-                "rf_agg_n_estimators": rf_agg.n_estimators,
-                "rf_agg_max_depth": rf_agg.max_depth,
-            }
-        )
-        mlflow.log_metrics(
-            {
-                "mse_agg": mse_agg,
-                "rmse_agg": rmse_agg,
-                "mae_agg": mae_agg,
-                "r2_agg": r2_agg,
-                "expl_var_agg": expl_var_agg,
-            }
-        )
-        mlflow.sklearn.log_model(rf_agg, "rf_agg_model")
+            mlflow.sklearn.log_model(model, f"{model_name}_model")
+            return model
 
-        return rf_flat, rf_agg
+    # Flattened RF run
+    X_tr_flat = X_tr.reshape(n_samples, -1)
+    X_val_flat = X_val.reshape(X_val.shape[0], -1)
+    rf_flat = _run_rf_variant("flat", X_tr_flat, X_val_flat, min_samples_leaf=2)
+
+    # Aggregated RF run
+    def aggregate_features(X: np.ndarray) -> np.ndarray:
+        blocks = []
+        for feat in range(X.shape[2]):
+            d = X[:, :, feat]
+            blocks.append(d.mean(axis=1))
+            blocks.append(d.std(axis=1))
+            blocks.append(d.min(axis=1))
+            blocks.append(d.max(axis=1))
+        return np.column_stack(blocks)
+
+    X_tr_agg = aggregate_features(X_tr)
+    X_val_agg = aggregate_features(X_val)
+    rf_agg = _run_rf_variant("agg", X_tr_agg, X_val_agg)
+
+    return rf_flat, rf_agg

@@ -3,10 +3,12 @@ import logging
 import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+import ast
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+import pandas as pd
 
 from src.pipeline.ml.classification.utils.preprocessing_utils import (
     ClassifierPreprocessor,
@@ -40,7 +42,7 @@ def _validate_inputs(
 
     Args:
         annotation_json_path: Path to annotation JSON file
-        database_path: Path to SQLite database
+        database_path: Path to the ETL CSV directory
         experiment_ids_path: Path to experiment IDs file
         label: Target activity label
         process_part: Machine part identifier
@@ -57,7 +59,7 @@ def _validate_inputs(
 
     if not os.path.exists(database_path):
         raise ValueError(
-            f"Database file not found: {database_path}. "
+            f"Processed data path not found: {database_path}. "
             "Please run preprocessing first: 'python main.py preprocess'"
         )
 
@@ -92,8 +94,16 @@ def _load_experiment_groups(experiment_ids_path: str) -> Dict:
         Dictionary containing experiment groups
     """
     logger.info("Loading experiment IDs...")
-    with open(experiment_ids_path, "r") as f:
-        return json.load(f)
+    
+
+    df = pd.read_csv(experiment_ids_path)
+
+    experiment_numbers = (
+        df["Experiment_Number"]
+        .apply(ast.literal_eval)
+        .tolist()
+    )
+    return experiment_numbers
 
 
 def _prepare_data(
@@ -107,7 +117,7 @@ def _prepare_data(
     """Prepare and preprocess data for training.
 
     Args:
-        database_path: Path to SQLite database
+        database_path: Path to the ETL CSV directory
         annotation_json_path: Path to annotations
         process_part: Machine part to process
         eliminated_columns: Columns to remove
@@ -118,7 +128,7 @@ def _prepare_data(
         Tuple of (train_dataset, val_dataset, test_dataset, feature_cols)
     """
     loader = DataLoaderETL(database_path)
-    dataframes = loader.load_all_data_from_sqlite()
+    dataframes = loader.load_all_data_from_csv()
 
     classifier_preprocessor = ClassifierPreprocessor(
         sensors_df=dataframes[process_part], annotation_json=annotation_json_path
@@ -328,7 +338,7 @@ def training_pipeline(
 
     Args:
         model_path_root: Root directory for model storage
-        database_path: Path to preprocessed data database
+        database_path: Path to the preprocessed ETL CSV directory
         annotation_json_path: Path to activity annotations
         experiment_ids_path: Path to experiment ID groups
         process_part: Machine component to analyze
