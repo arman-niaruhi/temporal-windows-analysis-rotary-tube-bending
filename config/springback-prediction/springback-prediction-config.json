@@ -3,7 +3,7 @@
         "seed": 42
     },
     "inputPathParams": {
-        "database_path": "data/processed/tube_geometry.db",
+        "database_path": "data/processed/tube_geometry",
         "process_part": "All",
         "annotation_json_path": "data/ml/machine-and-movement_complete.json"
     },
@@ -32,15 +32,15 @@
     },
     "lstmTrainingParams": {
         "tcn_channels": [32, 64, 64],
-        "tcn_kernel_size": 5,
+        "tcn_kernel_size": 10,
         "tcn_dropout": 0.1,
         "pool": "mean",
         "train": true,
-        "hidden_size": 64,
+        "hidden_size": 32,
         "num_layers": 1,
         "dropout": 0.1,
         "fc_dropout": 0.1,
-        "bidirectional": true,
+        "bidirectional": false,
         "lr": 3e-5,
         "weight_decay": 3e-5,
         "batch_size": 16,

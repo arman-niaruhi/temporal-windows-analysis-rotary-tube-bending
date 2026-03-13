@@ -1,5 +1,4 @@
 Experiment_ID,Pressure-die distance,Pressure-die boost,Mandrel retraction timing,Collet boost
-1,0.3,0.0,2.0,0.85
 2,0.3,0.0,2.0,0.85
 3,0.3,0.0,2.0,0.85
 4,0.3,0.0,2.0,0.85
@@ -27,7 +26,6 @@ Experiment_ID,Pressure-die distance,Pressure-die boost,Mandrel retraction timing
 22,0.3,0.0,2.0,0.85
 23,0.3,0.0,2.0,0.85
 54,0.3,0.0,2.0,0.85
-48,0.3,0.0,2.0,0.85
 49,0.3,0.0,2.0,0.85
 55,0.3,0.0,2.0,0.85
 24,0.3,0.0,2.0,0.85
@@ -273,7 +271,6 @@ Experiment_ID,Pressure-die distance,Pressure-die boost,Mandrel retraction timing
 173,0.9,0.87,5.0,0.87
 79,0.9,0.87,10.0,0.87
 118,0.9,0.87,10.0,0.87
-166,0.9,0.87,10.0,0.87
 172,0.9,0.87,10.0,0.87
 64,0.9,0.9,0.0,0.9
 76,0.9,0.9,0.0,0.9
