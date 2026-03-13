@@ -33,7 +33,6 @@ def main():
             input_path_param=input_path_param,
             preprocessing_param=preprocessing_param,
         )
-    
     # Train RF
     train_model_springback_random_forest(
         X_train=X_train,
@@ -55,6 +54,7 @@ def main():
         experiment_configurations_test,
         lstm_training_params["batch_size"],
     )
+
     
     train_model_springback_tcn_lstm( 
     seed=seed,
@@ -65,6 +65,7 @@ def main():
     train_loader=train_loader,
     val_loader=val_loader,
     plot_loader=plot_loader,
+    model_name="tcn_lstm",
     )
         
         
