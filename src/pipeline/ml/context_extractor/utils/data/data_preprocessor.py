@@ -66,7 +66,7 @@ class LSTMPreprocessor:
         Initialize the preprocessor.
 
         Args:
-            database_path: Path to the SQLite database containing raw data.
+            database_path: Path to the ETL CSV directory containing raw data.
             process_part: Identifier of the machine part to model (e.g., 'De-Clamping').
             annotation_json_path: Path to JSON file containing label annotations.
         """
@@ -79,7 +79,7 @@ class LSTMPreprocessor:
 
     def read_data(self, label_name: str):
         """
-        Load sensor and target data from the database and annotations.
+        Load sensor and target data from the ETL CSV files and annotations.
 
         Args:
             label_name: Label to extract; if "All", all sensor data is returned.
@@ -88,8 +88,10 @@ class LSTMPreprocessor:
             Tuple of sensor DataFrame and target DataFrame.
         """
         loader = DataLoaderETL(self.database_path)
-        dataframes = loader.load_all_data_from_sqlite()
-        sensors_df = dataframes["machine_and_movement"]
+        dataframes = loader.load_all_data_from_csv()
+        sensors_df = dataframes["machine_and_movement"].copy()
+        if "Time_[s]" not in sensors_df.columns:
+            sensors_df = sensors_df.reset_index()
 
         with open(self.annotation_json_path, "r") as f:
             labels = json.load(f)

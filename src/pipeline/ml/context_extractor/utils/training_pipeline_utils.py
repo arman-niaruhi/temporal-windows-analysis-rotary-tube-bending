@@ -78,15 +78,16 @@ from src.pipeline.ml.context_extractor.utils.plots.plot_metrics import (
     plot_all_metrics
 )
 from src.pipeline.ml.context_extractor.utils.plots.plot_window_impotance import (
-    visualize_window_importance
+    visualize_window_importance,
+    visualize_window_importance_heatmap,
+    visualize_window_importance_with_sensors,
 ) 
 from src.pipeline.ml.context_extractor.utils.plots.plot_attention import (
     generate_final_attention_plot,
 )
 from src.pipeline.ml.context_extractor.utils.plots.plot_epoch_results import (
     generate_epoch_plots,
-    save_validation_scatter,
-    plot_tcn_feature_maps,
+    save_validation_scatter
 )
 
 # ============================
@@ -225,9 +226,6 @@ def train_model(
     training_metric_results_dir = base_dir / "07_metrics"
     val_pred_dir = base_dir / "08_val_predictions"
     timestep_sensitivity_dir = base_dir / "09_timestep_sensitivity"
-    tcn_train_dir = base_dir / "10_tcn_features_train"
-    tcn_val_dir = base_dir / "11_tcn_features_val"
-    tcn_all_dir = base_dir / "12_tcn_features_all_channels"
 
 
     # Create directories if they do not exist
@@ -241,10 +239,7 @@ def train_model(
         window_importance_plots_dir,
         training_metric_results_dir,
         val_pred_dir,
-        timestep_sensitivity_dir,
-        tcn_train_dir,
-        tcn_val_dir,
-        tcn_all_dir,
+        timestep_sensitivity_dir
     ]:
         d.mkdir(parents=True, exist_ok=True)
     
@@ -299,8 +294,6 @@ def train_model(
     # Fall back to validation batch if train batch is unavailable
     if plot_train_X is None:
         plot_train_X = plot_X
-        plot_train_springback = springback
-        plot_train_config = experiment_config
     n_samples = min(4, len(plot_Y))
     
     
@@ -314,7 +307,7 @@ def train_model(
         run_id, model_uri = find_previous_mlflow_run(
             process_part,
             preprocessing_info,
-            params.get("model_type", "unknown"),
+            params,
         )
 
         if run_id is None:
@@ -357,7 +350,7 @@ def train_model(
 
             if combined_importance_df is not None:
                 X_sample = plot_X[-1:]
-                sensor_data_sample = X_test[:1].cpu().numpy()
+                sensor_data_sample = X_test.cpu().numpy()
                 save_integrated_gradients_combined(
                     model,
                     X_sample,
@@ -376,53 +369,61 @@ def train_model(
                     combined_importance_df
                 )
                
-               
-            if params.get("timestep_sensitivity", False):
-                run_all_timestep_sensitivity(
-                    model=model,
-                    val_loader=val_loader,
-                    X_sample=plot_X[-1:],
-                    springback_sample=springback[-1:],
-                    experiment_config=experiment_config[-1:],
-                    device=device,
-                    saving_dir=timestep_sensitivity_dir,
-                    occluded_window_size=occlusion_params.get("occlusion_window_size", 50),
-                    stride=occlusion_params.get("occlusion_stride", 50),
-                    annot_timesteps=annot_timesteps,
-                    mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
-                    sensor_data=plot_X[-1].detach().cpu().numpy(),
-                    sensor_names=sensor_names,
+            # Window-based occlusion importance analysis using the loaded model
+            run_window_importance = occlusion_params.get("window_importance_enabled", True)
+            if run_window_importance:
+                occluded_window_size = occlusion_params.get("occlusion_window_size", 50)
+                stride = occlusion_params.get("occlusion_stride", 50)
+                window_importance_output_dir = (
+                    window_importance_plots_dir / f"size{occluded_window_size}-stride{stride}"
                 )
+                n_angles = int(Y_test.shape[1])
+                all_importance_data = []
+                all_mean_importances = []
 
-            # Window-based occlusion importance analysis using the loaded model and plot them
-            
-            all_importance_data = []
-            for n_angle in range(46):
-                importance_df, mean_importance = \
-                    window_based_importance(
+                for n_angle in range(n_angles):
+                    importance_df, mean_importance = window_based_importance(
                         model=model,
                         train_loader=val_loader,
-                        n_angle = n_angle,
-                        occluded_window_size=occlusion_params.get("occlusion_window_size", 50),
-                        stride=occlusion_params.get("occlusion_stride", 50),
-                        device=device
+                        n_angle=n_angle,
+                        occluded_window_size=occluded_window_size,
+                        stride=stride,
+                        device=device,
                     )
-                visualize_window_importance(
-                angle=n_angle,
-                feature_names=sensor_names,
-                mean_importance=mean_importance,
-                annot_timesteps=annot_timesteps,
-                window_importance_plots_dir=window_importance_plots_dir,
-                mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
-                process_part=process_part,
-                occluded_window_size=occlusion_params.get("occlusion_window_size", 50),
-                stride=occlusion_params.get("occlusion_stride", 50)
-            )
+                    visualize_window_importance(
+                        angle=n_angle,
+                        feature_names=sensor_names,
+                        mean_importance=mean_importance,
+                        annot_timesteps=annot_timesteps,
+                        window_importance_plots_dir=window_importance_plots_dir,
+                        mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+                        process_part=process_part,
+                        occluded_window_size=occluded_window_size,
+                        stride=stride,
+                    )
 
-            all_importance_data.append((n_angle, importance_df, mean_importance))
+                    all_importance_data.append((n_angle, importance_df, mean_importance))
+                    all_mean_importances.append(mean_importance)
 
-            # Persist occlusion results for all angles
-            save_window_importance_results(all_importance_data, window_importance_plots_dir)
+                if all_mean_importances:
+                    mean_importance_matrix = np.vstack(all_mean_importances)
+                    visualize_window_importance_with_sensors(
+                        sensor_data=X_test.detach().cpu().numpy(),
+                        sensor_names=sensor_names,
+                        mean_importance_matrix=mean_importance_matrix,
+                        window_importance_plots_dir=window_importance_plots_dir,
+                        annot_timesteps=annot_timesteps,
+                        mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+                        process_part=process_part,
+                        occluded_window_size=occluded_window_size,
+                        stride=stride,
+                    )
+
+                # Persist occlusion results for all angles
+                save_window_importance_results(
+                    all_importance_data,
+                    window_importance_output_dir,
+                )
             
  
             move_images_to_mlflow_artifacts(base_dir)
@@ -710,36 +711,6 @@ def train_model(
         all_preds = _maybe_denormalize_targets(all_preds, target_scaler)
         log_final_metrics(all_targets, all_preds, val_losses, epoch_times)
 
-        if hasattr(model, "tcn"):
-            if plot_train_X is not None:
-                tcn_train = _capture_tcn_activations(
-                    model,
-                    plot_train_X,
-                    plot_train_springback,
-                    plot_train_config,
-                )
-                if tcn_train is not None:
-                    plot_tcn_feature_maps(
-                        tcn_train,
-                        tcn_all_dir / "tcn_train_all_channels.png",
-                        title="TCN Activations (Train) – All Channels",
-                        channels=None,
-                    )
-
-            tcn_val = _capture_tcn_activations(
-                model,
-                plot_X,
-                springback,
-                experiment_config,
-            )
-            if tcn_val is not None:
-                plot_tcn_feature_maps(
-                    tcn_val,
-                    tcn_all_dir / "tcn_val_all_channels.png",
-                    title="TCN Activations (Val) – All Channels",
-                    channels=None,
-                )
-        
         
         # Persist trained model
         mlflow.pytorch.log_model(model.cpu(), "model")
@@ -824,34 +795,66 @@ def train_model(
                 target_feature_names=target_feature_names,
             )
         
-        '''
         # Window-based occlusion importance (all angles)
-        all_importance_data = []
-        for n_angle in range(46):
-            importance_df, mean_importance = window_based_importance(
-                model=model,
-                train_loader=val_loader,
-                n_angle=n_angle,
-                occluded_window_size=occlusion_params.get("occlusion_window_size", 10),
-                stride=occlusion_params.get("occlusion_stride", 5),
-                device=device
+        run_window_importance = occlusion_params.get("window_importance_enabled", True)
+        if run_window_importance:
+            occluded_window_size = occlusion_params.get("occlusion_window_size", 10)
+            stride = occlusion_params.get("occlusion_stride", 5)
+            window_importance_output_dir = (
+                window_importance_plots_dir / f"size{occluded_window_size}-stride{stride}"
             )
+            n_angles = int(Y_test.shape[1])
+            all_importance_data = []
+            all_mean_importances = []
 
-            visualize_window_importance(
-                angle=n_angle,
-                feature_names=sensor_names,
-                mean_importance=mean_importance,
-                annot_timesteps=annot_timesteps,
-                window_importance_plots_dir=window_importance_plots_dir,
-                mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
-                process_part=process_part,
-                occluded_window_size=occlusion_params.get("occlusion_window_size", 10),
-                stride=occlusion_params.get("occlusion_stride", 5)
-            )
-            all_importance_data.append((n_angle, importance_df, mean_importance))
+            for n_angle in range(n_angles):
+                importance_df, mean_importance = window_based_importance(
+                    model=model,
+                    train_loader=val_loader,
+                    n_angle=n_angle,
+                    occluded_window_size=occluded_window_size,
+                    stride=stride,
+                    device=device,
+                )
 
-        save_window_importance_results(all_importance_data, window_importance_plots_dir)
-        '''
+                visualize_window_importance(
+                    angle=n_angle,
+                    feature_names=sensor_names,
+                    mean_importance=mean_importance,
+                    annot_timesteps=annot_timesteps,
+                    window_importance_plots_dir=window_importance_plots_dir,
+                    mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+                    process_part=process_part,
+                    occluded_window_size=occluded_window_size,
+                    stride=stride,
+                )
+                all_importance_data.append((n_angle, importance_df, mean_importance))
+                all_mean_importances.append(mean_importance)
+
+            if all_mean_importances:
+                mean_importance_matrix = np.vstack(all_mean_importances)
+                visualize_window_importance_heatmap(
+                    mean_importance_matrix=mean_importance_matrix,
+                    window_importance_plots_dir=window_importance_plots_dir,
+                    annot_timesteps=annot_timesteps,
+                    mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+                    process_part=process_part,
+                    occluded_window_size=occluded_window_size,
+                    stride=stride,
+                )
+                visualize_window_importance_with_sensors(
+                    sensor_data=X_test.detach().cpu().numpy(),
+                    sensor_names=sensor_names,
+                    mean_importance_matrix=mean_importance_matrix,
+                    window_importance_plots_dir=window_importance_plots_dir,
+                    annot_timesteps=annot_timesteps,
+                    mandrel_extraction_annot_timesteps=mandrel_extraction_annot_timesteps,
+                    process_part=process_part,
+                    occluded_window_size=occluded_window_size,
+                    stride=stride,
+                )
+
+            save_window_importance_results(all_importance_data, window_importance_output_dir)
  
         # Archive all generated figures
         move_images_to_mlflow_artifacts(base_dir)

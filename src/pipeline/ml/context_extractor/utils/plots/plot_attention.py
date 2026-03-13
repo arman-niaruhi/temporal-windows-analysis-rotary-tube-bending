@@ -17,6 +17,14 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from matplotlib import rcParams
 
+
+def _set_portable_font(size: int = 12) -> None:
+    """Prefer Arial when available, with safe cross-platform fallbacks."""
+    rcParams["font.family"] = "sans-serif"
+    rcParams["font.sans-serif"] = ["Arial", "Helvetica", "DejaVu Sans", "Liberation Sans"]
+    rcParams["font.size"] = size
+
+
 def generate_final_attention_plot(
     model: nn.Module,
     plot_X: torch.Tensor,
@@ -55,8 +63,7 @@ def generate_final_attention_plot(
     attn_mean=final_attn_mean
     sample_idx=-1
     figsize: tuple=(20, 10)
-    rcParams["font.family"] = "arial"
-    rcParams["font.size"] = 12
+    _set_portable_font(size=12)
 
     cleaned_feature_names = [name.replace("_mean", "") for name in sensor_names]
 
@@ -542,8 +549,7 @@ def plot_selected_features_with_attn_heatmap(
         sample_idx: Which sample to plot (default last sample)
         figsize: Figure size tuple
     """
-    rcParams["font.family"] = "arial"
-    rcParams["font.size"] = 12
+    _set_portable_font(size=12)
 
     cleaned_feature_names = [name.replace("_mean", "") for name in sensor_names]
 

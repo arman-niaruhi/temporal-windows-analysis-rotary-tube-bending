@@ -12,7 +12,7 @@ class DataPreprocessPipeline:
     This class orchestrates the full ETL process:
     1. Extracts bending setup and machine/process data using DataExtractor.
     2. Transforms the data with DataTransformer (quality check, remove failed experiments, normalization, NaN handling).
-    3. Loads the final DataFrames into a SQLite database using DataLoader.
+    3. Loads the final DataFrames into CSV files using DataLoader.
     """
 
     @classmethod
@@ -42,14 +42,14 @@ class DataPreprocessPipeline:
             - Eliminate columns that are always constant(PRESSURE-DIE_LEFT_AXIAL_Movement_[mm], COLLET_ROTATING_Movement_[mm])
         3. Loading:
             - Collect selected DataFrames into a dictionary.
-            - Use DataLoader to save them to SQLite.
+            - Use DataLoader to save them to CSV files.
             - Certain tables store the index as a column for query convenience.
 
         Args:
             None
 
         Returns:
-            None: The pipeline updates and saves the DataFrames to the SQLite database.
+            None: The pipeline updates and saves the DataFrames as CSV files.
         """
         extractor = DataExtractor()
         dfs = extractor.get_all_bending_setups()
@@ -87,7 +87,7 @@ class DataPreprocessPipeline:
         )
         transformer.get_bending_setup()
 
-        loader = DataLoader("data/processed/tube_geometry.db")
+        loader = DataLoader("data/processed/tube_geometry")
         dataframes = {
             "machine_and_movement": df_machine_and_movement,
             "linear1": df_lin1,
@@ -96,7 +96,7 @@ class DataPreprocessPipeline:
             "sensor": df_sensor,
             "movement": df_movement,
         }
-        loader.store_to_sqlite(
+        loader.store_to_csv(
             dataframes=dataframes,
             store_index_tables=[
                 "machine_and_movement",

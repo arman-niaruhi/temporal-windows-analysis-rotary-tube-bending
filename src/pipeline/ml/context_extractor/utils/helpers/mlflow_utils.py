@@ -366,7 +366,7 @@ def _resolve_logged_model_uri(run, tracking_root: Path) -> str | None:
 def find_previous_mlflow_run(
     process_part: str,
     preprocessing_info: dict,
-    model_type: str | None = None,
+    params: dict | None = None,
 ):
     """
     Search for the most recent compatible MLflow run for context extractor resume mode.
@@ -390,28 +390,35 @@ def find_previous_mlflow_run(
     dataset_name = Path(split_config_path).stem if split_config_path else None
 
     filter_parts = [
-        f"params.process_part = '{process_part}'",
-        "attributes.status = 'FINISHED'",
+        f"params.process_part = '{process_part}'"
     ]
+
     if dataset_name:
         filter_parts.append(f"params.dataset_name = '{dataset_name}'")
-    if split_config_path:
-        filter_parts.append(f"params.split_config_path = '{split_config_path}'")
+
     if "window_num" in preprocessing_info:
         filter_parts.append(
             f"params.preprocess.window_num = '{preprocessing_info['window_num']}'"
         )
-    if "to_58_excluded" in preprocessing_info:
-        filter_parts.append(
-            f"params.preprocess.to_58_excluded = '{preprocessing_info['to_58_excluded']}'"
-        )
+
     if "resample" in preprocessing_info:
         filter_parts.append(
             f"params.preprocess.resample = '{preprocessing_info['resample']}'"
         )
-    if model_type:
-        filter_parts.append(f"params.model_type = '{model_type}'")
 
+    use_feature_attention = params.get("use_feature_attention")
+    filter_parts.append(f"params.train.use_feature_attention = '{use_feature_attention}'")
+
+    attention_type = params.get("attention_type")
+    filter_parts.append(f"params.train.attention_type = '{attention_type}'")
+
+    use_angle_embedding = params.get("use_angle_embedding")
+    filter_parts.append(f"params.train.use_angle_embedding = '{use_angle_embedding}'")
+
+    model_type = params.get("model_type")
+    filter_parts.append(f"params.model_type = '{model_type}'")
+
+    logger.info(" AND ".join(filter_parts))
     runs = client.search_runs(
         experiment_ids=[experiment.experiment_id],
         filter_string=" AND ".join(filter_parts),
@@ -433,7 +440,6 @@ def find_previous_mlflow_run(
         "No previous compatible run found for process_part=%s, dataset_name=%s, split_config_path=%s, model_type=%s",
         process_part,
         dataset_name,
-        split_config_path,
-        model_type,
+        split_config_path
     )
     return None, None
