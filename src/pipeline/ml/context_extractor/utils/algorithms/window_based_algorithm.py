@@ -99,19 +99,33 @@ def save_window_importance_results(all_importance_data, output_dir):
         all_importance_data (list of tuples): Each tuple is (n_angle, importance_df, mean_importance)
         output_dir (Path): Directory to save the CSV file
     """
-    combined_data = []
-    
+    combined_wide_data = []
+    combined_long_rows = []
+
     for n_angle, importance_df, mean_importance in all_importance_data:
-        df = importance_df.copy()
-        df.insert(0, "angle", n_angle)  # Add a column for the angle
-        combined_data.append(df)
-    
-    all_df = pd.concat(combined_data, ignore_index=True)
-    
-    # Ensure the directory exists
+        wide_df = importance_df.copy()
+        wide_df.insert(0, "angle", n_angle)
+        combined_wide_data.append(wide_df)
+
+        for window_idx, importance in enumerate(mean_importance):
+            combined_long_rows.append(
+                {
+                    "angle": n_angle,
+                    "window_index": window_idx,
+                    "importance": float(importance),
+                }
+            )
+
+    all_wide_df = pd.concat(combined_wide_data, ignore_index=True)
+    all_long_df = pd.DataFrame(combined_long_rows)
+
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "window_importance_all_angles.csv"
-    
-    all_df.to_csv(output_path, index=False)
-    logger.info(f"Window importance results saved to {output_path}")
+    wide_output_path = output_dir / "window_importance_all_angles.csv"
+    long_output_path = output_dir / "window_importance_all_angles_long.csv"
+
+    all_wide_df.to_csv(wide_output_path, index=False)
+    all_long_df.to_csv(long_output_path, index=False)
+
+    logger.info(f"Window importance wide CSV saved to {wide_output_path}")
+    logger.info(f"Window importance long CSV saved to {long_output_path}")
     

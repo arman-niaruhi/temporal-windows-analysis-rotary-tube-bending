@@ -4,10 +4,7 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from src.pipeline.ml.context_extractor.utils.plots.plot_integrated_gradients import (
-    save_combined_ig_plot, 
-    save_individual_ig_plots
-)
+from src.pipeline.ml.context_extractor.utils.plots.plot_integrated_gradients import save_individual_ig_plots
 import logging
 from pathlib import Path
 
@@ -103,7 +100,7 @@ def save_integrated_gradients_combined(
         pred, _ = model(X_sample, springback_sample, experiment_config)
     
     n_output_features = pred.shape[2]
-    sample_data = sensor_data[-1, :, :]
+    sample_data = sensor_data[45, :, :]
     colors = plt.cm.tab20(np.linspace(0, 1, len(sensor_names)))
     
     # FIXED: Corrected argument order - springback_sample before n_output_features
@@ -113,19 +110,6 @@ def save_integrated_gradients_combined(
         springback_sample,
         experiment_config,
         n_output_features,
-    )
-    
-    save_combined_ig_plot(
-        ig_maps, 
-        sample_data, 
-        sensor_names, 
-        target_feature_names,
-        saving_dir, 
-        colors, 
-        process_part, 
-        annot_timesteps,
-        mandrel_extraction_annot_timesteps, 
-        figsize_combined
     )
     
     save_individual_ig_plots(

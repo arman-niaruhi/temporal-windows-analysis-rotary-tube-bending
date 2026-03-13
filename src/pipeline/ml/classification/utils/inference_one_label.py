@@ -115,7 +115,7 @@ def save_validation_confusion_matrices(
         experiment_groups = json.load(f)
 
     loader = DataLoaderETL(database_path)
-    dataframes = loader.load_all_data_from_sqlite()
+    dataframes = loader.load_all_data_from_csv()
     base_df = dataframes[process_part]
 
     ordered_labels = [lbl for lbl in PREFERRED_LABEL_ORDER if lbl in labels]
@@ -271,7 +271,7 @@ def get_all_predictions(
 
     Args:
         Label: Target label for which predictions are made.
-        database_path: Path to the SQLite database.
+        database_path: Path to the ETL CSV directory.
         annotation_json_path: Path to the JSON file with annotations.
         eliminated_columns: List of columns to eliminate from the data.
         models_path: Path to the directory containing trained models.
@@ -281,7 +281,7 @@ def get_all_predictions(
         exp_data: DataFrame with sensor data for the experiment.
     """
     loader = DataLoaderETL(database_path)
-    dataframes = loader.load_all_data_from_sqlite()
+    dataframes = loader.load_all_data_from_csv()
     classifier_preprocessor = ClassifierPreprocessor(
         sensors_df=dataframes[process_part], annotation_json=annotation_json_path
     )
@@ -353,7 +353,7 @@ def inference_one_label_in_one(
 
     Args:
         exp_id: Experiment ID to plot.
-        database_path: Path to the SQLite database.
+        database_path: Path to the ETL CSV directory.
         annotation_json_path: Path to the JSON file with annotations.
         eliminated_columns: List of columns to eliminate from the data.
         models_path: Path to the directory containing trained models.
@@ -406,12 +406,44 @@ def inference_one_label_in_one(
 
     logger.info(f"Starting inference for Experiment ID: {exp_id} with labels: {labels}")
 
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as mcolors
+
     ordered_labels = [lbl for lbl in PREFERRED_LABEL_ORDER if lbl in labels]
     ordered_labels += [lbl for lbl in labels if lbl not in PREFERRED_LABEL_ORDER]
 
     plot_labels = ordered_labels.copy()
-    base_colors = list(mcolors.TABLEAU_COLORS.values())[: len(plot_labels)] 
-    
+
+    SENSOR_COLOR_MAP = {
+        "BEND-DIE_LATERAL_Movement_[mm]": "#00429d",
+        "BEND-DIE_ROTATING_Angle_[°]": "#ff6f00",
+        "CLAMP-DIE_LATERAL_Movement_[mm]": "#2ca25f",
+        "COLLET_AXIAL_Movement_[mm]": "#d73027",
+        "MACHINE_BEND-DIE_LATERAL_Max_Torque_[%]": "#7b3294",
+        "MACHINE_BEND-DIE_ROTATING_Max_Torque_[%]": "#8c510a",
+        "MACHINE_BEND-DIE_VERTICAL_Max_Torque_[%]": "#c51b7d",
+        "MACHINE_CLAMP-DIE_LATERAL_Max_Torque_[%]": "#636363",
+        "MACHINE_COLLET_AXIAL_Max_Torque_[%]": "#b8a200",
+        "MACHINE_MANDREL_AXIAL_Max_Torque_[%]": "#008fd5",
+        "MACHINE_PRESSURE-DIE_AXIAL_Max_Torque_[%]": "#542788",
+        "MACHINE_PRESSURE-DIE_LATERAL_Max_Torque_[%]": "#e69f00",
+        "MANDREL_AXIAL_Movement_[mm]": "#00a9a5",
+        "PRESSURE-DIE_AXIAL_Movement_[mm]": "#f46d43",
+    }
+
+    LABEL_ABBREVIATIONS = {
+        "Bending": "B",
+        "Mandrel Extraction": "M",
+        "Clamping": "C",
+        "De-Clamping": "D"
+    }
+
+    fallback_colors = list(mcolors.TABLEAU_COLORS.values())
+    phase_color_map = {
+        label: fallback_colors[i % len(fallback_colors)]
+        for i, label in enumerate(plot_labels)
+    }
+
     all_data = {}
     for label in ordered_labels:
         exp_data, mask_pred, mask_true = get_all_predictions_fn(
@@ -423,55 +455,97 @@ def inference_one_label_in_one(
             model_config=model_config,
             process_part=process_part,
             exp_id=exp_id,
-        )   # type: ignore
+        )
+
         all_data[label] = {
             "exp_data": exp_data,
             "mask_pred": mask_pred,
             "mask_true": mask_true,
         }
-    fig_width = 16  
-    fig_height = 5  
-    figsize = (fig_width, fig_height)
 
-    _, axs = plt.subplots(2, 1, figsize=figsize, sharex=True, height_ratios=[2, 1])  
+    # Make bottom subplot taller
+    fig, axs = plt.subplots(
+        2,
+        1,
+        figsize=(16, 9),
+        sharex=True,
+        height_ratios=[2, 1.3],
+    )
 
+    # -------------------------
+    # Top plot
+    # -------------------------
     sensor_plotted = set()
+    width_cycle = [2.8, 2.4, 2.1, 1.8]
+    width_index = 0
+
     for label in ordered_labels:
         exp_data = all_data[label]["exp_data"]
+
         sensor_cols = [
-            col
-            for col in exp_data.columns
+            col for col in exp_data.columns
             if col not in ["Label", "Label_encoded", "Experiment_ID"]
         ]
 
         for col in sensor_cols:
+            color = SENSOR_COLOR_MAP.get(col, "#333333")
+            linewidth = width_cycle[width_index % len(width_cycle)]
+            y = exp_data[col].values
+
+            axs[0].plot(
+                y,
+                color="white",
+                linewidth=linewidth + 1.2,
+                alpha=0.95,
+                solid_capstyle="round",
+                antialiased=True,
+                zorder=2,
+            )
+
+            axs[0].plot(
+                y,
+                color=color,
+                linewidth=linewidth,
+                marker="o",
+                markersize=1,
+                markevery=50,
+                markeredgewidth=0,
+                alpha=0.98,
+                solid_capstyle="round",
+                antialiased=True,
+                zorder=3,
+            )
+
             if col not in sensor_plotted:
-                axs[0].plot(exp_data[col].values, linewidth=.8, label=col)
                 sensor_plotted.add(col)
-            else:
-                axs[0].plot(exp_data[col].values, linewidth=.8)
+                width_index += 1
 
-    axs[0].set_ylabel("Sensor Value")
-    axs[0].set_title(f"Sensor Signals – Experiment {exp_id}")
-    axs[0].grid(True, linestyle="--", alpha=0.5)
-    axs[0].legend(loc="center left", bbox_to_anchor=(1, 0.5), fontsize="small")
+    axs[0].grid(True, linestyle="--", linewidth=0.6, alpha=0.35)
+    axs[0].margins(x=0.01)
+    axs[0].spines["top"].set_visible(False)
+    axs[0].spines["right"].set_visible(False)
+    axs[0].tick_params(axis="both", labelsize=12)
 
-    axs[0].margins(x=0.01)  
-
+    # -------------------------
+    # Bottom plot
+    # -------------------------
     categories, starts, ends, colors = [], [], [], []
 
     for i, label in enumerate(plot_labels):
+        display_label = LABEL_ABBREVIATIONS.get(label, label)
+
         mask_true = all_data[label]["mask_true"]
         mask_pred = all_data[label]["mask_pred"]
+
         if label == "Bending" and "Mandrel Extraction" in all_data:
             mandrel_true = all_data["Mandrel Extraction"]["mask_true"]
             mandrel_pred = all_data["Mandrel Extraction"]["mask_pred"]
             mask_true = mask_true | mandrel_true
             mask_pred = mask_pred | mandrel_pred
 
-        base_color = base_colors[i]
-        true_color = mcolors.to_rgba(base_color, alpha=0.7)
-        pred_color = mcolors.to_rgba(base_color, alpha=0.3)
+        base_color = phase_color_map[label]
+        true_color = mcolors.to_rgba(base_color, alpha=0.80)
+        pred_color = mcolors.to_rgba(base_color, alpha=0.35)
 
         def extract_segments(mask, category, color):
             start = None
@@ -490,8 +564,8 @@ def inference_one_label_in_one(
                 ends.append(len(mask) - 1)
                 colors.append(color)
 
-        extract_segments(mask_true, f"{label} True", true_color)
-        extract_segments(mask_pred, f"{label} Pred", pred_color)
+        extract_segments(mask_true, f"True {display_label}", true_color)
+        extract_segments(mask_pred, f"Predicted {display_label}", pred_color)
 
     if categories:
         axs[1].barh(
@@ -499,7 +573,8 @@ def inference_one_label_in_one(
             [e - s for s, e in zip(starts, ends)],
             left=starts,
             color=colors,
-            height=0.6,
+            height=0.72,
+            edgecolor="none",
         )
     else:
         axs[1].text(
@@ -509,14 +584,20 @@ def inference_one_label_in_one(
             transform=axs[1].transAxes,
             ha="center",
             va="center",
+            fontsize=12,
         )
 
-    axs[1].set_xlabel("Time Index")
+    axs[1].set_xlabel("Time Index", fontsize=16, fontweight="bold")
+    axs[1].grid(True, axis="x", linestyle="--", linewidth=0.6, alpha=0.30)
     axs[1].margins(x=0.01)
+    axs[1].spines["top"].set_visible(False)
+    axs[1].spines["right"].set_visible(False)
 
-    plt.tight_layout()
-    output_dir = save_dir_path / process_part /"All_in_One"
+    plt.subplots_adjust(left=0.12, hspace=0.08)
+
+    output_dir = save_dir_path / process_part / "All_in_One"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_file = output_dir / f"individual_labels_{exp_id}.png"
     plt.savefig(output_file, dpi=300, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
