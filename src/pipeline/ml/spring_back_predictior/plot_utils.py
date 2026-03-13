@@ -20,19 +20,49 @@ def plot_predictions_comparison(y_true, y_pred, model_name="Model", save_path=No
     """
     plt.figure(figsize=(14, 6))
     
-    # Plot true values
-    plt.plot(y_true, label="True", linewidth=2.5, alpha=0.9, color='black')
+    # Plot true values (line + points)
+    plt.plot(
+        y_true,
+        label="True",
+        linestyle="-",
+        linewidth=1.1,
+        alpha=0.45,
+        color="red",
+        marker="o",
+        markersize=5,
+        markerfacecolor="white",
+        markeredgewidth=0.8,
+    )
     
     # Handle multiple predictions
     if isinstance(y_pred, dict):
         colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
         for idx, (name, pred) in enumerate(y_pred.items()):
-            plt.plot(pred, label=name, linewidth=2, linestyle="--", 
-                    alpha=0.8, color=colors[idx % len(colors)])
+            plt.plot(
+                pred,
+                label=name,
+                linestyle="-",
+                linewidth=1.2,
+                alpha=0.65,
+                color=colors[idx % len(colors)],
+                marker="s",
+                markersize=3.2,
+                markerfacecolor="white",
+                markeredgewidth=0.7,
+            )
     else:
-        plt.plot(y_pred, label=model_name, linewidth=2, linestyle="--", alpha=0.8)
+        plt.plot(
+            y_pred,
+            label=model_name,
+            linestyle="-",
+            linewidth=1.2,
+            alpha=0.65,
+            marker="s",
+            markersize=3.2,
+            markerfacecolor="white",
+            markeredgewidth=0.7,
+        )
     
-    plt.title("Predicted vs True Springback Over Samples", fontsize=14, fontweight='bold')
     plt.xlabel("Sample Index", fontsize=12)
     plt.ylabel("Springback", fontsize=12)
     plt.legend(fontsize=10)
@@ -75,17 +105,14 @@ def plot_prediction_difference_bars(
         idx = np.linspace(0, n_samples - 1, max_bars, dtype=int)
         residuals = residuals[idx]
         x = idx
-        title = f"{model_name} - Residuals (sampled {max_bars}/{n_samples})"
     else:
         x = np.arange(n_samples)
-        title = f"{model_name} - Residuals (y_pred - y_true)"
 
     colors = np.where(residuals >= 0, "#3498db", "#e74c3c")
     plt.figure(figsize=(14, 6))
     plt.bar(x, residuals, color=colors, alpha=0.75, edgecolor="black", linewidth=0.3)
     plt.axhline(0, linestyle="--", linewidth=1.5, color="black")
-    plt.title(title, fontsize=13, fontweight="bold")
-    plt.xlabel("Sample Index", fontsize=12)
+    plt.xlabel("Sample Crosscuts", fontsize=12)
     plt.ylabel("Residual", fontsize=12)
     plt.grid(True, axis="y", linestyle="--", alpha=0.4)
     plt.tight_layout()
@@ -154,8 +181,6 @@ def plot_true_vs_pred_scatter(y_true, y_pred, model_name="Model", save_path=None
         
         plt.xlabel("True Springback", fontsize=12)
         plt.ylabel("Predicted Springback", fontsize=12)
-        plt.title(f"{model_name} - True vs Predicted\nR²={r2:.4f}, RMSE={rmse:.4f}, MAE={mae:.4f}", 
-                 fontsize=12, fontweight='bold')
         plt.grid(True, linestyle="--", alpha=0.4)
         plt.legend()
         plt.tight_layout()

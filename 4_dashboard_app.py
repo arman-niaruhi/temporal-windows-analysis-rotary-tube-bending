@@ -18,7 +18,7 @@ class StreamlitApp:
     def __init__(self):
         self.visualizer = DataVisualizer()
         st.set_page_config(layout="wide")
-        self.experiment_ids = self.visualizer.loader.load_experiment_ids_from_sqlite()
+        self.experiment_ids = self.visualizer.loader.load_experiment_ids_from_csv()
 
     def run(self):
         if "run_refresh_counter" not in st.session_state:
@@ -112,7 +112,7 @@ class StreamlitApp:
                 os.makedirs(analyze_image_dir_path, exist_ok=True)
                 st.info("The results are not generated. They are generating now and it could take a while...")
                 model, sensors_df, test_loader, device, feature_cols = training_pipeline(
-                            "models/classifier", "data/processed/tube_geometry.db",
+                            "models/classifier", "data/processed/tube_geometry",
                                 "data/ml/machine-and-movement_complete.json", "data/ml/unique_experiment_ids.json",
                                 dataset,[
                                     "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",

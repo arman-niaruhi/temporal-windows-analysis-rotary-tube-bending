@@ -97,11 +97,14 @@ class TransformerAttention(nn.Module):
         use_layernorm: bool = True,
         max_len: int = 4096,
         attn_dropout: float = 0.0,
+        use_angle_embedding: bool = False,
+        angle_embedding_dim: int = 8,
     ):
         super().__init__()
         self.use_scalar = use_scalar
         self.d_model = d_model
         self.n_predictions = n_predictions
+        self.use_angle_embedding = use_angle_embedding
 
         # Input projection to model dimension
         self.in_proj = nn.Linear(input_features, d_model)
@@ -143,11 +146,20 @@ class TransformerAttention(nn.Module):
             attn_dropout=attn_dropout,
         )
 
+        if self.use_angle_embedding:
+            if angle_embedding_dim <= 0:
+                raise ValueError("angle_embedding_dim must be > 0 when use_angle_embedding=True")
+            self.angle_embedding = nn.Embedding(n_predictions, angle_embedding_dim)
+            fc_in_dim = d_model + angle_embedding_dim
+        else:
+            self.angle_embedding = None
+            fc_in_dim = d_model
+
         # Prediction head
-        mid1 = max(32, d_model // 2)
-        mid2 = max(16, d_model // 4)
+        mid1 = max(32, fc_in_dim // 2)
+        mid2 = max(16, fc_in_dim // 4)
         self.fc = nn.Sequential(
-            nn.Linear(d_model, mid1),
+            nn.Linear(fc_in_dim, mid1),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(mid1, mid2),
@@ -204,5 +216,9 @@ class TransformerAttention(nn.Module):
         ctx, attn = self.attention(h, mask=mask)  # (B,A,D), (B,A,T)
 
         # Predict per horizon
+        if self.use_angle_embedding:
+            angle_idx = torch.arange(self.n_predictions, device=ctx.device)
+            angle_emb = self.angle_embedding(angle_idx).unsqueeze(0).expand(ctx.size(0), -1, -1)
+            ctx = torch.cat([ctx, angle_emb], dim=-1)
         out = self.fc(ctx)  # (B,A,output_features)
         return out, attn

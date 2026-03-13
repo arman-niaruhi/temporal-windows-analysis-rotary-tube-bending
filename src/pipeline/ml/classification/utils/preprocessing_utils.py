@@ -336,28 +336,6 @@ class ClassifierPreprocessor:
         logger.info("Multi-labels assigned to sensor data.")
         return self.sensors_df
 
-    def encode_multi_labels(self) -> pd.DataFrame:
-        """
-        Convert 'Labels' list column into multi-hot encoded columns.
-        Produces columns: 'Label_Bending', 'Label_Mandrel Extraction', etc.
-
-        Returns:
-            DataFrame with multi-hot encoded label columns
-        """
-        if self.sensors_df is None or "Labels" not in self.sensors_df.columns:
-            raise ValueError("Run assign_multi_labels() first.")
-
-        mlb = MultiLabelBinarizer()
-        encoded = mlb.fit_transform(self.sensors_df["Labels"])
-
-        for label, col in zip(mlb.classes_, encoded.T):
-            self.sensors_df[f"Label_{label}"] = col
-
-        self.label_binarizer = mlb
-
-        logger.info(f"Multi-labels encoded into {len(mlb.classes_)} columns.")
-        return self.sensors_df
-
     def _validate_data_loaded(self):
         """Validate that data and annotations are loaded."""
         if self.sensors_df is None or self.annotation_dict is None:

@@ -320,20 +320,7 @@ class DataTransformer:
     def save_correlation_matrices(
         self, tables: list[str], output_dir: str = "results/correlations"
     ) -> None:
-        """
-        Compute and save correlation matrices for the specified DataFrames.
 
-        Correlation matrices are computed for numeric columns (excluding 'Experiment_ID'
-        and 'Angle[degree]ORDistance[mm]'), saved as CSV files, and visualized
-        as heatmap plots using Matplotlib/Seaborn.
-
-        Args:
-            tables (list[str]): List of DataFrame attribute names to compute correlations for.
-            output_dir (str): Directory where correlation matrices and plots will be saved. Defaults to 'correlations'.
-
-        Returns:
-            None: Saves correlation matrices as CSV files and heatmap plots, logs the process.
-        """
         os.makedirs(output_dir, exist_ok=True)
 
         for attr_name in tables:
@@ -354,36 +341,70 @@ class DataTransformer:
                 continue
 
             corr_matrix = df[numeric_cols].corr()
+            feature_ids = [f"f{i + 1}" for i in range(len(corr_matrix.columns))]
+            feature_mapping = pd.DataFrame(
+                {
+                    "feature_id": feature_ids,
+                    "original_name": corr_matrix.columns,
+                }
+            )
+            corr_matrix.columns = feature_ids
+            corr_matrix.index = feature_ids
 
+            # Save correlation values
             csv_path = os.path.join(output_dir, f"{attr_name}_correlation.csv")
             corr_matrix.to_csv(csv_path)
-            logger.info(f"Saved correlation matrix for '{attr_name}' to '{csv_path}'.")
+            mapping_path = os.path.join(output_dir, f"{attr_name}_correlation_labels.csv")
+            feature_mapping.to_csv(mapping_path, index=False)
 
-            abs_corr = corr_matrix.abs()
-            abs_corr.values[[range(len(abs_corr))] * 2] = 0
-            avg_corr = abs_corr.mean().sort_values()
+            # ===== Heatmap plot =====
 
-            least_corr_path = os.path.join(
-                output_dir, f"{attr_name}_least_correlated.csv"
-            )
-            avg_corr.to_csv(least_corr_path, header=["avg_abs_correlation"])
-            logger.info(
-                f"Saved least correlated columns for '{attr_name}' to '{least_corr_path}'."
-            )
-            logger.info(
-                f"Top 5 least correlated columns in '{attr_name}':\n{avg_corr.head()}"
+            matrix_size = len(corr_matrix.columns)
+            figure_size = max(16, matrix_size * 3)
+            annotation_fontsize = max(18, min(40, 80 / max(matrix_size**0.5, 1)))
+            tick_fontsize = max(12, min(24, 72 / max(matrix_size**0.5, 1)))
+            title_fontsize = max(20, min(34, tick_fontsize + 8))
+            colorbar_fontsize = max(11, tick_fontsize - 2)
+
+            fig, ax = plt.subplots(figsize=(figure_size, figure_size))
+
+            heatmap = sns.heatmap(
+                corr_matrix,
+                annot=True,
+                fmt=".2f",
+                cmap="coolwarm",
+                square=True,
+                linewidths=0.5,
+                cbar_kws={"shrink": 0.8},
+                annot_kws={"size": annotation_fontsize, "weight": "bold"},
+                ax=ax,
             )
 
-            plt.figure(figsize=(10, 8))
-            sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", cbar=True)
-            plt.title(f"Correlation Matrix: {attr_name}", fontsize=14)
-            plt.xticks(rotation=45, ha="right")
-            plt.yticks(rotation=0)
-            plt.tight_layout()
-
-            plot_path = os.path.join(output_dir, f"{attr_name}_correlation.png")
-            plt.savefig(plot_path, dpi=300)
-            plt.close()
-            logger.info(
-                f"Saved correlation heatmap for '{attr_name}' to '{plot_path}'."
+            ax.set_title(
+                f"Correlation Matrix: {attr_name}",
+                fontsize=title_fontsize,
+                pad=24,
             )
+
+            ax.set_xticklabels(
+                ax.get_xticklabels(),
+                rotation=45,
+                ha="right",
+                fontsize=tick_fontsize,
+            )
+
+            ax.set_yticklabels(
+                ax.get_yticklabels(),
+                rotation=0,
+                fontsize=tick_fontsize,
+            )
+
+            heatmap.collections[0].colorbar.ax.tick_params(labelsize=colorbar_fontsize)
+
+            plt.tight_layout(pad=2.0)
+
+            # Save vector PDF (best for LaTeX)
+            plot_path_pdf = os.path.join(output_dir, f"{attr_name}_correlation.pdf")
+            fig.savefig(plot_path_pdf, bbox_inches="tight")
+
+            plt.close(fig)

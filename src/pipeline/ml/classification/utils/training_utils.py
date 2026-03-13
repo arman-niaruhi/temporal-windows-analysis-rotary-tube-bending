@@ -3,10 +3,12 @@ import logging
 import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+import ast
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+import pandas as pd
 
 from src.pipeline.ml.classification.utils.preprocessing_utils import (
     ClassifierPreprocessor,
@@ -40,7 +42,7 @@ def _validate_inputs(
 
     Args:
         annotation_json_path: Path to annotation JSON file
-        database_path: Path to SQLite database
+        database_path: Path to the ETL CSV directory
         experiment_ids_path: Path to experiment IDs file
         label: Target activity label
         process_part: Machine part identifier
@@ -57,7 +59,7 @@ def _validate_inputs(
 
     if not os.path.exists(database_path):
         raise ValueError(
-            f"Database file not found: {database_path}. "
+            f"Processed data path not found: {database_path}. "
             "Please run preprocessing first: 'python main.py preprocess'"
         )
 
@@ -92,8 +94,16 @@ def _load_experiment_groups(experiment_ids_path: str) -> Dict:
         Dictionary containing experiment groups
     """
     logger.info("Loading experiment IDs...")
-    with open(experiment_ids_path, "r") as f:
-        return json.load(f)
+    
+
+    df = pd.read_csv(experiment_ids_path)
+
+    experiment_numbers = (
+        df["Experiment_Number"]
+        .apply(ast.literal_eval)
+        .tolist()
+    )
+    return experiment_numbers
 
 
 def _prepare_data(
@@ -107,7 +117,7 @@ def _prepare_data(
     """Prepare and preprocess data for training.
 
     Args:
-        database_path: Path to SQLite database
+        database_path: Path to the ETL CSV directory
         annotation_json_path: Path to annotations
         process_part: Machine part to process
         eliminated_columns: Columns to remove
@@ -118,14 +128,22 @@ def _prepare_data(
         Tuple of (train_dataset, val_dataset, test_dataset, feature_cols)
     """
     loader = DataLoaderETL(database_path)
-    dataframes = loader.load_all_data_from_sqlite()
+    dataframes = loader.load_all_data_from_csv()
 
     classifier_preprocessor = ClassifierPreprocessor(
         sensors_df=dataframes[process_part], annotation_json=annotation_json_path
     )
-
     sensors_df, _ = classifier_preprocessor.read_data()
     sensors_df = classifier_preprocessor.delete_columns(eliminated_columns)
+
+    # Exclude identifier column
+    cols_to_normalize = sensors_df.columns.drop('Experiment_ID')
+
+    sensors_df[cols_to_normalize] = (
+        sensors_df[cols_to_normalize] - sensors_df[cols_to_normalize].min()
+    ) / (
+        sensors_df[cols_to_normalize].max() - sensors_df[cols_to_normalize].min()
+    )
 
     if label == "All":
         sensors_df = classifier_preprocessor.assign_labels()
@@ -166,6 +184,57 @@ def _create_data_loaders(
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     return train_loader, val_loader, test_loader
+
+
+def _write_evaluation_report(report_path: Path, metrics_by_split: Dict[str, Dict]) -> None:
+    """Persist evaluation metrics for train/val/test/all splits."""
+    serializable_metrics = {
+        split: {
+            key: value
+            for key, value in metrics.items()
+            if key not in {"y_true", "y_pred"}
+        }
+        for split, metrics in metrics_by_split.items()
+    }
+
+    with open(report_path, "w") as f:
+        json.dump(serializable_metrics, f, indent=2)
+
+
+def _evaluate_and_store_metrics(
+    model: LSTMSequenceClassifier,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    test_loader: DataLoader,
+    all_loader: DataLoader,
+    model_path: str,
+    device: torch.device,
+) -> Dict[str, Dict]:
+    """Evaluate the trained model on all relevant splits and store metrics."""
+    metrics_by_split = {
+        "train": model.evaluate_loader(train_loader, device),
+        "val": model.evaluate_loader(val_loader, device),
+        "test": model.evaluate_loader(test_loader, device),
+        "all_data": model.evaluate_loader(all_loader, device),
+    }
+
+    for split_name, metrics in metrics_by_split.items():
+        logger.info(
+            "%s metrics | loss: %.6f | acc: %.6f | precision: %.6f | recall: %.6f | f1: %.6f | iou: %.6f",
+            split_name,
+            metrics["loss"],
+            metrics["acc"],
+            metrics["precision"],
+            metrics["recall"],
+            metrics["f1"],
+            metrics["iou"],
+        )
+
+    report_path = Path(model_path) / "evaluation_metrics.json"
+    _write_evaluation_report(report_path, metrics_by_split)
+    logger.info("Saved evaluation metrics to %s", report_path)
+
+    return metrics_by_split
 
 
 def _initialize_model(
@@ -239,11 +308,15 @@ def _train_or_load_model(
             model_path=model_path,
             run_name=label,
             experiment_name=process_part,
+            save_confusion_every=20,
+            scheduler_factor=0.5,
+            scheduler_patience=2,
+            min_lr=1e-6,
         )
     else:
         logger.info("Loading existing model...")
         model_file = Path(model_path) / "activity_detector.pth"
-        state_dict = torch.load(model_file, map_location=device)
+        state_dict = torch.load(model_file, map_location=device, weights_only=True)
         logger.info(f"Loaded model from {model_file}")
         model.load_state_dict(state_dict)
         model.eval()
@@ -265,7 +338,7 @@ def training_pipeline(
 
     Args:
         model_path_root: Root directory for model storage
-        database_path: Path to preprocessed data database
+        database_path: Path to the preprocessed ETL CSV directory
         annotation_json_path: Path to activity annotations
         experiment_ids_path: Path to experiment ID groups
         process_part: Machine component to analyze
@@ -304,6 +377,8 @@ def training_pipeline(
     train_loader, val_loader, test_loader = _create_data_loaders(
         train_dataset, val_dataset, test_dataset, batch_size
     )
+    all_dataset = SegmentDataset3DSequenceWithMask(sensors_df, feature_cols)
+    all_loader = DataLoader(all_dataset, batch_size=batch_size, shuffle=False)
 
     model_config = pipeline_config.get("model_config", {})
     input_size = len(feature_cols)
@@ -326,6 +401,16 @@ def training_pipeline(
         process_part,
         device,
         idx_to_label,
+    )
+
+    _evaluate_and_store_metrics(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        test_loader=test_loader,
+        all_loader=all_loader,
+        model_path=model_path,
+        device=device,
     )
 
     return model, sensors_df, test_loader, device, feature_cols

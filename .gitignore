@@ -1,6 +1,7 @@
 
 *.pdf
 *.html
+*.csv
 *.stl
 *.packaging
 *.pptx
