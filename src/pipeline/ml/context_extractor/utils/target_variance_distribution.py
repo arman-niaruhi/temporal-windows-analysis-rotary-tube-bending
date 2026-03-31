@@ -185,7 +185,6 @@ def plot_group_variations_vs_baseline(
         }
 
         selected_features = df.columns.tolist()[:4]
-        print(selected_features)
         available_features = [f for f in selected_features if f in feature_cols]
         if not available_features:
             continue

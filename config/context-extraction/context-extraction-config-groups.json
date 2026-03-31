@@ -46,7 +46,7 @@
         "model_path": "models/context_extraction",
         "use_attention": true,
         "use_feature_attention": true,
-        "attention_type": "mlp",
+        "attention_type": "bahdanau",
         "use_angle_embedding": true,
         "angle_embedding_dim": 16,
         "split_output_heads": true,

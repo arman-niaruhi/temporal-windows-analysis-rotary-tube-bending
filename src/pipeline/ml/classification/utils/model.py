@@ -21,8 +21,6 @@ from sklearn.metrics import (
     jaccard_score,
     confusion_matrix,
 )
-import mlflow
-import mlflow.pytorch
 
 warnings.filterwarnings("ignore", message="Can't initialize NVML")
 logger = logging.getLogger(__name__)
@@ -259,7 +257,6 @@ class LSTMSequenceClassifier(nn.Module):
         self,
         file_path: str,
         model_path: str,
-        run_id: str,
         run_name: str,
         experiment_name: str,
         learning_rate: float,
@@ -279,7 +276,6 @@ class LSTMSequenceClassifier(nn.Module):
             f.write("===== EXPERIMENT SUMMARY =====\n")
             f.write(f"Timestamp (UTC): {timestamp}\n")
             f.write(f"Experiment Name: {experiment_name}\n")
-            f.write(f"MLflow Run ID: {run_id}\n")
             f.write(f"Run Name: {run_name}\n")
             f.write(f"Model Folder: {model_path}\n\n")
 
@@ -374,11 +370,11 @@ class LSTMSequenceClassifier(nn.Module):
         min_lr: float = 1e-6,
     ) -> Dict[str, Any]:
         """
-        Train the model with MLflow tracking, local artifact storage, ReduceLROnPlateau scheduler,
+        Train the model with local artifact storage, ReduceLROnPlateau scheduler,
         and early stopping.
 
         Returns:
-            Dictionary containing training and validation history and run_id
+            Dictionary containing training and validation history
         """
         os.makedirs(model_path, exist_ok=True)
         model_name = os.path.join(model_path, "activity_detector.pth")
@@ -427,118 +423,71 @@ class LSTMSequenceClassifier(nn.Module):
             "iou": [],
         }
 
-        mlflow.set_experiment(experiment_name)
-        with mlflow.start_run(run_name=run_name) as run:
-            run_id = run.info.run_id
+        epoch_bar = tqdm(range(num_epochs), desc="Training", leave=True, colour="blue")
 
-            mlflow.log_params(
+        for epoch in epoch_bar:
+            train_loss, y_train_true, y_train_pred = self._train_epoch(
+                train_loader, criterion, optimizer, device, epoch, num_epochs
+            )
+            train_acc, train_prec, train_rec, train_f1, train_iou = (
+                self._compute_metrics(y_train_true, y_train_pred)
+            )
+
+            val_loss, y_val_true, y_val_pred = self._validate_epoch(
+                val_loader, criterion, device
+            )
+            val_acc, val_prec, val_rec, val_f1, val_iou = self._compute_metrics(
+                y_val_true, y_val_pred
+            )
+
+            scheduler.step(val_loss)
+            current_lr = optimizer.param_groups[0]["lr"]
+
+            train_history["loss"].append(train_loss)
+            train_history["acc"].append(train_acc)
+            train_history["precision"].append(train_prec)
+            train_history["recall"].append(train_rec)
+            train_history["f1"].append(train_f1)
+            train_history["iou"].append(train_iou)
+            train_history["lr"].append(current_lr)
+
+            val_history["loss"].append(val_loss)
+            val_history["acc"].append(val_acc)
+            val_history["precision"].append(val_prec)
+            val_history["recall"].append(val_rec)
+            val_history["f1"].append(val_f1)
+            val_history["iou"].append(val_iou)
+
+            if idx_to_label and (
+                (epoch % save_confusion_every == 0) or (epoch == num_epochs - 1)
+            ):
+                self._save_confusion_matrix(
+                    y_val_true, y_val_pred, idx_to_label, epoch, model_path
+                )
+
+            epoch_bar.set_postfix(
                 {
-                    "input_size": self.input_size,
-                    "hidden_size": self.hidden_size,
-                    "num_layers": self.num_layers,
-                    "num_classes": self.num_classes,
-                    "learning_rate": learning_rate,
-                    "bidirectional": self.bidirectional,
-                    "dropout": self.dropout,
-                    "patience": patience,
-                    "optimizer": "AdamW",
-                    "loss": "CrossEntropyLoss",
-                    "task": "per_timestep_classification",
-                    "scheduler": "ReduceLROnPlateau",
-                    "scheduler_factor": scheduler_factor,
-                    "scheduler_patience": scheduler_patience,
-                    "min_lr": min_lr,
+                    "train_loss": f"{train_loss:.4f}",
+                    "val_loss": f"{val_loss:.4f}",
+                    "lr": f"{current_lr:.2e}",
+                    "train_acc": f"{train_acc:.3f}",
+                    "val_acc": f"{val_acc:.3f}",
+                    "train_f1": f"{train_f1:.3f}",
+                    "val_f1": f"{val_f1:.3f}",
+                    "train_iou": f"{train_iou:.3f}",
+                    "val_iou": f"{val_iou:.3f}",
                 }
             )
 
-            epoch_bar = tqdm(
-                range(num_epochs), desc="Training", leave=True, colour="blue"
-            )
-
-            for epoch in epoch_bar:
-                train_loss, y_train_true, y_train_pred = self._train_epoch(
-                    train_loader, criterion, optimizer, device, epoch, num_epochs
-                )
-                train_acc, train_prec, train_rec, train_f1, train_iou = (
-                    self._compute_metrics(y_train_true, y_train_pred)
-                )
-
-                val_loss, y_val_true, y_val_pred = self._validate_epoch(
-                    val_loader, criterion, device
-                )
-                val_acc, val_prec, val_rec, val_f1, val_iou = self._compute_metrics(
-                    y_val_true, y_val_pred
-                )
-
-                scheduler.step(val_loss)
-                current_lr = optimizer.param_groups[0]["lr"]
-
-                train_history["loss"].append(train_loss)
-                train_history["acc"].append(train_acc)
-                train_history["precision"].append(train_prec)
-                train_history["recall"].append(train_rec)
-                train_history["f1"].append(train_f1)
-                train_history["iou"].append(train_iou)
-                train_history["lr"].append(current_lr)
-
-                val_history["loss"].append(val_loss)
-                val_history["acc"].append(val_acc)
-                val_history["precision"].append(val_prec)
-                val_history["recall"].append(val_rec)
-                val_history["f1"].append(val_f1)
-                val_history["iou"].append(val_iou)
-
-                mlflow.log_metrics(
-                    {
-                        "train_loss": train_loss,
-                        "val_loss": val_loss,
-                        "train_acc": train_acc,
-                        "val_acc": val_acc,
-                        "train_precision": train_prec,
-                        "val_precision": val_prec,
-                        "train_recall": train_rec,
-                        "val_recall": val_rec,
-                        "train_f1": train_f1,
-                        "val_f1": val_f1,
-                        "train_iou": train_iou,
-                        "val_iou": val_iou,
-                        "learning_rate_current": current_lr,
-                    },
-                    step=epoch,
-                )
-
-                if idx_to_label and (
-                    (epoch % save_confusion_every == 0) or (epoch == num_epochs - 1)
-                ):
-                    fig_path = self._save_confusion_matrix(
-                        y_val_true, y_val_pred, idx_to_label, epoch, model_path
-                    )
-                    if fig_path:
-                        mlflow.log_artifact(fig_path)
-
-                epoch_bar.set_postfix(
-                    {
-                        "train_loss": f"{train_loss:.4f}",
-                        "val_loss": f"{val_loss:.4f}",
-                        "lr": f"{current_lr:.2e}",
-                        "train_acc": f"{train_acc:.3f}",
-                        "val_acc": f"{val_acc:.3f}",
-                        "train_f1": f"{train_f1:.3f}",
-                        "val_f1": f"{val_f1:.3f}",
-                        "train_iou": f"{train_iou:.3f}",
-                        "val_iou": f"{val_iou:.3f}",
-                    }
-                )
-
-                if val_loss < best_val_loss:
-                    best_val_loss = val_loss
-                    counter = 0
-                    torch.save(self.state_dict(), model_name)
-                else:
-                    counter += 1
-                    if counter >= patience:
-                        logger.info("Early stopping triggered.")
-                        break
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                counter = 0
+                torch.save(self.state_dict(), model_name)
+            else:
+                counter += 1
+                if counter >= patience:
+                    logger.info("Early stopping triggered.")
+                    break
 
         if os.path.exists(model_name):
             try:
@@ -552,11 +501,9 @@ class LSTMSequenceClassifier(nn.Module):
 
         try:
             self._save_training_history(history_path, train_history, val_history)
-            mlflow.log_artifact(history_path)
             self.save_experiment_summary(
                 file_path=summary_path,
                 model_path=model_path,
-                run_id=run_id,
                 run_name=run_name,
                 experiment_name=experiment_name,
                 learning_rate=learning_rate,
@@ -569,15 +516,12 @@ class LSTMSequenceClassifier(nn.Module):
                 min_lr=min_lr,
                 notes=notes,
             )
-            mlflow.log_artifact(summary_path)
-            mlflow.pytorch.log_model(self, artifact_path="model")
         except Exception as e:
             logger.error(f"Failed to save training artifacts: {e}")
 
         return {
             "train_history": train_history,
             "val_history": val_history,
-            "run_id": run_id,
         }
 
     def evaluate_loader(
