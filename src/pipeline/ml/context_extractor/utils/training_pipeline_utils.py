@@ -66,6 +66,9 @@ from src.pipeline.ml.context_extractor.utils.helpers.mlflow_utils import (
 from src.pipeline.ml.context_extractor.utils.data.data_preprocessor import (
     create_data_loaders
 )
+from src.pipeline.ml.context_extractor.utils.helpers.seed_utils import (
+    enforce_reproducibility,
+)
 
 # ============================
 # Visualization utilities
@@ -209,6 +212,9 @@ def train_model(
     2) Resuming an existing MLflow run for analysis and visualization only
     """
     occlusion_params = occlusion_params or {}
+    general_setting = general_setting or {}
+    random_seed = general_setting.get("seed", 42)
+    enforce_reproducibility(seed=random_seed)
     
     # ============================================================
     # Directory structure for storing generated artifacts
@@ -275,7 +281,8 @@ def train_model(
     # Create PyTorch DataLoaders using customized dataloader
     train_loader, val_loader, plot_loader = create_data_loaders(
         X_train, Y_train, X_test, Y_test, springbacks_train, springbacks_test, 
-        experiment_configurations_train, experiment_configurations_test, params["batch_size"]
+        experiment_configurations_train, experiment_configurations_test, params["batch_size"],
+        random_seed=random_seed,
     )
 
     # Extract a fixed batch for visualization

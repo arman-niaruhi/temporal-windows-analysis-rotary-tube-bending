@@ -317,9 +317,7 @@ class DataTransformer:
             )
 
     @log_function
-    def save_correlation_matrices(
-        self, tables: list[str], output_dir: str = "results/correlations"
-    ) -> None:
+    def save_correlation_matrices( self, tables: list[str], output_dir: str = "results/correlations") -> None:
 
         os.makedirs(output_dir, exist_ok=True)
 
@@ -335,36 +333,42 @@ class DataTransformer:
             )
 
             if len(numeric_cols) == 0:
-                logger.info(
-                    f"No numeric columns to compute correlation in '{attr_name}'."
-                )
+                logger.info(f"No numeric columns to compute correlation in '{attr_name}'.")
                 continue
 
+            # Correlation matrix
             corr_matrix = df[numeric_cols].corr()
-            feature_ids = [f"f{i + 1}" for i in range(len(corr_matrix.columns))]
-            feature_mapping = pd.DataFrame(
-                {
-                    "feature_id": feature_ids,
-                    "original_name": corr_matrix.columns,
-                }
-            )
+
+            # Fixed feature names: f1, f2, ..., fn
+            feature_ids = [f"f{i+1}" for i in range(len(corr_matrix.columns))]
+
+            # Save mapping from f1...fn to original feature names
+            feature_mapping = pd.DataFrame({
+                "feature_id": feature_ids,
+                "original_name": corr_matrix.columns.tolist(),
+            })
+
+            # Rename rows/columns in correlation matrix
             corr_matrix.columns = feature_ids
             corr_matrix.index = feature_ids
 
             # Save correlation values
             csv_path = os.path.join(output_dir, f"{attr_name}_correlation.csv")
             corr_matrix.to_csv(csv_path)
+
             mapping_path = os.path.join(output_dir, f"{attr_name}_correlation_labels.csv")
             feature_mapping.to_csv(mapping_path, index=False)
 
             # ===== Heatmap plot =====
 
             matrix_size = len(corr_matrix.columns)
-            figure_size = max(16, matrix_size * 3)
-            annotation_fontsize = max(18, min(40, 80 / max(matrix_size**0.5, 1)))
-            tick_fontsize = max(12, min(24, 72 / max(matrix_size**0.5, 1)))
-            title_fontsize = max(20, min(34, tick_fontsize + 8))
-            colorbar_fontsize = max(11, tick_fontsize - 2)
+            figure_size = max(16, matrix_size * 1.2)   # adjust figure size only
+
+            # Fixed font sizes
+            annotation_fontsize = 14
+            tick_fontsize = 14
+            title_fontsize = 18
+            colorbar_fontsize = 13
 
             fig, ax = plt.subplots(figsize=(figure_size, figure_size))
 
@@ -387,14 +391,14 @@ class DataTransformer:
             )
 
             ax.set_xticklabels(
-                ax.get_xticklabels(),
+                feature_ids,
                 rotation=45,
                 ha="right",
                 fontsize=tick_fontsize,
             )
 
             ax.set_yticklabels(
-                ax.get_yticklabels(),
+                feature_ids,
                 rotation=0,
                 fontsize=tick_fontsize,
             )
@@ -403,7 +407,7 @@ class DataTransformer:
 
             plt.tight_layout(pad=2.0)
 
-            # Save vector PDF (best for LaTeX)
+            # Save vector PDF
             plot_path_pdf = os.path.join(output_dir, f"{attr_name}_correlation.pdf")
             fig.savefig(plot_path_pdf, bbox_inches="tight")
 

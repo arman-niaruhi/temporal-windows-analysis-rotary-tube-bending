@@ -14,7 +14,7 @@ References:
 import torch
 import torch.nn as nn
 
-class MLPAttention(nn.Module):
+class BahdanauAttention(nn.Module):
     def __init__(self, n_predictions: int, hidden_dim: int = 128):
         super().__init__()
         self.n_predictions = n_predictions
@@ -55,7 +55,7 @@ class MLPAttention(nn.Module):
         return ctx, w
 
 
-class BahdanauAttention(nn.Module):
+class MLPAttention(nn.Module):
     """
     Implements a multi-layer perceptron (MLP) attention mechanism.
     

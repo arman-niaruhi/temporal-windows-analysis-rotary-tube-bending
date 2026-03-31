@@ -64,7 +64,7 @@ class Annotator(QWidget):
         self.legend = None
         self.annotation_legend_items = []
         self._setup_gui()
-        loader = DataLoaderETL("data/processed/tube_geometry")
+        loader = DataLoaderETL("data/processed")
         dataframes = loader.load_all_data_from_csv()
         self.df = dataframes["machine_and_movement"]
         if "Time_[s]" in self.df.columns:
