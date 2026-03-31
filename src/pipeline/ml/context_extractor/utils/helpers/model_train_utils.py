@@ -6,11 +6,9 @@ from torch.utils.data import DataLoader
 from typing import Optional, Sequence
 
 from src.pipeline.ml.context_extractor.utils.models.attention_lstm import AttentionLSTM
-from src.pipeline.ml.context_extractor.utils.models.attention_transformer import TransformerAttention
-from src.pipeline.ml.context_extractor.utils.models.attention_mamba import AttentionMamba
 from src.pipeline.ml.context_extractor.utils.models.attention_tcn import AttentionTCN
 from src.pipeline.ml.context_extractor.utils.models.attention_tcn_lstm import AttentionTCNLSTM
-from src.pipeline.ml.context_extractor.utils.models.attention_tcn_mamba import AttentionTCNMamba
+
 
 
 def create_model(
@@ -84,29 +82,6 @@ def create_model(
             attention_type=attention_type,
         ).to(device)
 
-    if model_type_norm in ("tcn_mamba", "tcn-mamba", "tcn+mamba"):
-        return AttentionTCNMamba(
-            input_features=input_features,
-            n_predictions=n_predictions,
-            output_features=output_features,
-            hidden_dim=hidden_dim,
-            tcn_layers=tcn_layers if tcn_layers is not None else lstm_layers,
-            mamba_layers=mamba_layers if mamba_layers is not None else lstm_layers,
-            d_state=mamba_d_state if mamba_d_state is not None else 16,
-            kernel_size=tcn_kernel_size,
-            dropout=dropout,
-            use_scalar=use_scalar,
-            scalar_embedding_dim=scalar_embedding_dim,
-            use_config=use_experiment_config,
-            config_dim=config_dim,
-            config_embedding_dim=config_embedding_dim,
-            split_output_heads=split_output_heads,
-            main_head_hidden_sizes=main_head_hidden_sizes,
-            secondary_head_hidden_sizes=secondary_head_hidden_sizes,
-            use_angle_embedding=use_angle_embedding,
-            angle_embedding_dim=angle_embedding_dim,
-            attention_type=attention_type,
-        ).to(device)
 
     if model_type_norm == "tcn":
         return AttentionTCN(
@@ -128,34 +103,6 @@ def create_model(
             use_angle_embedding=use_angle_embedding,
             angle_embedding_dim=angle_embedding_dim,
             attention_type=attention_type,
-        ).to(device)
-
-    if model_type_norm == "mamba":
-        return AttentionMamba(
-            input_features=input_features,
-            n_predictions=n_predictions,
-            output_features=output_features,
-            hidden_dim=hidden_dim,
-            mamba_layers=mamba_layers if mamba_layers is not None else lstm_layers,
-            d_state=mamba_d_state if mamba_d_state is not None else 16,
-            dropout=dropout,
-            use_scalar=use_scalar,
-            scalar_embedding_dim=scalar_embedding_dim,
-            use_config=use_experiment_config,
-            config_dim=config_dim,
-            config_embedding_dim=config_embedding_dim,
-            use_angle_embedding=use_angle_embedding,
-            angle_embedding_dim=angle_embedding_dim,
-            attention_type=attention_type,
-        ).to(device)
-
-    if model_type_norm == "transformer":
-        return TransformerAttention(
-            input_features=input_features,
-            n_predictions=n_predictions,
-            output_features=output_features,
-            use_angle_embedding=use_angle_embedding,
-            angle_embedding_dim=angle_embedding_dim,
         ).to(device)
 
     return AttentionLSTM(
