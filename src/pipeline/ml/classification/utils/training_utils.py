@@ -4,15 +4,14 @@ import os
 import random
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-import ast
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-import pandas as pd
 
 from src.pipeline.ml.classification.utils.preprocessing_utils import (
     ClassifierPreprocessor,
+    FIXED_VALIDATION_EXPERIMENT_IDS,
 )
 from src.pipeline.ml.classification.utils.dataset_utils import (
     SegmentDataset3DSequenceWithMask,
@@ -22,7 +21,7 @@ from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 
 logger = logging.getLogger(__name__)
 
-VALID_LABELS = ["Multilabel", "Clamping", "Bending", "Mandrel Extraction", "De-Clamping"]
+VALID_LABELS = ["Multiclass", "Clamping", "Bending", "Mandrel Extraction", "De-Clamping"]
 VALID_process_partS = ["machine_and_movement", "movement"]
 ELIMINATED_COLUMNS = [
     "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
@@ -57,7 +56,6 @@ def set_global_seed(seed: int) -> None:
 def _validate_inputs(
     annotation_json_path: str,
     database_path: str,
-    experiment_ids_path: str,
     label: str,
     process_part: str,
     pipeline_config: Optional[Dict],
@@ -67,7 +65,6 @@ def _validate_inputs(
     Args:
         annotation_json_path: Path to annotation JSON file
         database_path: Path to the ETL CSV directory
-        experiment_ids_path: Path to experiment IDs file
         label: Target activity label
         process_part: Machine part identifier
         pipeline_config: Pipeline configuration dictionary
@@ -87,12 +84,6 @@ def _validate_inputs(
             "Please run preprocessing first: 'python main.py preprocess'"
         )
 
-    if not os.path.exists(experiment_ids_path):
-        raise ValueError(
-            f"Experiment IDs file not found: {experiment_ids_path}. "
-            "Please download from the GitHub page."
-        )
-
     if label not in VALID_LABELS:
         raise ValueError(
             f"Invalid label: {label}. Valid options: {', '.join(VALID_LABELS)}"
@@ -108,35 +99,11 @@ def _validate_inputs(
         raise ValueError("Pipeline configuration is required.")
 
 
-def _load_experiment_groups(experiment_ids_path: str) -> Dict:
-    """Load experiment groups from JSON file.
-
-    Args:
-        experiment_ids_path: Path to experiment IDs JSON file
-
-    Returns:
-        Dictionary containing experiment groups
-    """
-    logger.info("Loading experiment IDs...")
-    
-
-    df = pd.read_csv(experiment_ids_path)
-
-    experiment_numbers = (
-        df["Experiment_Number"]
-        .apply(ast.literal_eval)
-        .tolist()
-    )
-    return experiment_numbers
-
-
 def _prepare_data(
     database_path: str,
     annotation_json_path: str,
     process_part: str,
     label: str,
-    experiment_groups: Dict,
-    random_seed: int,
 ) -> Tuple:
     """Prepare and preprocess data for training.
 
@@ -145,10 +112,8 @@ def _prepare_data(
         annotation_json_path: Path to annotations
         process_part: Machine part to process
         label: Target label
-        experiment_groups: Experiment ID groupings
-
     Returns:
-        Tuple of (train_dataset, val_dataset, test_dataset, feature_cols)
+        Tuple of (train_dataset, val_dataset, feature_cols, sensors_df)
     """
     loader = DataLoaderETL(database_path)
     dataframes = loader.load_all_data_from_csv()
@@ -168,44 +133,41 @@ def _prepare_data(
         sensors_df[cols_to_normalize].max() - sensors_df[cols_to_normalize].min()
     )
 
-    if label == "Multilabel":
+    if label == "Multiclass":
         sensors_df = classifier_preprocessor.assign_labels()
     else:
         sensors_df = classifier_preprocessor.assign_one_label(label)
 
     sensors_df = classifier_preprocessor.normalize_and_encode_labels()
 
-    train_df, val_df, test_df, _ = classifier_preprocessor.split_experiments(
-        experiment_groups,
-        seed=random_seed,
+    train_df, val_df, _, _ = classifier_preprocessor.split_experiments(
+        validation_experiment_ids=FIXED_VALIDATION_EXPERIMENT_IDS,
     )
 
-    train_dataset, val_dataset, test_dataset = classifier_preprocessor.create_datasets(
-        train_df, val_df, test_df, SegmentDataset3DSequenceWithMask
+    train_dataset, val_dataset, _ = classifier_preprocessor.create_datasets(
+        train_df, val_df, val_df.iloc[0:0].copy(), SegmentDataset3DSequenceWithMask
     )
 
     feature_cols = classifier_preprocessor.get_feature_cols()
 
-    return train_dataset, val_dataset, test_dataset, feature_cols, sensors_df
+    return train_dataset, val_dataset, feature_cols, sensors_df
 
 
 def _create_data_loaders(
     train_dataset,
     val_dataset,
-    test_dataset,
     batch_size: int,
     random_seed: int,
-) -> Tuple[DataLoader, DataLoader, DataLoader]:
-    """Create PyTorch DataLoaders for train, validation, and test sets.
+) -> Tuple[DataLoader, DataLoader]:
+    """Create PyTorch DataLoaders for train and validation sets.
 
     Args:
         train_dataset: Training dataset
         val_dataset: Validation dataset
-        test_dataset: Test dataset
         batch_size: Batch size for data loaders
 
     Returns:
-        Tuple of (train_loader, val_loader, test_loader)
+        Tuple of (train_loader, val_loader)
     """
     train_generator = torch.Generator().manual_seed(random_seed)
     train_loader = DataLoader(
@@ -215,13 +177,12 @@ def _create_data_loaders(
         generator=train_generator,
     )
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    return train_loader, val_loader, test_loader
+    return train_loader, val_loader
 
 
 def _write_evaluation_report(report_path: Path, metrics_by_split: Dict[str, Dict]) -> None:
-    """Persist evaluation metrics for train/val/test/all splits."""
+    """Persist evaluation metrics for train/val/all splits."""
     serializable_metrics = {
         split: {
             key: value
@@ -239,7 +200,6 @@ def _evaluate_and_store_metrics(
     model: LSTMSequenceClassifier,
     train_loader: DataLoader,
     val_loader: DataLoader,
-    test_loader: DataLoader,
     all_loader: DataLoader,
     model_path: str,
     device: torch.device,
@@ -248,7 +208,6 @@ def _evaluate_and_store_metrics(
     metrics_by_split = {
         "train": model.evaluate_loader(train_loader, device),
         "val": model.evaluate_loader(val_loader, device),
-        "test": model.evaluate_loader(test_loader, device),
         "all_data": model.evaluate_loader(all_loader, device),
     }
 
@@ -362,7 +321,6 @@ def training_pipeline(
     model_path_root: str,
     database_path: str,
     annotation_json_path: str,
-    experiment_ids_path: str,
     process_part: str,
     label: str,
     pipeline_config: Dict,
@@ -374,13 +332,12 @@ def training_pipeline(
         model_path_root: Root directory for model storage
         database_path: Path to the preprocessed ETL CSV directory
         annotation_json_path: Path to activity annotations
-        experiment_ids_path: Path to experiment ID groups
         process_part: Machine component to analyze
         label: Target activity label to classify
         pipeline_config: Pipeline configuration parameters
 
     Returns:
-        Tuple of (model, sensors_df, test_loader, device, feature_cols)
+        Tuple of (model, sensors_df, val_loader, device, feature_cols)
     """
     logger.info("Starting machine activity recognition training pipeline...")
     logger.info(f"Label: {label}, Machine part: {process_part}")
@@ -391,27 +348,22 @@ def training_pipeline(
     _validate_inputs(
         annotation_json_path,
         database_path,
-        experiment_ids_path,
         label,
         process_part,
         pipeline_config,
     )
 
-    experiment_groups = _load_experiment_groups(experiment_ids_path)
-
-    train_dataset, val_dataset, test_dataset, feature_cols, sensors_df = _prepare_data(
+    train_dataset, val_dataset, feature_cols, sensors_df = _prepare_data(
         database_path,
         annotation_json_path,
         process_part,
         label,
-        experiment_groups,
-        random_seed,
     )
 
     dataloader_config = pipeline_config.get("dataloader_config", {})
     batch_size = dataloader_config.get("batch_size", 8)
-    train_loader, val_loader, test_loader = _create_data_loaders(
-        train_dataset, val_dataset, test_dataset, batch_size, random_seed
+    train_loader, val_loader = _create_data_loaders(
+        train_dataset, val_dataset, batch_size, random_seed
     )
     all_dataset = SegmentDataset3DSequenceWithMask(sensors_df, feature_cols)
     all_loader = DataLoader(all_dataset, batch_size=batch_size, shuffle=False)
@@ -443,10 +395,9 @@ def training_pipeline(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        test_loader=test_loader,
         all_loader=all_loader,
         model_path=model_path,
         device=device,
     )
 
-    return model, sensors_df, test_loader, device, feature_cols
+    return model, sensors_df, val_loader, device, feature_cols

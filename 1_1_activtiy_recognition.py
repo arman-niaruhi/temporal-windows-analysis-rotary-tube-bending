@@ -11,6 +11,7 @@ from src.pipeline.ml.classification.utils.training_utils import (
 )
 from src.pipeline.ml.classification.utils.inference_one_label import (
     get_all_predictions,
+    plot_all_and_one_as_multiclass,
     run_default_inference_plots,
     save_validation_confusion_matrices,
 )
@@ -30,9 +31,6 @@ PROCESSED_DATA_DIRECTORY =  BASE_PATH / "processed"
 # Annotation file exported from the annotation tool.
 ANNOTATION_FILE_PATH = BASE_PATH / "ml" / "machine-and-movement_complete.json"
 
-# CSV file containing experiment splits/groups.
-EXPERIMENT_SPLITS_FILE_PATH = BASE_PATH / "ml" / "unique_bending_setups.csv"
-
 # Root directory for analytics, plots, confusion matrices, and inference figures.
 RESULTS_DIRECTORY = Path("results") / "activity_recognition"
 
@@ -40,7 +38,7 @@ RESULTS_DIRECTORY = Path("results") / "activity_recognition"
 # Pipeline Selection
 # ========================================
 # Target label to train/evaluate.
-# Options: "Multilabel", "All_and_One", "Clamping", "Bending", "Mandrel Extraction", "De-Clamping".
+# Options: "Multiclass", "All_and_One", "Clamping", "Bending", "Mandrel Extraction", "De-Clamping".
 TARGET_LABEL = "All_and_One"
 
 # Sensor subset used by the classifier pipeline.
@@ -52,7 +50,7 @@ TARGET_PROCESS_PART = "movement"
 # ========================================
 # Whether to train a new model or only load an existing checkpoint.
 # Options: True, False.
-ENABLE_MODEL_TRAINING = True
+ENABLE_MODEL_TRAINING = False
 
 # Batch size used for train/validation/test data loaders.
 TRAINING_BATCH_SIZE = 8
@@ -92,7 +90,7 @@ ALL_AND_ONE_TRAINING_LABELS = [
     "De-Clamping",
     "Mandrel Extraction",
     "Bending",
-    "Multilabel",
+    "Multiclass",
 ]
 
 def build_training_pipeline_config() -> dict:
@@ -124,7 +122,6 @@ def run_training_for_label(label: str):
         model_path_root=RESULTS_DIRECTORY,
         database_path=PROCESSED_DATA_DIRECTORY,
         annotation_json_path=ANNOTATION_FILE_PATH,
-        experiment_ids_path=EXPERIMENT_SPLITS_FILE_PATH,
         process_part=TARGET_PROCESS_PART,
         label=label,
         pipeline_config=build_training_pipeline_config(),
@@ -132,10 +129,23 @@ def run_training_for_label(label: str):
     )
 
 
-def run_prediction_plotting(model, sensors_df, feature_cols, test_loader) -> None:
+def run_prediction_plotting(model, sensors_df, feature_cols, validation_loader) -> None:
+    if TARGET_LABEL == "All_and_One":
+        plot_all_and_one_as_multiclass(
+            database_path=str(PROCESSED_DATA_DIRECTORY),
+            annotation_json_path=str(ANNOTATION_FILE_PATH),
+            results_directory=str(RESULTS_DIRECTORY),
+            hidden_size=LSTM_HIDDEN_SIZE,
+            num_layers=LSTM_LAYER_COUNT,
+            labels=INFERENCE_TARGET_LABELS,
+            process_part=TARGET_PROCESS_PART,
+            get_all_predictions_fn=get_all_predictions,
+        )
+        return
+
     plot_predictions_vs_true_annot(
         model,
-        getattr(test_loader, "dataset", None),
+        getattr(validation_loader, "dataset", None),
         sensors_df,
         feature_cols,
         {
@@ -151,7 +161,6 @@ def run_inference() -> None:
     save_validation_confusion_matrices(
         database_path=PROCESSED_DATA_DIRECTORY,
         annotation_json_path=ANNOTATION_FILE_PATH,
-        experiment_ids_path=EXPERIMENT_SPLITS_FILE_PATH,
         results_directory=RESULTS_DIRECTORY,
         hidden_size=LSTM_HIDDEN_SIZE,
         num_layers=LSTM_LAYER_COUNT,
@@ -181,13 +190,13 @@ def main():
         for label in get_training_labels():
             training_result = run_training_for_label(label)
 
-        model, sensors_df, test_loader, _, feature_cols = training_result
+        model, sensors_df, validation_loader, _, feature_cols = training_result
     except Exception as e:
         logger.error(f"Error during training pipeline: {e}")
         return
 
     try:
-        run_prediction_plotting(model, sensors_df, feature_cols, test_loader)
+        run_prediction_plotting(model, sensors_df, feature_cols, validation_loader)
     except Exception as e:
         logger.error(f"Warning: Plotting predictions failed: {e}")
 
