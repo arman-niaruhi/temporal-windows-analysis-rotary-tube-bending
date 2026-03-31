@@ -38,18 +38,6 @@ def _fit_scaler(
     return df_scaled, scaler
 
 
-def _apply_scaler(
-    df: pd.DataFrame,
-    cols: list[str],
-    scaler: MinMaxScaler | StandardScaler | None,
-) -> pd.DataFrame:
-    if scaler is None or not cols:
-        return df
-    df_scaled = df.copy()
-    df_scaled[cols] = scaler.transform(df[cols].to_numpy(dtype="float32"))
-    return df_scaled
-
-
 class LSTMPreprocessor:
     """
     Preprocessor class for LSTM-based time-series modeling of machine sensor data.
@@ -290,21 +278,7 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
         "BEND-DIE_VERTICAL_Movement_[mm]",
         "PRESSURE-DIE_LATERAL_Movement_[mm]",
         "MACHINE_PRESSURE-DIE_AXIAL_Max_Torque_[%]",
-        "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
-        #"MACHINE_BEND_DIE_LATERAL_Max_Torque_[%]",
-        #"MACHINE_BEND_DIE_ROTATING_Max_Torque_[%]",
-        #"MACHINE_BEND_DIE_VERTICAL_Max_Torque_[%]",
-        #"MACHINE_CLAMP_DIE_LATERAL_Max_Torque_[%]",
-        #"MACHINE_COLLET_AXIAL_Max_Torque_[%]",
-        #"MACHINE_MANDREL_AXIAL_Max_Torque_[%]",
-        #"MACHINE_PRESSURE_DIE_LATERAL_Max_Torque_[%]",
-        #"BEND-DIE_LATERAL_Movement_[mm]",
-        #"BEND-DIE_ROTATING_Angle_[°]",
-        #"CLAMP-DIE_LATERAL_Movement_[mm]",
-        #"COLLET_AXIAL_Movement_[mm]",
-        #"MANDREL_AXIAL_Movement_[mm]",
-        #"PRESSURE-DIE_AXIAL_Movement_[mm]",
-        
+        "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",    
     ]
 
     sensors_df.drop(columns=eliminated_columns, inplace=True)
@@ -355,12 +329,7 @@ def prepare_data(input_path_param: dict, preprocessing_param: dict) -> Any:
 
     target_feature_names = columns[feature_idx_start: feature_idx_end]
     springback_feature_names = columns[:1]
-    '''
-    if to_58_included:
-        sensors_df = sensors_df[sensors_df["Experiment_ID"] >= 58]
-        target_df = target_df[target_df["Experiment_ID"] >= 58]
-        spring_backs_df = spring_backs_df[spring_backs_df["Experiment_ID"] >= 58]
-    '''
+
     normalization_info = {
         "enabled": normalize,
         "scaler_type": scaler_type,
@@ -494,7 +463,8 @@ def create_data_loaders(X_train: torch.Tensor, Y_train: torch.Tensor,
                         springbacks_train: torch.Tensor, springbacks_val: torch.Tensor,
                         experiment_configurations_train: torch.Tensor, 
                         experiment_configurations_test: torch.Tensor,
-                        batch_size: int) -> tuple:
+                        batch_size: int,
+                        random_seed: int = 42) -> tuple:
     """
     Create PyTorch DataLoaders for training, validation, and plotting.
 
@@ -511,7 +481,13 @@ def create_data_loaders(X_train: torch.Tensor, Y_train: torch.Tensor,
     train_ds = ProcessDataset(X_train, Y_train, springbacks_train, experiment_configurations_train)
     val_ds = ProcessDataset(X_val, Y_val, springbacks_val, experiment_configurations_test)
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    train_generator = torch.Generator().manual_seed(random_seed)
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=batch_size,
+        shuffle=True,
+        generator=train_generator,
+    )
     val_loader = DataLoader(val_ds, batch_size=32)
     plot_loader = DataLoader(val_ds, batch_size=min(64, len(val_ds)), shuffle=False)
 

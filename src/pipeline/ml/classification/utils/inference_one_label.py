@@ -22,17 +22,26 @@ from src.pipeline.ml.classification.utils.preprocessing_utils import (
 logger = logging.getLogger(__name__)
 
 
-TEST_EXPERIMENT_IDS = [
+DEFAULT_INFERENCE_EXPERIMENT_IDS = [
     2, 3, 22, 23, 40, 54, 83, 85, 110, 112, 119, 120, 121, 122, 123,
     178, 179, 182, 183, 211, 212, 213, 255, 258, 261, 271, 272, 273,
     302, 303, 304, 317, 318
 ]
+
+INFERENCE_OUTPUT_SUBDIRECTORY = "All_in_One"
 
 PREFERRED_LABEL_ORDER = [
     "Clamping",
     "Bending",
     "Mandrel Extraction",
     "De-Clamping",
+]
+
+ELIMINATED_COLUMNS = [
+    "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
+    "COLLET_ROTATING_Movement_[mm]",
+    "BEND-DIE_VERTICAL_Movement_[mm]",
+    "PRESSURE-DIE_LATERAL_Movement_[mm]",
 ]
 
 
@@ -99,16 +108,18 @@ def save_validation_confusion_matrices(
     database_path: str,
     annotation_json_path: str,
     experiment_ids_path: str,
-    eliminated_columns: list[str],
-    models_path: str,
-    model_config: dict,
+    results_directory: str,
+    hidden_size: int,
+    num_layers: int,
     labels: list[str],
     process_part: str,
-    save_dir_path: Any,
     batch_size: int = 8,
 ) -> None:
     """Save one validation-set confusion matrix per label into inference output dir."""
-    output_dir = Path(save_dir_path) / process_part / "All_in_One"
+    results_directory = Path(results_directory)
+    output_dir = (
+        results_directory / process_part / "inference" / INFERENCE_OUTPUT_SUBDIRECTORY
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with open(experiment_ids_path, "r") as f:
@@ -122,16 +133,13 @@ def save_validation_confusion_matrices(
     ordered_labels += [lbl for lbl in labels if lbl not in PREFERRED_LABEL_ORDER]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    hidden_size = model_config["hidden_size"]
-    num_layers = model_config["num_layers"]
-
     for label in ordered_labels:
         classifier_preprocessor = ClassifierPreprocessor(
             sensors_df=base_df.copy(), annotation_json=annotation_json_path
         )
         sensors_df, _ = classifier_preprocessor.read_data()
         sensors_df = classifier_preprocessor.delete_columns(
-            eliminated_columns=eliminated_columns
+            eliminated_columns=ELIMINATED_COLUMNS
         )
 
         cols_to_normalize = sensors_df.columns.drop("Experiment_ID")
@@ -152,7 +160,9 @@ def save_validation_confusion_matrices(
         val_dataset = SegmentDataset3DSequenceWithMask(val_df, feature_cols)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-        model_path = os.path.join(models_path, process_part, label, "activity_detector.pth")
+        model_path = os.path.join(
+            results_directory, process_part, label, "activity_detector.pth"
+        )
         try:
             state_dict = torch.load(model_path, map_location=device)
         except FileNotFoundError:
@@ -190,9 +200,9 @@ def save_validation_confusion_matrices(
             output_file=target,
         )
 
-    all_label = "All"
+    all_label = "Multilabel"
     all_model_path = os.path.join(
-        models_path, process_part, all_label, "activity_detector.pth"
+        results_directory, process_part, all_label, "activity_detector.pth"
     )
     if not Path(all_model_path).exists():
         logger.warning(
@@ -206,7 +216,7 @@ def save_validation_confusion_matrices(
     )
     sensors_df, _ = classifier_preprocessor.read_data()
     sensors_df = classifier_preprocessor.delete_columns(
-        eliminated_columns=eliminated_columns
+        eliminated_columns=ELIMINATED_COLUMNS
     )
     cols_to_normalize = sensors_df.columns.drop("Experiment_ID")
     sensors_df[cols_to_normalize] = (
@@ -261,10 +271,10 @@ def get_all_predictions(
     label: str,
     database_path: str,
     annotation_json_path: str,
-    eliminated_columns: list[str],
-    models_path: str,
+    results_directory: str,
     process_part: str,
-    model_config: dict,
+    hidden_size: int,
+    num_layers: int,
     exp_id: int,
 ):
     """Get all predictions for a specific experiment.
@@ -273,8 +283,7 @@ def get_all_predictions(
         Label: Target label for which predictions are made.
         database_path: Path to the ETL CSV directory.
         annotation_json_path: Path to the JSON file with annotations.
-        eliminated_columns: List of columns to eliminate from the data.
-        models_path: Path to the directory containing trained models.
+        results_directory: Root directory containing trained models and outputs.
         process_part: Machine part identifier.
         exp_id: Experiment ID to get predictions for.
     Returns:
@@ -287,7 +296,7 @@ def get_all_predictions(
     )
     sensors_df, _ = classifier_preprocessor.read_data()
     sensors_df = classifier_preprocessor.delete_columns(
-        eliminated_columns=eliminated_columns
+        eliminated_columns=ELIMINATED_COLUMNS
     )
     # Match training preprocessing: min-max normalize all sensor features.
     cols_to_normalize = sensors_df.columns.drop("Experiment_ID")
@@ -300,15 +309,15 @@ def get_all_predictions(
     sensors_df = classifier_preprocessor.normalize_and_encode_labels()
     feature_cols = classifier_preprocessor.get_feature_cols()
     input_size = len(feature_cols) 
-    hidden_size = model_config["hidden_size"]
-    num_layers = model_config["num_layers"]
     num_classes = 2
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = LSTMSequenceClassifier(
         input_size, hidden_size, num_layers, num_classes, bidirectional=True
     ).to(device)
 
-    model_path = os.path.join(models_path, process_part, label, "activity_detector.pth")
+    model_path = os.path.join(
+        results_directory, process_part, label, "activity_detector.pth"
+    )
 
     try:
         state_dict = torch.load(model_path, map_location=device)
@@ -339,12 +348,11 @@ def inference_one_label_in_one(
     exp_id: int,
     database_path: str,
     annotation_json_path: str,
-    eliminated_columns: list[str],
-    models_path: str,
-    model_config: dict,
+    results_directory: str,
+    hidden_size: int,
+    num_layers: int,
     labels: list[str],
     process_part: str,
-    save_dir_path: Any,
     get_all_predictions_fn: Any,  
     figsize=(15, 10),
 ):
@@ -355,8 +363,7 @@ def inference_one_label_in_one(
         exp_id: Experiment ID to plot.
         database_path: Path to the ETL CSV directory.
         annotation_json_path: Path to the JSON file with annotations.
-        eliminated_columns: List of columns to eliminate from the data.
-        models_path: Path to the directory containing trained models.
+        results_directory: Root directory containing trained models and outputs.
         labels: List of target labels to plot.
         process_part: Machine part identifier.
         get_all_predictions_fn: Function to get all predictions for a label.
@@ -379,15 +386,10 @@ def inference_one_label_in_one(
     if not Path(annotation_json_path).exists():
         raise ValueError(f"annotation_json_path not found: {annotation_json_path}")
 
-    if not isinstance(eliminated_columns, (list, tuple)):
-        raise TypeError("eliminated_columns must be a list or tuple of column names")
-    if not all(isinstance(c, str) for c in eliminated_columns):
-        raise TypeError("all eliminated_columns must be strings")
-
-    if not isinstance(models_path, str) or not models_path:
-        raise TypeError("models_path must be a non-empty string")
-    if not Path(models_path).exists():
-        raise ValueError(f"models_path not found: {models_path}")
+    if not isinstance(results_directory, str) or not results_directory:
+        raise TypeError("results_directory must be a non-empty string")
+    if not Path(results_directory).exists():
+        raise ValueError(f"results_directory not found: {results_directory}")
 
     if not isinstance(labels, (list, tuple)) or len(labels) == 0:
         raise ValueError("labels must be a non-empty list of label names")
@@ -396,10 +398,6 @@ def inference_one_label_in_one(
 
     if not isinstance(process_part, str) or not process_part:
         raise TypeError("process_part must be a non-empty string")
-
-    if save_dir_path is None:
-        raise ValueError("save_dir_path must be provided")
-    save_dir_path = Path(save_dir_path)
 
     if not callable(get_all_predictions_fn):
         raise TypeError("get_all_predictions_fn must be callable")
@@ -450,10 +448,10 @@ def inference_one_label_in_one(
             label=label,
             database_path=database_path,
             annotation_json_path=annotation_json_path,
-            eliminated_columns=eliminated_columns,
-            models_path=models_path,
-            model_config=model_config,
+            results_directory=results_directory,
             process_part=process_part,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
             exp_id=exp_id,
         )
 
@@ -595,9 +593,37 @@ def inference_one_label_in_one(
 
     plt.subplots_adjust(left=0.12, hspace=0.08)
 
-    output_dir = save_dir_path / process_part / "All_in_One"
+    output_dir = (
+        Path(results_directory) / process_part / "inference" / INFERENCE_OUTPUT_SUBDIRECTORY
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_file = output_dir / f"individual_labels_{exp_id}.png"
     plt.savefig(output_file, dpi=300, bbox_inches="tight", facecolor="white")
     plt.close(fig)
+
+
+def run_default_inference_plots(
+    database_path: str,
+    annotation_json_path: str,
+    results_directory: str,
+    hidden_size: int,
+    num_layers: int,
+    labels: list[str],
+    process_part: str,
+    get_all_predictions_fn: Any,
+    figsize=(15, 10),
+) -> None:
+    for experiment_id in DEFAULT_INFERENCE_EXPERIMENT_IDS:
+        inference_one_label_in_one(
+            exp_id=experiment_id,
+            database_path=database_path,
+            annotation_json_path=annotation_json_path,
+            results_directory=results_directory,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            labels=labels,
+            process_part=process_part,
+            get_all_predictions_fn=get_all_predictions_fn,
+            figsize=figsize,
+        )
