@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import random
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import ast
@@ -16,18 +17,41 @@ from src.pipeline.ml.classification.utils.preprocessing_utils import (
 from src.pipeline.ml.classification.utils.dataset_utils import (
     SegmentDataset3DSequenceWithMask,
 )
-from src.pipeline.ml.classification.utils.feature_analysis_utils import (
-    compare_methods,captum_classwise_ig,
-    plot_feature_importance,
-)
 from src.pipeline.ml.classification.utils.model import LSTMSequenceClassifier
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 
 logger = logging.getLogger(__name__)
 
-VALID_LABELS = ["All", "Clamping", "Bending", "Mandrel Extraction", "De-Clamping"]
+VALID_LABELS = ["Multilabel", "Clamping", "Bending", "Mandrel Extraction", "De-Clamping"]
 VALID_process_partS = ["machine_and_movement", "movement"]
-EXCLUDED_COLUMNS = ["Experiment_ID", "Label", "Label_encoded"]
+ELIMINATED_COLUMNS = [
+    "PRESSURE-DIE_LEFT_AXIAL_Movement_[mm]",
+    "COLLET_ROTATING_Movement_[mm]",
+    "BEND-DIE_VERTICAL_Movement_[mm]",
+    "PRESSURE-DIE_LATERAL_Movement_[mm]",
+]
+
+
+def set_global_seed(seed: int) -> None:
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+    try:
+        torch.use_deterministic_algorithms(True)
+    except Exception:
+        pass
 
 
 def _validate_inputs(
@@ -110,9 +134,9 @@ def _prepare_data(
     database_path: str,
     annotation_json_path: str,
     process_part: str,
-    eliminated_columns: List[str],
     label: str,
     experiment_groups: Dict,
+    random_seed: int,
 ) -> Tuple:
     """Prepare and preprocess data for training.
 
@@ -120,7 +144,6 @@ def _prepare_data(
         database_path: Path to the ETL CSV directory
         annotation_json_path: Path to annotations
         process_part: Machine part to process
-        eliminated_columns: Columns to remove
         label: Target label
         experiment_groups: Experiment ID groupings
 
@@ -134,7 +157,7 @@ def _prepare_data(
         sensors_df=dataframes[process_part], annotation_json=annotation_json_path
     )
     sensors_df, _ = classifier_preprocessor.read_data()
-    sensors_df = classifier_preprocessor.delete_columns(eliminated_columns)
+    sensors_df = classifier_preprocessor.delete_columns(ELIMINATED_COLUMNS)
 
     # Exclude identifier column
     cols_to_normalize = sensors_df.columns.drop('Experiment_ID')
@@ -145,7 +168,7 @@ def _prepare_data(
         sensors_df[cols_to_normalize].max() - sensors_df[cols_to_normalize].min()
     )
 
-    if label == "All":
+    if label == "Multilabel":
         sensors_df = classifier_preprocessor.assign_labels()
     else:
         sensors_df = classifier_preprocessor.assign_one_label(label)
@@ -153,7 +176,8 @@ def _prepare_data(
     sensors_df = classifier_preprocessor.normalize_and_encode_labels()
 
     train_df, val_df, test_df, _ = classifier_preprocessor.split_experiments(
-        experiment_groups
+        experiment_groups,
+        seed=random_seed,
     )
 
     train_dataset, val_dataset, test_dataset = classifier_preprocessor.create_datasets(
@@ -166,7 +190,11 @@ def _prepare_data(
 
 
 def _create_data_loaders(
-    train_dataset, val_dataset, test_dataset, batch_size: int
+    train_dataset,
+    val_dataset,
+    test_dataset,
+    batch_size: int,
+    random_seed: int,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Create PyTorch DataLoaders for train, validation, and test sets.
 
@@ -179,7 +207,13 @@ def _create_data_loaders(
     Returns:
         Tuple of (train_loader, val_loader, test_loader)
     """
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_generator = torch.Generator().manual_seed(random_seed)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        generator=train_generator,
+    )
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
@@ -330,9 +364,9 @@ def training_pipeline(
     annotation_json_path: str,
     experiment_ids_path: str,
     process_part: str,
-    eliminated_columns: List[str],
     label: str,
     pipeline_config: Dict,
+    random_seed: int,
 ) -> Tuple:
     """Execute training pipeline for machine activity recognition.
 
@@ -342,7 +376,6 @@ def training_pipeline(
         annotation_json_path: Path to activity annotations
         experiment_ids_path: Path to experiment ID groups
         process_part: Machine component to analyze
-        eliminated_columns: Columns to exclude from training
         label: Target activity label to classify
         pipeline_config: Pipeline configuration parameters
 
@@ -351,6 +384,9 @@ def training_pipeline(
     """
     logger.info("Starting machine activity recognition training pipeline...")
     logger.info(f"Label: {label}, Machine part: {process_part}")
+    logger.info("Using random seed: %s", random_seed)
+
+    set_global_seed(random_seed)
 
     _validate_inputs(
         annotation_json_path,
@@ -367,15 +403,15 @@ def training_pipeline(
         database_path,
         annotation_json_path,
         process_part,
-        eliminated_columns,
         label,
         experiment_groups,
+        random_seed,
     )
 
     dataloader_config = pipeline_config.get("dataloader_config", {})
     batch_size = dataloader_config.get("batch_size", 8)
     train_loader, val_loader, test_loader = _create_data_loaders(
-        train_dataset, val_dataset, test_dataset, batch_size
+        train_dataset, val_dataset, test_dataset, batch_size, random_seed
     )
     all_dataset = SegmentDataset3DSequenceWithMask(sensors_df, feature_cols)
     all_loader = DataLoader(all_dataset, batch_size=batch_size, shuffle=False)
@@ -414,88 +450,3 @@ def training_pipeline(
     )
 
     return model, sensors_df, test_loader, device, feature_cols
-
-
-def _compute_importance_scores(
-    model: LSTMSequenceClassifier,
-    test_loader: DataLoader,
-    device: torch.device,
-    result_path: str,
-    feature_names: List[str],
-) -> Dict[str, np.ndarray]:
-    """Compute feature importance using multiple methods.
-
-    Args:
-        model: Trained model
-        test_loader: Test data loader
-        device: Torch device
-        result_path: Path to save results
-        feature_names: List of feature names
-
-    Returns:
-        Dictionary mapping method names to importance scores
-    """
-    all_importances = {}
-
-    logger.info("Computing permutation importance...")
-    perm_importances = captum_classwise_ig(
-        model, test_loader, device, target_class=0, n_samples=100
-    )
-    all_importances["Permutation"] = perm_importances
-    plot_feature_importance(
-        analyze_features_result_path=result_path,
-        importances=perm_importances,
-        feature_names=feature_names,
-        method_name="Permutation"
-    )
- 
-    return all_importances
-
-
-def analyze_features(
-    analyze_features_result_path: str,
-    model,
-    sensors_df,
-    test_loader: DataLoader,
-    device: torch.device,
-) -> None:
-    """Analyze feature importance using multiple methods.
-
-    Implements six feature importance methods:
-    1. Permutation Importance
-    2. Gradient Importance
-    3. Integrated Gradients
-    4. Occlusion Importance
-    5. Feature Ablation
-    6. Dropout Importance
-
-    Args:
-        analyze_features_result_path: Directory to save results
-        model: Trained LSTM model
-        sensors_df: Preprocessed sensor DataFrame
-        test_loader: Test data loader
-        device: Torch device (CPU/GPU)
-    """
-    logger.info("Starting feature importance analysis...")
-
-    feature_names = [col for col in sensors_df.columns if col not in EXCLUDED_COLUMNS]
-
-    all_importances = _compute_importance_scores(
-        model, test_loader, device, analyze_features_result_path, feature_names
-    )
-
-    logger.info("Comparing importance methods...")
-    compare_methods(analyze_features_result_path, all_importances, feature_names)
-
-    output_file = (
-        Path(analyze_features_result_path) / "feature_importance_all_methods.npz"
-    )
-    logger.info(f"Saving results to {output_file}")
-
-    np.savez(
-        output_file,
-        permutation_importance=all_importances["Permutation"],
-        feature_names=feature_names,
-    )
-
-    logger.info("Feature importance analysis completed.")

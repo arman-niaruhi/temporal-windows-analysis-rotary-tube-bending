@@ -79,15 +79,15 @@ class DataPreprocessPipeline:
         if correlation_matrices:
             transformer.save_correlation_matrices(tables=correlation_matrices)
 
-        df_machine_and_movement, df_sensor, df_machine, df_movement = (
+        df_machine_and_movement, df_sensor, _, df_movement = (
             transformer.get_process_data()
         )
-        df_arc, df_lin1, df_lin2, linear_df, all_geometry_data = (
+        df_arc, df_lin1, df_lin2, _, _ = (
             transformer.get_geometry_data()
         )
         transformer.get_bending_setup()
 
-        loader = DataLoader("data/processed/tube_geometry")
+        loader = DataLoader("data/processed")
         dataframes = {
             "machine_and_movement": df_machine_and_movement,
             "linear1": df_lin1,

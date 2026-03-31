@@ -1,107 +1,218 @@
 # Tube Geometry Prediction
 
-End-to-end pipeline for tube bending data: ETL from raw experiments, activity recognition labeling, context extraction, and springback prediction, plus a Streamlit dashboard for visualization and inference.
+End-to-end pipeline for tube bending experiments: preprocessing raw production data, annotating process phases, training machine-learning models for activity recognition and context extraction, predicting springback, and inspecting results in a Streamlit dashboard.
 
-## What is in this repo
+## Project Scope
 
-- ETL pipeline that reads a pickled dataset and writes processed CSV tables.
-- Annotation GUI for machine activity labels.
-- Activity recognition training and inference.
-- Context extraction models and interpretability plots.
-- Springback prediction (random forest and LSTM).
-- Streamlit dashboard for plots, tables, and inference views.
+This repository covers five main workflows:
 
-## Quickstart
+- Data ETL from the raw experiment pickle into structured CSV tables
+- Manual annotation of machine phases with a PyQt GUI
+- Activity recognition for process-phase labeling
+- Context extraction for predicting setup-dependent target features
+- Springback prediction with random forest and TCN-LSTM models
 
-1) Create and activate a virtual environment, then install dependencies:
+## Repository Layout
+
+```text
+.
+|-- 0_0_data_etl.py
+|-- 1_0_annotator.py
+|-- 1_1_activtiy_recognition.py
+|-- 2_1_split_data.py
+|-- 2_2_context_extractor.py
+|-- 3_springback_predictor.py
+|-- 4_dashboard_app.py
+|-- config/
+|-- data/
+|-- models/
+|-- results/
+|-- src/
+```
+
+## Setup
+
+Create a virtual environment and install the dependencies:
 
 ```bash
-python -m venv tube-venv
-source tube-venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2) Place the raw dataset pickle here:
+The project uses:
 
-```
+- `PyQt5` or `PySide6` for the annotator
+- `PyTorch` and `scikit-learn` for modeling
+- `MLflow` for context-extraction experiment tracking
+- `Streamlit` for the dashboard
+
+## Data Requirements
+
+Place the raw dataset pickle at:
+
+```text
 data/raw/experiments_process_and_results.pkl
 ```
 
-The dataset can be downloaded from:
+The raw source dataset is referenced from:
 
-```
+```text
 https://github.com/zeyneddinoz/tubebend
 ```
 
-3) Run the ETL pipeline to build the processed CSV tables:
+Some ML steps also expect these repository-local files to exist:
+
+- `data/ml/machine-and-movement_complete.json`
+- `data/ml/unique_bending_setups.csv`
+
+## Run Order
+
+### 1. Preprocess the raw dataset
+
+Generates normalized CSV tables under `data/processed`.
 
 ```bash
-python 0_data_etl.py
+python 0_0_data_etl.py
 ```
 
-4) (Optional) Launch the annotator to create or edit activity labels:
+Configuration:
+
+- `config/preprocessing/preprocessing_config.json`
+
+### 2. Create or update annotations
+
+Launches the desktop annotation tool for labeling process phases such as `Clamping`, `Bending`, `Mandrel Extraction`, and `De-Clamping`.
 
 ```bash
-python 1_annotator.py
+python 1_0_annotator.py
 ```
 
-5) Train activity recognition models:
+Notes:
+
+- Requires a GUI-capable environment
+- Reads processed CSV data from `data/processed`
+
+### 3. Train activity-recognition models
+
+Trains sequence models for process-phase classification and can also generate plots and per-experiment inference outputs.
 
 ```bash
-python 2_activtiy_recognition.py
+python 1_1_activtiy_recognition.py
 ```
 
-6) Train context extraction models:
+Configuration:
+
+- `config/machine-activity-recognition/machine-activity-recognition-config.json`
+
+Default behavior from the current config:
+
+- Uses `data/processed` as input
+- Reads annotations from `data/ml/machine-and-movement_complete.json`
+- Reads experiment group definitions from `data/ml/unique_bending_setups.csv`
+- Stores classifier artifacts in `models/classifier`
+- Stores plots in `results/activity_recognition`
+
+### 4. Generate grouped train/test splits
+
+Builds split files from setup metadata and writes them to `config/data-split-config/`.
 
 ```bash
-python 4_context_extractor.py
+python 2_1_split_data.py
 ```
 
-7) Train springback prediction models:
+Input:
+
+- `data/ml/unique_bending_setups.csv`
+
+Outputs include:
+
+- `train_test_split_each_setup_80.json`
+- `train_test_split_randomly.json`
+- `train_test_split_based_on_column_gp*.json`
+- `normalization_mappings.json`
+
+### 5. Train the context-extraction model
+
+Trains the context-extraction pipeline and logs runs to MLflow.
 
 ```bash
-python 6_springback_predictor.py
+python 2_2_context_extractor.py
 ```
 
-8) Run the Streamlit dashboard:
+Configuration:
+
+- `config/context-extraction/context-extraction-config.json`
+
+Current config highlights:
+
+- Input process part: `Bending`
+- Split file: `config/data-split-config/train_test_split_each_setup_80.json`
+- Target feature indices: `[1, 3]`
+- Model type: `tcn_lstm`
+- Model artifacts path: `models/context_extraction`
+
+### 6. Train springback prediction models
+
+Runs both:
+
+- a random forest baseline
+- a TCN-LSTM springback regressor
 
 ```bash
-streamlit run 5_dashboard_app.py
+python 3_springback_predictor.py
 ```
 
-## Data layout
+Configuration:
 
-- `data/raw/experiments_process_and_results.pkl` raw dataset input
-- `data/processed/tube_geometry/` CSV tables produced by ETL
-- `data/ml/` annotations and experiment ID lists used by ML pipelines
+- `config/springback-prediction/springback-prediction-config.json`
 
-## Main pipelines and scripts
+Current config highlights:
 
-- `0_data_etl.py` runs the ETL pipeline using `config/preprocessing/preprocessing_config.json`.
-- `1_annotator.py` opens a PyQt-based labeling GUI and saves/loads annotation JSON.
-- `2_activtiy_recognition.py` trains classifiers and (optionally) runs analysis and plots.
-- `3_split_data.py` generates grouped train/test splits and writes configs to `config/data-split-config/`.
-- `4_context_extractor.py` trains context extraction models and logs MLflow runs.
-- `5_dashboard_app.py` launches the Streamlit dashboard (plots, tables, inference).
-- `6_springback_predictor.py` trains random forest and LSTM springback models.
+- Input process part: `All`
+- Split file: `config/data-split-config/train_test_split_each_setup_80.json`
+- Target window count: `400`
+- Model artifacts path: `models/spring_back`
 
-## Configuration
+### 7. Launch the dashboard
 
-- `config/preprocessing/preprocessing_config.json` controls ETL, normalization, and column filtering.
-- `config/machine-activity-recognition/machine-activity-recognition-config.json` controls activity recognition training and inference.
-- `config/context-extraction/context-extraction-config.json` controls context extraction and interpretability settings.
-- `config/springback-prediction/springback-prediction-config.json` controls springback prediction training.
-- `config/data-split-config/` contains split rules and generated files for experiment grouping.
+Starts the Streamlit app for browsing plots, tables, activity-recognition outputs, and context-extraction artifacts.
 
-## Outputs
+```bash
+streamlit run 4_dashboard_app.py
+```
 
-- `data/processed/` CSV outputs from ETL.
-- `models/` trained model artifacts.
-- `results/` plots, predictions, and feature analyses.
-- `mlruns/` MLflow tracking runs (used by the dashboard).
+The dashboard expects:
+
+- processed data in `data/processed`
+- MLflow runs in `mlruns/`
+- generated results in `results/`
+
+## Important Paths
+
+### Config
+
+- `config/preprocessing/preprocessing_config.json`
+- `config/machine-activity-recognition/machine-activity-recognition-config.json`
+- `config/context-extraction/context-extraction-config.json`
+- `config/springback-prediction/springback-prediction-config.json`
+- `config/data-split-config/`
+
+### Data
+
+- `data/raw/experiments_process_and_results.pkl`
+- `data/processed/`
+- `data/ml/machine-and-movement_complete.json`
+- `data/ml/unique_bending_setups.csv`
+
+### Outputs
+
+- `models/`
+- `results/`
+- `mlruns/`
 
 ## Notes
 
-- The annotator and some plots require a GUI backend (PyQt5 or PySide6).
-- If you change dataset paths or labels, update the matching config JSON files.
-- For reproducibility, the context extraction and springback pipelines use the configured seed values.
+- The annotator and some plotting workflows require a desktop/GUI environment.
+- Several scripts depend on relative paths, so run them from the repository root.
+- The file name `1_1_activtiy_recognition.py` is intentionally spelled that way in the repository.

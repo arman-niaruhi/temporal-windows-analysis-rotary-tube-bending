@@ -130,67 +130,93 @@ def plot_prediction_difference_bars(
 def plot_true_vs_pred_scatter(y_true, y_pred, model_name="Model", save_path=None, show=False):
     """
     Scatter plot of true vs predicted with ideal line and metrics.
-    
-    Args:
-        y_true: Ground truth values
-        y_pred: Predicted values (can be dict with multiple models or single array)
-        model_name: Name of the model
-        save_path: Path to save the plot
-        show: Whether to display the plot
     """
+
+    tick_size = 18
+    label_size = 20  # axis label size
+
     # Handle multiple predictions
     if isinstance(y_pred, dict):
         n_models = len(y_pred)
-        fig, axes = plt.subplots(1, n_models, figsize=(6*n_models, 5))
+        fig, axes = plt.subplots(1, n_models, figsize=(6 * n_models, 5))
         if n_models == 1:
             axes = [axes]
-        
+
         for idx, (name, pred) in enumerate(y_pred.items()):
             ax = axes[idx]
-            r2 = r2_score(y_true, pred)
-            rmse = np.sqrt(mean_squared_error(y_true, pred))
-            mae = mean_absolute_error(y_true, pred)
-            
-            ax.scatter(y_true, pred, alpha=0.5, s=40, edgecolor="none")
-            
+
+            ax.scatter(
+                y_true,
+                pred,
+                alpha=0.7,
+                s=25,
+                color="#1f77b4",
+                edgecolor="none"
+            )
+
             min_val = min(y_true.min(), pred.min())
             max_val = max(y_true.max(), pred.max())
-            ax.plot([min_val, max_val], [min_val, max_val], 
-                   linestyle="--", linewidth=2, color='red', label='Ideal')
-            
-            ax.set_xlabel("True Springback", fontsize=11)
-            ax.set_ylabel("Predicted Springback", fontsize=11)
-            ax.set_title(f"{name}\nR²={r2:.4f}, RMSE={rmse:.4f}, MAE={mae:.4f}", 
-                        fontsize=11, fontweight='bold')
-            ax.grid(True, linestyle="--", alpha=0.4)
-            ax.legend()
-        
+
+            ax.plot(
+                [min_val, max_val],
+                [min_val, max_val],
+                linestyle="-",
+                linewidth=2,
+                color="black"
+            )
+
+            # ✅ Axis labels
+            ax.set_xlabel("True", fontsize=label_size)
+            ax.set_ylabel("Prediction", fontsize=label_size)
+
+            ax.grid(True, linestyle="-", alpha=0.2)
+            ax.set_aspect("equal", adjustable="box")
+
+            # ✅ Bigger ticks
+            ax.tick_params(axis='both', labelsize=tick_size)
+
         plt.tight_layout()
+
     else:
-        plt.figure(figsize=(7, 7))
-        r2 = r2_score(y_true, y_pred)
-        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-        mae = mean_absolute_error(y_true, y_pred)
-        
-        plt.scatter(y_true, y_pred, alpha=0.5, s=40, edgecolor="none")
-        
+        plt.figure(figsize=(6, 6))
+
+        plt.scatter(
+            y_true,
+            y_pred,
+            alpha=0.7,
+            s=25,
+            color="#1f77b4",
+            edgecolor="none"
+        )
+
         min_val = min(y_true.min(), y_pred.min())
         max_val = max(y_true.max(), y_pred.max())
-        plt.plot([min_val, max_val], [min_val, max_val], 
-                linestyle="--", linewidth=2, color='red', label='Ideal')
-        
-        plt.xlabel("True Springback", fontsize=12)
-        plt.ylabel("Predicted Springback", fontsize=12)
-        plt.grid(True, linestyle="--", alpha=0.4)
-        plt.legend()
+
+        plt.plot(
+            [min_val, max_val],
+            [min_val, max_val],
+            linestyle="-",
+            linewidth=2,
+            color="black"
+        )
+
+        # ✅ Axis labels
+        plt.xlabel("True", fontsize=label_size)
+        plt.ylabel("Prediction", fontsize=label_size)
+
+        plt.grid(True, linestyle="-", alpha=0.2)
+        plt.gca().set_aspect("equal", adjustable="box")
+
+        # ✅ Bigger ticks
+        plt.gca().tick_params(axis='both', labelsize=tick_size)
+
         plt.tight_layout()
-    
+
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
     if show:
         plt.show()
     plt.close()
-
 
 # --------------------------------------------------
 # 3. Residual Analysis
@@ -501,8 +527,8 @@ def plot_model_summary(y_true, y_pred, model_name="Model", history=None, save_pa
     ax1 = fig.add_subplot(gs[0, :2])
     ax1.plot(y_true, label="True", linewidth=2.5, alpha=0.9, color='black')
     ax1.plot(y_pred, label="Predicted", linewidth=2, linestyle="--", alpha=0.8, color='#3498db')
-    ax1.set_xlabel("Sample Index", fontsize=11)
-    ax1.set_ylabel("Springback", fontsize=11)
+    ax1.set_xlabel("Sample Index", fontsize=20)
+    ax1.set_ylabel("Springback", fontsize=20)
     ax1.set_title(f"{model_name} - Predictions vs True", fontsize=12, fontweight='bold')
     ax1.legend()
     ax1.grid(True, linestyle="--", alpha=0.4)

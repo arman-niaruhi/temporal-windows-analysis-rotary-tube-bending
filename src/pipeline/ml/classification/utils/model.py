@@ -2,6 +2,7 @@ import os
 import logging
 import warnings
 from datetime import datetime
+import json
 from typing import Any, Dict, Optional, Tuple
 
 import torch
@@ -336,6 +337,24 @@ class LSTMSequenceClassifier(nn.Module):
 
         logger.info(f"Experiment summary saved to {file_path}")
 
+    def _save_training_history(
+        self,
+        file_path: str,
+        train_history: Dict[str, list],
+        val_history: Dict[str, list],
+    ) -> None:
+        with open(file_path, "w") as f:
+            json.dump(
+                {
+                    "train_history": train_history,
+                    "val_history": val_history,
+                },
+                f,
+                indent=2,
+            )
+
+        logger.info("Training history saved to %s", file_path)
+
     def train_model(
         self,
         train_loader: DataLoader,
@@ -355,15 +374,16 @@ class LSTMSequenceClassifier(nn.Module):
         min_lr: float = 1e-6,
     ) -> Dict[str, Any]:
         """
-        Train the model with MLflow tracking, ReduceLROnPlateau scheduler,
+        Train the model with MLflow tracking, local artifact storage, ReduceLROnPlateau scheduler,
         and early stopping.
 
         Returns:
-            Dictionary containing training history, validation history, and run_id
+            Dictionary containing training and validation history and run_id
         """
         os.makedirs(model_path, exist_ok=True)
         model_name = os.path.join(model_path, "activity_detector.pth")
         summary_path = os.path.join(model_path, "experiment_summary.txt")
+        history_path = os.path.join(model_path, "training_history.json")
 
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -520,43 +540,39 @@ class LSTMSequenceClassifier(nn.Module):
                         logger.info("Early stopping triggered.")
                         break
 
-            if os.path.exists(model_name):
-                try:
-                    best_state = torch.load(model_name, map_location=device)
-                    self.load_state_dict(best_state)
-                    logger.info(f"Training complete. Best model loaded from: {model_name}")
-                except TypeError:
-                    best_state = torch.load(model_name, map_location=device)
-                    self.load_state_dict(best_state)
-                    logger.info(f"Training complete. Best model loaded from: {model_name}")
-
+        if os.path.exists(model_name):
             try:
-                mlflow.pytorch.log_model(self, artifact_path="model")
-            except Exception as e:
-                logger.error(f"Failed to log model to MLflow: {e}")
+                best_state = torch.load(model_name, map_location=device)
+                self.load_state_dict(best_state)
+                logger.info(f"Training complete. Best model loaded from: {model_name}")
+            except TypeError:
+                best_state = torch.load(model_name, map_location=device)
+                self.load_state_dict(best_state)
+                logger.info(f"Training complete. Best model loaded from: {model_name}")
 
-            try:
-                self.save_experiment_summary(
-                    file_path=summary_path,
-                    model_path=model_path,
-                    run_id=run_id,
-                    run_name=run_name,
-                    experiment_name=experiment_name,
-                    learning_rate=learning_rate,
-                    num_epochs=len(train_history["loss"]),
-                    patience=patience,
-                    train_metrics_history=train_history,
-                    val_metrics_history=val_history,
-                    scheduler_factor=scheduler_factor,
-                    scheduler_patience=scheduler_patience,
-                    min_lr=min_lr,
-                    notes=notes,
-                )
-                mlflow.log_artifact(summary_path)
-            except Exception as e:
-                logger.error(f"Failed to save experiment summary: {e}")
-
-            logger.info(f"MLflow run completed. Run ID: {run_id}")
+        try:
+            self._save_training_history(history_path, train_history, val_history)
+            mlflow.log_artifact(history_path)
+            self.save_experiment_summary(
+                file_path=summary_path,
+                model_path=model_path,
+                run_id=run_id,
+                run_name=run_name,
+                experiment_name=experiment_name,
+                learning_rate=learning_rate,
+                num_epochs=len(train_history["loss"]),
+                patience=patience,
+                train_metrics_history=train_history,
+                val_metrics_history=val_history,
+                scheduler_factor=scheduler_factor,
+                scheduler_patience=scheduler_patience,
+                min_lr=min_lr,
+                notes=notes,
+            )
+            mlflow.log_artifact(summary_path)
+            mlflow.pytorch.log_model(self, artifact_path="model")
+        except Exception as e:
+            logger.error(f"Failed to save training artifacts: {e}")
 
         return {
             "train_history": train_history,

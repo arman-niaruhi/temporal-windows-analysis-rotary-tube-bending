@@ -255,7 +255,10 @@ def _save_multiclass_confusion_matrix(
 
     fig.tight_layout()
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / "00_confusion_matrix_plotted_experiments.png"
+    safe_objective_label = objective_label.replace(" ", "_").replace("/", "_")
+    output_file = (
+        output_dir / f"00_confusion_matrix_plotted_experiments_{safe_objective_label}.png"
+    )
     fig.savefig(output_file, dpi=300, bbox_inches="tight", facecolor="white")
     plt.close(fig)
 
@@ -291,7 +294,8 @@ def plot_predictions_vs_true_annot(
         logger.error("store_plots_path not specified in plot_config")
         return
     
-    output_dir = Path(store_path_root) / process_part / objective_label
+    safe_objective_label = objective_label.replace(" ", "_").replace("/", "_")
+    output_dir = Path(store_path_root) / process_part / "inference" / safe_objective_label
     idx_to_label = {v: k for k, v in dataset.label_to_idx.items()}
     y_true_all: List[str] = []
     y_pred_all: List[str] = []
@@ -310,7 +314,9 @@ def plot_predictions_vs_true_annot(
                 model, exp_data, feature_cols, idx_to_label, device
             )
             
-            save_path = output_dir / f"labeled_timestamps_{exp_id}.png"
+            save_path = (
+                output_dir / f"{safe_objective_label}_labeled_timestamps_{exp_id}.png"
+            )
             _plot_experiment(
                 exp_id, exp_data, feature_cols, 
                 y_pred_names, y_true_names, timestamps, save_path

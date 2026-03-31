@@ -3,7 +3,7 @@
         "seed": 42
     },
     "inputPathParams": {
-        "database_path": "data/processed/tube_geometry",
+        "database_path": "data/processed",
         "process_part": "All",
         "annotation_json_path": "data/ml/machine-and-movement_complete.json"
     },

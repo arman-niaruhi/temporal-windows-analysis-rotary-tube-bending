@@ -33,7 +33,7 @@
     },
     "trainingParams": {
         "train": true,
-        "model_type": "lstm",
+        "model_type": "tcn-lstm",
         "hidden_dim": 32,
         "lstm_layers": 1,
         "dropout": 0.2,
