@@ -70,7 +70,7 @@ Some ML steps also expect these repository-local files to exist:
 
 ### 1. Preprocess the raw dataset
 
-Generates normalized CSV tables under `data/processed/tube_geometry`.
+Generates normalized CSV tables under `data/processed`.
 
 ```bash
 python 0_0_data_etl.py
@@ -91,7 +91,7 @@ python 1_0_annotator.py
 Notes:
 
 - Requires a GUI-capable environment
-- Reads processed CSV data from `data/processed/tube_geometry`
+- Reads processed CSV data from `data/processed`
 
 ### 3. Train activity-recognition models
 
@@ -107,7 +107,7 @@ Configuration:
 
 Default behavior from the current config:
 
-- Uses `data/processed/tube_geometry` as input
+- Uses `data/processed` as input
 - Reads annotations from `data/ml/machine-and-movement_complete.json`
 - Reads experiment group definitions from `data/ml/unique_bending_setups.csv`
 - Stores classifier artifacts in `models/classifier`
@@ -184,7 +184,7 @@ streamlit run 4_dashboard_app.py
 
 The dashboard expects:
 
-- processed data in `data/processed/tube_geometry`
+- processed data in `data/processed`
 - MLflow runs in `mlruns/`
 - generated results in `results/`
 
@@ -201,7 +201,7 @@ The dashboard expects:
 ### Data
 
 - `data/raw/experiments_process_and_results.pkl`
-- `data/processed/tube_geometry/`
+- `data/processed/`
 - `data/ml/machine-and-movement_complete.json`
 - `data/ml/unique_bending_setups.csv`
 

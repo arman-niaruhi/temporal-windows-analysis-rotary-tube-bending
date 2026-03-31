@@ -4,15 +4,13 @@ from tqdm.auto import tqdm
 import warnings
 warnings.filterwarnings("ignore")
 import os
-import tempfile
+import json
+import pickle
 from typing import Optional, Dict, Any, Tuple
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-import mlflow
-import mlflow.sklearn
-import mlflow.pytorch
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import (
@@ -52,6 +50,51 @@ def set_seed(seed: int) -> None:
     np.random.seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
+
+RESULTS_ROOT = Path("results") / "springback"
+
+
+def _to_python_types(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(k): _to_python_types(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_python_types(v) for v in value]
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, (np.floating, np.integer)):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    return value
+
+
+def _prepare_results_dir(model_name: str) -> Path:
+    result_dir = RESULTS_ROOT / model_name
+    result_dir.mkdir(parents=True, exist_ok=True)
+    return result_dir
+
+
+def _save_json(save_path: Path, payload: Dict[str, Any]) -> None:
+    with save_path.open("w", encoding="utf-8") as f:
+        json.dump(_to_python_types(payload), f, indent=2)
+
+
+def _denormalize_springback(
+    values: np.ndarray,
+    normalization_info: Optional[Dict[str, Any]] = None,
+) -> np.ndarray:
+    values = np.asarray(values, dtype=np.float64)
+    if not normalization_info or not normalization_info.get("enabled"):
+        return values
+
+    springback_scaler = normalization_info.get("springback_scaler")
+    if springback_scaler is None:
+        return values
+
+    original_shape = values.shape
+    restored = springback_scaler.inverse_transform(values.reshape(-1, 1))
+    return restored.reshape(original_shape)
 
 
 # ---------------------------------------------------------------------
@@ -263,50 +306,327 @@ def train_model_springback_tcn_lstm(
     train_loader,
     val_loader,
     plot_loader,
+    normalization_info: Optional[Dict[str, Any]] = None,
     device: Optional[torch.device] = None,
     experiment_name: str = "Springback",
     model_name: str = "tcn_lstm",
 ) -> Tuple[nn.Module, Dict[str, list], Dict[str, float]]:
-    mlflow.set_experiment(experiment_name)
+    set_seed(seed)
 
-    with mlflow.start_run(run_name=f"springback_{model_name}"):
-        mlflow.set_tag("model_type", model_name)
-        mlflow.set_tag("model_name", model_name)
+    if device is None:
+        force_cpu = bool(training_params.get("force_cpu", False))
+        device = torch.device("cpu" if force_cpu else ("cuda" if torch.cuda.is_available() else "cpu"))
 
-        set_seed(seed)
+    n_epochs = int(training_params["max_epochs"])
+    patience = int(training_params["stop_early_patience"])
+    min_delta = float(training_params["stop_early_min_delta"])
+    gradient_clip = float(training_params.get("gradient_clip", 0.0)) or None
 
-        if device is None:
-            force_cpu = bool(training_params.get("force_cpu", False))
-            device = torch.device("cpu" if force_cpu else ("cuda" if torch.cuda.is_available() else "cpu"))
+    target_norm = TargetNormalizer(
+        springbacks_train.mean().item(),
+        springbacks_train.std().item(),
+    )
 
-        n_epochs = int(training_params["max_epochs"])
-        patience = int(training_params["stop_early_patience"])
-        min_delta = float(training_params["stop_early_min_delta"])
-        gradient_clip = float(training_params.get("gradient_clip", 0.0)) or None
+    tcn_channels = tuple(training_params.get("tcn_channels", [32, 64, 64]))
+    tcn_kernel_size = int(training_params.get("tcn_kernel_size", 5))
+    tcn_dropout = float(training_params.get("tcn_dropout", training_params.get("dropout", 0.1)))
+    pool = training_params.get("pool", "mean")
+    bidirectional = bool(training_params.get("bidirectional", True))
+    loss_mae_weight = float(training_params.get("loss_mae_weight", 0.2))
 
-        # target normalization
-        target_norm = TargetNormalizer(
-            springbacks_train.mean().item(),
-            springbacks_train.std().item(),
+    result_dir = _prepare_results_dir(model_name)
+    params = {
+        "experiment_name": experiment_name,
+        "model_name": model_name,
+        "seed": seed,
+        "input_size": model_input_size,
+        "output_size": model_output_size,
+        "tcn_channels": list(tcn_channels),
+        "tcn_kernel_size": tcn_kernel_size,
+        "tcn_dropout": tcn_dropout,
+        "lstm_hidden_size": int(training_params["hidden_size"]),
+        "lstm_num_layers": int(training_params["num_layers"]),
+        "lstm_dropout": float(training_params["dropout"]),
+        "bidirectional": bidirectional,
+        "fc_dropout": float(training_params["fc_dropout"]),
+        "pool": pool,
+        "lr": float(training_params["lr"]),
+        "weight_decay": float(training_params["weight_decay"]),
+        "max_epochs": n_epochs,
+        "early_stop_patience": patience,
+        "early_stop_min_delta": min_delta,
+        "gradient_clip": float(gradient_clip) if gradient_clip else 0.0,
+        "scheduler_factor": float(training_params["schedular_factor"]),
+        "scheduler_patience": int(training_params["schedular_patience"]),
+        "loss_mae_weight": loss_mae_weight,
+        "target_mean": target_norm.mean,
+        "target_std": target_norm.std,
+        "device": str(device),
+    }
+    _save_json(result_dir / "params.json", params)
+
+    model = TCNLSTMSpringback(
+        input_size=model_input_size,
+        output_size=model_output_size,
+        tcn_channels=tcn_channels,
+        tcn_kernel_size=tcn_kernel_size,
+        tcn_dropout=tcn_dropout,
+        lstm_hidden_size=int(training_params["hidden_size"]),
+        lstm_num_layers=int(training_params["num_layers"]),
+        lstm_dropout=float(training_params["dropout"]),
+        bidirectional=bidirectional,
+        fc_dropout=float(training_params["fc_dropout"]),
+        pool=pool,
+    ).to(device)
+
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=float(training_params["lr"]),
+        weight_decay=float(training_params["weight_decay"]),
+    )
+
+    def loss_fn(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        mse = nn.functional.mse_loss(pred, target)
+        mae = nn.functional.l1_loss(pred, target)
+        return mse + loss_mae_weight * mae
+
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="min",
+        factor=float(training_params["schedular_factor"]),
+        patience=int(training_params["schedular_patience"]),
+    )
+
+    history = {
+        "train_loss": [],
+        "val_loss": [],
+        "train_r2": [],
+        "val_r2": [],
+        "train_rmse": [],
+        "val_rmse": [],
+        "train_mae": [],
+        "val_mae": [],
+        "lr": [],
+    }
+
+    best_val_loss = float("inf")
+    best_model_state = None
+    best_epoch = -1
+    patience_counter = 0
+
+    def _parse_aux(aux, device_):
+        lengths = None
+        mask = None
+        if torch.is_tensor(aux):
+            if aux.dtype == torch.bool and aux.ndim == 2:
+                mask = aux.to(device_)
+            elif aux.ndim == 1:
+                lengths = aux.to(device_)
+        return lengths, mask
+
+    epoch_pbar = tqdm(range(n_epochs), desc="Training", unit="epoch")
+    for epoch in epoch_pbar:
+        model.train()
+        train_loss = 0.0
+        train_true, train_pred = [], []
+
+        for x, _, s, aux in train_loader:
+            x = x.to(device).float()
+            s = target_norm.normalize(s.to(device).float()).squeeze(-1)
+            lengths, mask = _parse_aux(aux, device)
+
+            optimizer.zero_grad(set_to_none=True)
+            preds = model(x, lengths=lengths, mask=mask).squeeze(-1)
+            loss = loss_fn(preds, s)
+            loss.backward()
+
+            if gradient_clip:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
+
+            optimizer.step()
+
+            train_loss += loss.item() * x.size(0)
+            train_true.append(s.detach().cpu().numpy())
+            train_pred.append(preds.detach().cpu().numpy())
+
+        train_loss /= len(train_loader.dataset)
+        train_true_dn = _denormalize_springback(
+            target_norm.denormalize(np.concatenate(train_true)),
+            normalization_info,
+        )
+        train_pred_dn = _denormalize_springback(
+            target_norm.denormalize(np.concatenate(train_pred)),
+            normalization_info,
         )
 
-        # you can tune these; defaults are sensible
-        tcn_channels = tuple(training_params.get("tcn_channels", [32, 64, 64]))
-        tcn_kernel_size = int(training_params.get("tcn_kernel_size", 5))
-        tcn_dropout = float(training_params.get("tcn_dropout", training_params.get("dropout", 0.1)))
-        pool = training_params.get("pool", "mean")  # "mean" or "last"
+        model.eval()
+        val_loss = 0.0
+        val_true, val_pred = [], []
 
-        bidirectional = bool(training_params.get("bidirectional", True))
+        with torch.no_grad():
+            for x, _, s, aux in val_loader:
+                x = x.to(device).float()
+                s = target_norm.normalize(s.to(device).float()).squeeze(-1)
+                lengths, mask = _parse_aux(aux, device)
 
-        loss_mae_weight = float(training_params.get("loss_mae_weight", 0.2))
+                preds = model(x, lengths=lengths, mask=mask).squeeze(-1)
+                loss = loss_fn(preds, s)
 
-        mlflow.log_params(
-            {
-                "model_name": model_name,
-                "seed": seed,
+                val_loss += loss.item() * x.size(0)
+                val_true.append(s.cpu().numpy())
+                val_pred.append(preds.cpu().numpy())
+
+        val_loss /= len(val_loader.dataset)
+        val_true_dn = _denormalize_springback(
+            target_norm.denormalize(np.concatenate(val_true)),
+            normalization_info,
+        )
+        val_pred_dn = _denormalize_springback(
+            target_norm.denormalize(np.concatenate(val_pred)),
+            normalization_info,
+        )
+
+        train_r2 = r2_score(train_true_dn, train_pred_dn)
+        val_r2 = r2_score(val_true_dn, val_pred_dn)
+
+        tr_rmse = float(np.sqrt(mean_squared_error(train_true_dn, train_pred_dn)))
+        va_rmse = float(np.sqrt(mean_squared_error(val_true_dn, val_pred_dn)))
+        tr_mae = float(mean_absolute_error(train_true_dn, train_pred_dn))
+        va_mae = float(mean_absolute_error(val_true_dn, val_pred_dn))
+        lr = float(optimizer.param_groups[0]["lr"])
+
+        history["train_loss"].append(float(train_loss))
+        history["val_loss"].append(float(val_loss))
+        history["train_r2"].append(float(train_r2))
+        history["val_r2"].append(float(val_r2))
+        history["train_rmse"].append(tr_rmse)
+        history["val_rmse"].append(va_rmse)
+        history["train_mae"].append(tr_mae)
+        history["val_mae"].append(va_mae)
+        history["lr"].append(lr)
+
+        epoch_pbar.set_postfix(
+            train_loss=f"{train_loss:.4f}",
+            val_loss=f"{val_loss:.4f}",
+            train_r2=f"{train_r2:.4f}",
+            val_r2=f"{val_r2:.4f}",
+            lr=f"{lr:.2e}",
+        )
+
+        scheduler.step(val_loss)
+
+        if val_loss < best_val_loss - min_delta:
+            best_val_loss = float(val_loss)
+            best_epoch = epoch
+            best_model_state = {k: v.detach().cpu() for k, v in model.state_dict().items()}
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
+        if patience_counter >= patience:
+            print(f"\nEarly stopping at epoch {epoch + 1}")
+            break
+
+    if best_model_state is not None:
+        model.load_state_dict({k: v.to(device) for k, v in best_model_state.items()})
+
+    model.eval()
+    y_true, y_pred = [], []
+    with torch.no_grad():
+        for x, _, s, aux in plot_loader:
+            x = x.to(device).float()
+            s = target_norm.normalize(s.to(device).float()).squeeze(-1)
+            lengths, mask = _parse_aux(aux, device)
+
+            preds = model(x, lengths=lengths, mask=mask).squeeze(-1)
+            y_true.append(s.cpu().numpy())
+            y_pred.append(preds.cpu().numpy())
+
+    y_true_dn = _denormalize_springback(
+        target_norm.denormalize(np.concatenate(y_true)),
+        normalization_info,
+    )
+    y_pred_dn = _denormalize_springback(
+        target_norm.denormalize(np.concatenate(y_pred)),
+        normalization_info,
+    )
+
+    evaluation = {
+        "r2": float(r2_score(y_true_dn, y_pred_dn)),
+        "mae": float(mean_absolute_error(y_true_dn, y_pred_dn)),
+        "rmse": float(np.sqrt(mean_squared_error(y_true_dn, y_pred_dn))),
+        "bias": float(np.mean(y_pred_dn - y_true_dn)),
+    }
+    training_summary = {
+        "best_val_loss": float(best_val_loss),
+        "best_epoch": int(best_epoch),
+        "final_r2": evaluation["r2"],
+        "final_mae": evaluation["mae"],
+        "final_rmse": evaluation["rmse"],
+        "final_bias": evaluation["bias"],
+    }
+
+    metrics_df = pd.DataFrame(
+        {
+            "epoch": list(range(1, len(history["train_loss"]) + 1)),
+            **history,
+        }
+    )
+    metrics_df.to_csv(result_dir / "training_history.csv", index=False)
+    _save_json(result_dir / "history.json", history)
+    _save_json(result_dir / "evaluation.json", evaluation)
+    _save_json(result_dir / "training_summary.json", training_summary)
+
+    display_name = model_name.upper().replace("_", "-")
+    plot_predictions_comparison(
+        y_true_dn,
+        y_pred_dn,
+        model_name=display_name,
+        save_path=os.path.join(result_dir, "00_true_vs_pred_line.png"),
+    )
+    plot_true_vs_pred_scatter(
+        y_true_dn,
+        y_pred_dn,
+        model_name=display_name,
+        save_path=os.path.join(result_dir, "01_true_vs_pred_scatter.png"),
+    )
+    plot_residuals_analysis(
+        y_true_dn,
+        y_pred_dn,
+        model_name=display_name,
+        save_path=os.path.join(result_dir, "02_residuals_analysis.png"),
+    )
+    plot_prediction_difference_bars(
+        y_true_dn,
+        y_pred_dn,
+        model_name=display_name,
+        save_path=os.path.join(result_dir, "03_residuals_bar.png"),
+    )
+    comparison_metrics_df = plot_metrics_comparison(
+        y_true_dn,
+        y_pred_dn,
+        model_name=display_name,
+        save_path=os.path.join(result_dir, "04_metrics.png"),
+    )
+    comparison_metrics_df.to_csv(result_dir / "metrics.csv", index=False)
+    plot_training_history(history, save_path=os.path.join(result_dir, "05_training_history.png"))
+
+    pd.DataFrame(
+        {
+            "y_true": y_true_dn,
+            "y_pred": y_pred_dn,
+            "residual": y_pred_dn - y_true_dn,
+            "abs_error": np.abs(y_pred_dn - y_true_dn),
+        }
+    ).to_csv(result_dir / f"{model_name}_predictions.csv", index=False)
+
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "model_config": {
                 "input_size": model_input_size,
                 "output_size": model_output_size,
-                "tcn_channels": str(tcn_channels),
+                "tcn_channels": tcn_channels,
                 "tcn_kernel_size": tcn_kernel_size,
                 "tcn_dropout": tcn_dropout,
                 "lstm_hidden_size": int(training_params["hidden_size"]),
@@ -315,277 +635,15 @@ def train_model_springback_tcn_lstm(
                 "bidirectional": bidirectional,
                 "fc_dropout": float(training_params["fc_dropout"]),
                 "pool": pool,
-                "lr": float(training_params["lr"]),
-                "weight_decay": float(training_params["weight_decay"]),
-                "max_epochs": n_epochs,
-                "early_stop_patience": patience,
-                "early_stop_min_delta": min_delta,
-                "gradient_clip": float(gradient_clip) if gradient_clip else 0.0,
-                "scheduler_factor": float(training_params["schedular_factor"]),
-                "scheduler_patience": int(training_params["schedular_patience"]),
-                "loss_mae_weight": loss_mae_weight,
-                "target_mean": target_norm.mean,
-                "target_std": target_norm.std,
-                "device": str(device),
-            }
-        )
-
-        model = TCNLSTMSpringback(
-            input_size=model_input_size,
-            output_size=model_output_size,
-            tcn_channels=tcn_channels,
-            tcn_kernel_size=tcn_kernel_size,
-            tcn_dropout=tcn_dropout,
-            lstm_hidden_size=int(training_params["hidden_size"]),
-            lstm_num_layers=int(training_params["num_layers"]),
-            lstm_dropout=float(training_params["dropout"]),
-            bidirectional=bidirectional,
-            fc_dropout=float(training_params["fc_dropout"]),
-            pool=pool,
-        ).to(device)
-
-        optimizer = torch.optim.AdamW(
-            model.parameters(),
-            lr=float(training_params["lr"]),
-            weight_decay=float(training_params["weight_decay"]),
-        )
-
-        def loss_fn(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-            mse = nn.functional.mse_loss(pred, target)
-            mae = nn.functional.l1_loss(pred, target)
-            return mse + loss_mae_weight * mae
-
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            mode="min",
-            factor=float(training_params["schedular_factor"]),
-            patience=int(training_params["schedular_patience"]),
-        )
-
-        history = {
-            "train_loss": [],
-            "val_loss": [],
-            "train_r2": [],
-            "val_r2": [],
-            "train_rmse": [],
-            "val_rmse": [],
-            "train_mae": [],
-            "val_mae": [],
-            "lr": [],
-        }
-
-        best_val_loss = float("inf")
-        best_model_state = None
-        best_epoch = -1
-        patience_counter = 0
-
-        def _parse_aux(aux, device_):
-            lengths = None
-            mask = None
-            if torch.is_tensor(aux):
-                if aux.dtype == torch.bool and aux.ndim == 2:
-                    mask = aux.to(device_)
-                elif aux.ndim == 1:
-                    lengths = aux.to(device_)
-            return lengths, mask
-
-        # ------------------
-        # Training loop
-        # ------------------
-        epoch_pbar = tqdm(range(n_epochs), desc="Training", unit="epoch")
-        for epoch in epoch_pbar:
-            model.train()
-            train_loss = 0.0
-            train_true, train_pred = [], []
-
-            for x, _, s, aux in train_loader:
-                x = x.to(device).float()
-                s = target_norm.normalize(s.to(device).float()).squeeze(-1)
-                lengths, mask = _parse_aux(aux, device)
-
-                optimizer.zero_grad(set_to_none=True)
-                preds = model(x, lengths=lengths, mask=mask).squeeze(-1)
-                loss = loss_fn(preds, s)
-                loss.backward()
-
-                if gradient_clip:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
-
-                optimizer.step()
-
-                train_loss += loss.item() * x.size(0)
-                train_true.append(s.detach().cpu().numpy())
-                train_pred.append(preds.detach().cpu().numpy())
-
-            train_loss /= len(train_loader.dataset)
-            train_true_dn = target_norm.denormalize(np.concatenate(train_true))
-            train_pred_dn = target_norm.denormalize(np.concatenate(train_pred))
-
-            model.eval()
-            val_loss = 0.0
-            val_true, val_pred = [], []
-
-            with torch.no_grad():
-                for x, _, s, aux in val_loader:
-                    x = x.to(device).float()
-                    s = target_norm.normalize(s.to(device).float()).squeeze(-1)
-                    lengths, mask = _parse_aux(aux, device)
-
-                    preds = model(x, lengths=lengths, mask=mask).squeeze(-1)
-                    loss = loss_fn(preds, s)
-
-                    val_loss += loss.item() * x.size(0)
-                    val_true.append(s.cpu().numpy())
-                    val_pred.append(preds.cpu().numpy())
-
-            val_loss /= len(val_loader.dataset)
-            val_true_dn = target_norm.denormalize(np.concatenate(val_true))
-            val_pred_dn = target_norm.denormalize(np.concatenate(val_pred))
-
-            train_r2 = r2_score(train_true_dn, train_pred_dn)
-            val_r2 = r2_score(val_true_dn, val_pred_dn)
-
-            tr_rmse = float(np.sqrt(mean_squared_error(train_true_dn, train_pred_dn)))
-            va_rmse = float(np.sqrt(mean_squared_error(val_true_dn, val_pred_dn)))
-            tr_mae = float(mean_absolute_error(train_true_dn, train_pred_dn))
-            va_mae = float(mean_absolute_error(val_true_dn, val_pred_dn))
-            lr = float(optimizer.param_groups[0]["lr"])
-
-            history["train_loss"].append(float(train_loss))
-            history["val_loss"].append(float(val_loss))
-            history["train_r2"].append(float(train_r2))
-            history["val_r2"].append(float(val_r2))
-            history["train_rmse"].append(tr_rmse)
-            history["val_rmse"].append(va_rmse)
-            history["train_mae"].append(tr_mae)
-            history["val_mae"].append(va_mae)
-            history["lr"].append(lr)
-
-            epoch_pbar.set_postfix(
-                train_loss=f"{train_loss:.4f}",
-                val_loss=f"{val_loss:.4f}",
-                train_r2=f"{train_r2:.4f}",
-                val_r2=f"{val_r2:.4f}",
-                lr=f"{lr:.2e}",
-            )
-
-            mlflow.log_metrics(
-                {
-                    "train_loss": float(train_loss),
-                    "val_loss": float(val_loss),
-                    "train_r2": float(train_r2),
-                    "val_r2": float(val_r2),
-                    "train_rmse": tr_rmse,
-                    "val_rmse": va_rmse,
-                    "train_mae": tr_mae,
-                    "val_mae": va_mae,
-                    "lr": lr,
-                },
-                step=epoch,
-            )
-
-            scheduler.step(val_loss)
-
-            if val_loss < best_val_loss - min_delta:
-                best_val_loss = float(val_loss)
-                best_epoch = epoch
-                best_model_state = {k: v.detach().cpu() for k, v in model.state_dict().items()}
-                patience_counter = 0
-            else:
-                patience_counter += 1
-
-            if patience_counter >= patience:
-                print(f"\nEarly stopping at epoch {epoch + 1}")
-                break
-
-        if best_model_state is not None:
-            model.load_state_dict({k: v.to(device) for k, v in best_model_state.items()})
-
-        mlflow.log_metric("best_val_loss", float(best_val_loss))
-        mlflow.log_metric("best_epoch", int(best_epoch))
-
-        # ------------------
-        # Final eval on plot_loader
-        # ------------------
-        model.eval()
-        y_true, y_pred = [], []
-        with torch.no_grad():
-            for x, _, s, aux in plot_loader:
-                x = x.to(device).float()
-                s = target_norm.normalize(s.to(device).float()).squeeze(-1)
-                lengths, mask = _parse_aux(aux, device)
-
-                preds = model(x, lengths=lengths, mask=mask).squeeze(-1)
-                y_true.append(s.cpu().numpy())
-                y_pred.append(preds.cpu().numpy())
-
-        y_true_dn = target_norm.denormalize(np.concatenate(y_true))
-        y_pred_dn = target_norm.denormalize(np.concatenate(y_pred))
-
-        evaluation = {
-            "r2": float(r2_score(y_true_dn, y_pred_dn)),
-            "mae": float(mean_absolute_error(y_true_dn, y_pred_dn)),
-            "rmse": float(np.sqrt(mean_squared_error(y_true_dn, y_pred_dn))),
-            "bias": float(np.mean(y_pred_dn - y_true_dn)),
-        }
-
-        mlflow.log_metrics(
-            {
-                "final_r2": evaluation["r2"],
-                "final_mae": evaluation["mae"],
-                "final_rmse": evaluation["rmse"],
-                "final_bias": evaluation["bias"],
-            }
-        )
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            plot_predictions_comparison(
-                y_true_dn,
-                y_pred_dn,
-                model_name=model_name.upper().replace("_", "-"),
-                save_path=os.path.join(tmpdir, "00_true_vs_pred_line.png"),
-            )
-            plot_true_vs_pred_scatter(
-                y_true_dn,
-                y_pred_dn,
-                model_name=model_name.upper().replace("_", "-"),
-                save_path=os.path.join(tmpdir, "01_true_vs_pred_scatter.png"),
-            )
-            plot_residuals_analysis(
-                y_true_dn,
-                y_pred_dn,
-                model_name=model_name.upper().replace("_", "-"),
-                save_path=os.path.join(tmpdir, "02_residuals_analysis.png"),
-            )
-            plot_prediction_difference_bars(
-                y_true_dn,
-                y_pred_dn,
-                model_name=model_name.upper().replace("_", "-"),
-                save_path=os.path.join(tmpdir, "03_residuals_bar.png"),
-            )
-            metrics_df = plot_metrics_comparison(
-                y_true_dn,
-                y_pred_dn,
-                model_name=model_name.upper().replace("_", "-"),
-                save_path=os.path.join(tmpdir, "04_metrics.png"),
-            )
-            metrics_df.to_csv(os.path.join(tmpdir, "metrics.csv"), index=False)
-
-            plot_training_history(history, save_path=os.path.join(tmpdir, "05_training_history.png"))
-
-            pd.DataFrame(
-                {
-                    "y_true": y_true_dn,
-                    "y_pred": y_pred_dn,
-                    "residual": y_pred_dn - y_true_dn,
-                    "abs_error": np.abs(y_pred_dn - y_true_dn),
-                }
-            ).to_csv(os.path.join(tmpdir, f"{model_name}_predictions.csv"), index=False)
-
-            mlflow.log_artifacts(tmpdir)
-
-        mlflow.pytorch.log_model(model, f"{model_name}_model")
-        return model, history, evaluation
+            },
+            "target_normalizer": {
+                "mean": target_norm.mean,
+                "std": target_norm.std,
+            },
+        },
+        result_dir / f"{model_name}_model.pt",
+    )
+    return model, history, evaluation
 
 
 # ---------------------------------------------------------------------
@@ -597,6 +655,7 @@ def train_model_springback_random_forest(
     springbacks_train: torch.Tensor,
     springbacks_test: torch.Tensor,
     sensor_names,
+    normalization_info: Optional[Dict[str, Any]] = None,
     experiment_name: str = "Springback",
 ):
     X_tr = X_train.detach().cpu().numpy()
@@ -607,8 +666,6 @@ def train_model_springback_random_forest(
     n_samples, n_timesteps, n_features = X_tr.shape
     assert len(sensor_names) == n_features, "sensor_names must match feature dimension"
 
-    mlflow.set_experiment(experiment_name)
-
     def _run_rf_variant(
         variant_name: str,
         X_train_variant: np.ndarray,
@@ -616,99 +673,98 @@ def train_model_springback_random_forest(
         min_samples_leaf: Optional[int] = None,
     ):
         model_name = f"rf_{variant_name}"
-        with mlflow.start_run(run_name=f"springback_{model_name}"):
-            mlflow.set_tag("model_type", "rf")
-            mlflow.set_tag("model_name", model_name)
-            mlflow.log_param("model_name", model_name)
-            mlflow.log_param("feature_variant", variant_name)
-            mlflow.log_param("n_timesteps", int(n_timesteps))
-            mlflow.log_param("n_features", int(n_features))
-            mlflow.log_param("n_train_samples", int(X_train_variant.shape[0]))
-            mlflow.log_param("n_test_samples", int(X_test_variant.shape[0]))
+        result_dir = _prepare_results_dir(model_name)
+        params = {
+            "experiment_name": experiment_name,
+            "model_name": model_name,
+            "feature_variant": variant_name,
+            "n_timesteps": int(n_timesteps),
+            "n_features": int(n_features),
+            "n_train_samples": int(X_train_variant.shape[0]),
+            "n_test_samples": int(X_test_variant.shape[0]),
+        }
 
-            rf_kwargs = {
-                "n_estimators": 500,
-                "max_depth": None,
-                "random_state": 42,
-                "n_jobs": -1,
-                "bootstrap": True,
-                "verbose": 1,
+        rf_kwargs = {
+            "n_estimators": 500,
+            "max_depth": None,
+            "random_state": 42,
+            "n_jobs": -1,
+            "bootstrap": True,
+            "verbose": 1,
+        }
+        if min_samples_leaf is not None:
+            rf_kwargs["min_samples_leaf"] = min_samples_leaf
+
+        model = RandomForestRegressor(**rf_kwargs)
+        model.fit(X_train_variant, y_tr)
+        y_pred = model.predict(X_test_variant)
+        y_val_plot = _denormalize_springback(y_val, normalization_info)
+        y_pred_plot = _denormalize_springback(y_pred, normalization_info)
+
+        metrics = {
+            "mse": float(mean_squared_error(y_val_plot, y_pred_plot)),
+            "rmse": float(np.sqrt(mean_squared_error(y_val_plot, y_pred_plot))),
+            "mae": float(mean_absolute_error(y_val_plot, y_pred_plot)),
+            "r2": float(r2_score(y_val_plot, y_pred_plot)),
+            "expl_var": float(explained_variance_score(y_val_plot, y_pred_plot)),
+        }
+        params.update(
+            {
+                "rf_n_estimators": model.n_estimators,
+                "rf_max_depth": model.max_depth,
+                "rf_min_samples_leaf": model.min_samples_leaf,
             }
-            if min_samples_leaf is not None:
-                rf_kwargs["min_samples_leaf"] = min_samples_leaf
+        )
 
-            model = RandomForestRegressor(**rf_kwargs)
-            model.fit(X_train_variant, y_tr)
-            y_pred = model.predict(X_test_variant)
+        _save_json(result_dir / "params.json", params)
+        _save_json(result_dir / "metrics.json", metrics)
 
-            metrics = {
-                "mse": float(mean_squared_error(y_val, y_pred)),
-                "rmse": float(np.sqrt(mean_squared_error(y_val, y_pred))),
-                "mae": float(mean_absolute_error(y_val, y_pred)),
-                "r2": float(r2_score(y_val, y_pred)),
-                "expl_var": float(explained_variance_score(y_val, y_pred)),
+        display_name = model_name.upper().replace("_", "-")
+        plot_predictions_comparison(
+            y_val_plot,
+            y_pred_plot,
+            model_name=display_name,
+            save_path=os.path.join(result_dir, "00_true_vs_pred_line.png"),
+        )
+        plot_true_vs_pred_scatter(
+            y_val_plot,
+            y_pred_plot,
+            model_name=display_name,
+            save_path=os.path.join(result_dir, "01_true_vs_pred_scatter.png"),
+        )
+        plot_residuals_analysis(
+            y_val_plot,
+            y_pred_plot,
+            model_name=display_name,
+            save_path=os.path.join(result_dir, "02_residuals_analysis.png"),
+        )
+        plot_prediction_difference_bars(
+            y_val_plot,
+            y_pred_plot,
+            model_name=display_name,
+            save_path=os.path.join(result_dir, "03_residuals_bar.png"),
+        )
+        plot_metrics_comparison(
+            y_val_plot,
+            y_pred_plot,
+            model_name=display_name,
+            save_path=os.path.join(result_dir, "04_metrics.png"),
+        )
+
+        pd.DataFrame(
+            {
+                "y_true": y_val_plot,
+                "y_pred": y_pred_plot,
+                "residual": y_pred_plot - y_val_plot,
+                "abs_error": np.abs(y_pred_plot - y_val_plot),
             }
+        ).to_csv(result_dir / f"{model_name}_predictions.csv", index=False)
+        pd.DataFrame([metrics]).to_csv(result_dir / f"{model_name}_metrics.csv", index=False)
 
-            mlflow.log_params(
-                {
-                    "rf_n_estimators": model.n_estimators,
-                    "rf_max_depth": model.max_depth,
-                    "rf_min_samples_leaf": model.min_samples_leaf,
-                }
-            )
-            mlflow.log_metrics(metrics)
+        with (result_dir / f"{model_name}_model.pkl").open("wb") as f:
+            pickle.dump(model, f)
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                display_name = model_name.upper().replace("_", "-")
-
-                plot_predictions_comparison(
-                    y_val,
-                    y_pred,
-                    model_name=display_name,
-                    save_path=os.path.join(tmpdir, "00_true_vs_pred_line.png"),
-                )
-                plot_true_vs_pred_scatter(
-                    y_val,
-                    y_pred,
-                    model_name=display_name,
-                    save_path=os.path.join(tmpdir, "01_true_vs_pred_scatter.png"),
-                )
-                plot_residuals_analysis(
-                    y_val,
-                    y_pred,
-                    model_name=display_name,
-                    save_path=os.path.join(tmpdir, "02_residuals_analysis.png"),
-                )
-                plot_prediction_difference_bars(
-                    y_val,
-                    y_pred,
-                    model_name=display_name,
-                    save_path=os.path.join(tmpdir, "03_residuals_bar.png"),
-                )
-                plot_metrics_comparison(
-                    y_val,
-                    y_pred,
-                    model_name=display_name,
-                    save_path=os.path.join(tmpdir, "04_metrics.png"),
-                )
-
-                pd.DataFrame(
-                    {
-                        "y_true": y_val,
-                        "y_pred": y_pred,
-                        "residual": y_pred - y_val,
-                        "abs_error": np.abs(y_pred - y_val),
-                    }
-                ).to_csv(
-                    os.path.join(tmpdir, f"{model_name}_predictions.csv"), index=False
-                )
-                pd.DataFrame([metrics]).to_csv(
-                    os.path.join(tmpdir, f"{model_name}_metrics.csv"), index=False
-                )
-                mlflow.log_artifacts(tmpdir)
-
-            mlflow.sklearn.log_model(model, f"{model_name}_model")
-            return model
+        return model
 
     # Flattened RF run
     X_tr_flat = X_tr.reshape(n_samples, -1)

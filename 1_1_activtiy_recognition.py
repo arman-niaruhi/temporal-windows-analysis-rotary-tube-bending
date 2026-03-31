@@ -1,6 +1,5 @@
 import logging
-import json
-import os
+from pathlib import Path
 
 from src.logging.logging_config import setup_logging
 
@@ -8,12 +7,11 @@ from src.pipeline.ml.classification.utils.plot_utils import (
     plot_predictions_vs_true_annot,
 )
 from src.pipeline.ml.classification.utils.training_utils import (
-    analyze_features,
     training_pipeline,
 )
 from src.pipeline.ml.classification.utils.inference_one_label import (
     get_all_predictions,
-    inference_one_label_in_one,
+    run_default_inference_plots,
     save_validation_confusion_matrices,
 )
 
@@ -21,155 +19,184 @@ from src.pipeline.ml.classification.utils.inference_one_label import (
 logger = logging.getLogger(__name__)
 
 
-activity_recognition_config_path = (
-    "config/machine-activity-recognition/machine-activity-recognition-config.json"
-)
+# ========================================
+# Paths
+# ========================================
+BASE_PATH = Path("data")
+
+# Processed sensor tables used for training and inference.
+PROCESSED_DATA_DIRECTORY =  BASE_PATH / "processed"
+
+# Annotation file exported from the annotation tool.
+ANNOTATION_FILE_PATH = BASE_PATH / "ml" / "machine-and-movement_complete.json"
+
+# CSV file containing experiment splits/groups.
+EXPERIMENT_SPLITS_FILE_PATH = BASE_PATH / "ml" / "unique_bending_setups.csv"
+
+# Root directory for analytics, plots, confusion matrices, and inference figures.
+RESULTS_DIRECTORY = Path("results") / "activity_recognition"
+
+# ========================================
+# Pipeline Selection
+# ========================================
+# Target label to train/evaluate.
+# Options: "Multilabel", "All_and_One", "Clamping", "Bending", "Mandrel Extraction", "De-Clamping".
+TARGET_LABEL = "All_and_One"
+
+# Sensor subset used by the classifier pipeline.
+# Options: "machine_and_movement", "movement".
+TARGET_PROCESS_PART = "movement"
+
+# ========================================
+# Training Parameters
+# ========================================
+# Whether to train a new model or only load an existing checkpoint.
+# Options: True, False.
+ENABLE_MODEL_TRAINING = True
+
+# Batch size used for train/validation/test data loaders.
+TRAINING_BATCH_SIZE = 8
+
+# LSTM hidden state size.
+LSTM_HIDDEN_SIZE = 64
+
+# Number of stacked LSTM layers.
+LSTM_LAYER_COUNT = 2
+
+# Maximum number of training epochs.
+MAX_TRAINING_EPOCHS = 100
+
+# Optimizer learning rate.
+TRAINING_LEARNING_RATE = 1e-3
+
+# Early-stopping patience in epochs.
+EARLY_STOPPING_PATIENCE = 4
+
+# Random seed used for data split, model initialization, and dataloader shuffling.
+RANDOM_SEED = 42
+
+# ========================================
+# Inference Parameters
+# ========================================
+# Labels used during one-label-per-model inference.
+# Options: any subset/order of "Clamping", "Bending", "Mandrel Extraction", "De-Clamping".
+INFERENCE_TARGET_LABELS = [
+    "Clamping",
+    "Bending",
+    "Mandrel Extraction",
+    "De-Clamping",
+]
+
+ALL_AND_ONE_TRAINING_LABELS = [
+    "Clamping",
+    "De-Clamping",
+    "Mandrel Extraction",
+    "Bending",
+    "Multilabel",
+]
+
+def build_training_pipeline_config() -> dict:
+    return {
+        "dataloader_config": {
+            "batch_size": TRAINING_BATCH_SIZE,
+        },
+        "model_config": {
+            "hidden_size": LSTM_HIDDEN_SIZE,
+            "num_layers": LSTM_LAYER_COUNT,
+        },
+        "training_config": {
+            "training": ENABLE_MODEL_TRAINING,
+            "num_epochs": MAX_TRAINING_EPOCHS,
+            "learning_rate": TRAINING_LEARNING_RATE,
+            "patience": EARLY_STOPPING_PATIENCE,
+        },
+    }
+
+def get_training_labels() -> list[str]:
+    if TARGET_LABEL == "All_and_One":
+        return ALL_AND_ONE_TRAINING_LABELS
+    return [TARGET_LABEL]
 
 
-TEST_EXPERIMENT_IDS = [
-                2,
-                3,
-                22,
-                23,
-                40,
-                54,
-                83,
-                85,
-                110,
-                112,
-                119,
-                120,
-                121,
-                122,
-                123,
-                178,
-                179,
-                182,
-                183,
-                211,
-                212,
-                213,
-                255,
-                258,
-                261,
-                271,
-                272,
-                273,
-                302,
-                303,
-                304,
-                317,
-                318,
-            ]
+def run_training_for_label(label: str):
+    logger.info("Starting training for label: %s", label)
+    return training_pipeline(
+        model_path_root=RESULTS_DIRECTORY,
+        database_path=PROCESSED_DATA_DIRECTORY,
+        annotation_json_path=ANNOTATION_FILE_PATH,
+        experiment_ids_path=EXPERIMENT_SPLITS_FILE_PATH,
+        process_part=TARGET_PROCESS_PART,
+        label=label,
+        pipeline_config=build_training_pipeline_config(),
+        random_seed=RANDOM_SEED,
+    )
+
+
+def run_prediction_plotting(model, sensors_df, feature_cols, test_loader) -> None:
+    plot_predictions_vs_true_annot(
+        model,
+        getattr(test_loader, "dataset", None),
+        sensors_df,
+        feature_cols,
+        {
+            "store_plots": True,
+            "store_plots_path": str(RESULTS_DIRECTORY),
+        },
+        TARGET_PROCESS_PART,
+        TARGET_LABEL,
+    )
+
+
+def run_inference() -> None:
+    save_validation_confusion_matrices(
+        database_path=PROCESSED_DATA_DIRECTORY,
+        annotation_json_path=ANNOTATION_FILE_PATH,
+        experiment_ids_path=EXPERIMENT_SPLITS_FILE_PATH,
+        results_directory=RESULTS_DIRECTORY,
+        hidden_size=LSTM_HIDDEN_SIZE,
+        num_layers=LSTM_LAYER_COUNT,
+        labels=INFERENCE_TARGET_LABELS,
+        process_part=TARGET_PROCESS_PART,
+        batch_size=TRAINING_BATCH_SIZE,
+    )
+
+    run_default_inference_plots(
+        database_path=PROCESSED_DATA_DIRECTORY,
+        annotation_json_path=ANNOTATION_FILE_PATH,
+        results_directory=RESULTS_DIRECTORY,
+        hidden_size=LSTM_HIDDEN_SIZE,
+        num_layers=LSTM_LAYER_COUNT,
+        labels=INFERENCE_TARGET_LABELS,
+        process_part=TARGET_PROCESS_PART,
+        get_all_predictions_fn=get_all_predictions,
+        figsize=(15, 10),
+    )
 
 
 def main():
     setup_logging()
-    with open(activity_recognition_config_path, "r") as f:
-        config = json.load(f)
 
     try:
-        if config.get("label", "All_and_One") == "All_and_One":
-            for lbl in [
-                "Clamping",
-                "De-Clamping",
-                "Mandrel Extraction",
-                "Bending",
-                "All",
-            ]:
-                logger.info(f"Starting Train for individuall label: {lbl}")
-                model, sensors_df, test_loader, device, feature_cols = (
-                    training_pipeline(
-                        model_path_root=config.get("model_path_root"),
-                        database_path=config.get("database_path"),
-                        annotation_json_path=config.get("annotation_json_path"),
-                        experiment_ids_path=config.get("experiment_ids_path"),
-                        process_part=config.get("process_part"),
-                        eliminated_columns=config.get("eliminated_columns"),
-                        label=lbl,
-                        pipeline_config=config.get("pipeline_config"),
-                    )
-                )
-        else:
-            model, sensors_df, test_loader, device, feature_cols = training_pipeline(
-                model_path_root=config.get("model_path_root"),
-                database_path=config.get("database_path"),
-                annotation_json_path=config.get("annotation_json_path"),
-                experiment_ids_path=config.get("experiment_ids_path"),
-                process_part=config.get("process_part"),
-                eliminated_columns=config.get("eliminated_columns"),
-                label=config.get("label"),
-                pipeline_config=config.get("pipeline_config"),
-            )
+        training_result = None
+        for label in get_training_labels():
+            training_result = run_training_for_label(label)
+
+        model, sensors_df, test_loader, _, feature_cols = training_result
     except Exception as e:
         logger.error(f"Error during training pipeline: {e}")
         return
 
-    if config.get("analytics", False):
-        try:
-            analyze_features_result_path = config.get("analyze_features_result_path")
-            analyze_features_result_path = os.path.join(
-                analyze_features_result_path,
-                config.get("process_part"),
-                config.get("label"),
-            )
-            os.makedirs(analyze_features_result_path, exist_ok=True)
-            analyze_features(
-                analyze_features_result_path, model, sensors_df, test_loader, device
-            )
-        except Exception as e:
-            logger.error(f"Warning: Feature analysis failed: {e}")
-
     try:
-        plot_predictions_vs_true_annot(
-            model,
-            getattr(test_loader, "dataset", None),
-            sensors_df,
-            feature_cols,
-            config.get("show_result_properties"),
-            config.get("process_part"),
-            config.get("label"),
-        )
+        run_prediction_plotting(model, sensors_df, feature_cols, test_loader)
     except Exception as e:
         logger.error(f"Warning: Plotting predictions failed: {e}")
 
-    inference_config = config.get("inference_one_label_in_one", None)
-
-    if inference_config:
-        try:
-            save_validation_confusion_matrices(
-                database_path=config.get("database_path"),
-                annotation_json_path=config.get("annotation_json_path"),
-                experiment_ids_path=config.get("experiment_ids_path"),
-                eliminated_columns=config.get("eliminated_columns"),
-                models_path=inference_config.get("models_path"),
-                model_config=config.get("pipeline_config").get("model_config"),
-                labels=inference_config.get("labels"),
-                process_part=config.get("process_part", "machine_and_movement"),
-                save_dir_path=inference_config.get("save_dir_path"),
-                batch_size=config.get("pipeline_config", {})
-                .get("dataloader_config", {})
-                .get("batch_size", 8),
-            )
-
-            for i in TEST_EXPERIMENT_IDS:
-                inference_one_label_in_one(
-                    exp_id=i,
-                    database_path=config.get("database_path"),
-                    annotation_json_path=config.get("annotation_json_path"),
-                    eliminated_columns=config.get("eliminated_columns"),
-                    models_path=inference_config.get("models_path"),
-                    model_config=config.get("pipeline_config").get("model_config"),
-                    labels=inference_config.get("labels"),
-                    process_part=config.get("process_part", "machine_and_movement"),
-                    save_dir_path=inference_config.get("save_dir_path"),
-                    get_all_predictions_fn=get_all_predictions,
-                    figsize=(15, 10),
-                )
-        except Exception as e:
-            logger.error(
-                f"Warning: Inference for one label in one experiment failed: {e}"
-            )
+    try:
+        run_inference()
+    except Exception as e:
+        logger.error(
+            f"Warning: Inference for one label in one experiment failed: {e}"
+        )
 
 
 if __name__ == "__main__":
