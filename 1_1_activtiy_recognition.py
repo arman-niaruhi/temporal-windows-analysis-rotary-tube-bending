@@ -43,14 +43,14 @@ TARGET_LABEL = "All_and_One"
 
 # Sensor subset used by the classifier pipeline.
 # Options: "machine_and_movement", "movement".
-TARGET_PROCESS_PART = "movement"
+TARGET_PROCESS_PART = "Clamping"
 
 # ========================================
 # Training Parameters
 # ========================================
 # Whether to train a new model or only load an existing checkpoint.
 # Options: True, False.
-ENABLE_MODEL_TRAINING = False
+ENABLE_MODEL_TRAINING = True
 
 # Batch size used for train/validation/test data loaders.
 TRAINING_BATCH_SIZE = 8
@@ -65,7 +65,7 @@ LSTM_LAYER_COUNT = 2
 MAX_TRAINING_EPOCHS = 100
 
 # Optimizer learning rate.
-TRAINING_LEARNING_RATE = 1e-3
+TRAINING_LEARNING_RATE = 1e-4
 
 # Early-stopping patience in epochs.
 EARLY_STOPPING_PATIENCE = 4
@@ -78,6 +78,7 @@ RANDOM_SEED = 42
 # ========================================
 # Labels used during one-label-per-model inference.
 # Options: any subset/order of "Clamping", "Bending", "Mandrel Extraction", "De-Clamping".
+
 INFERENCE_TARGET_LABELS = [
     "Clamping",
     "Bending",
