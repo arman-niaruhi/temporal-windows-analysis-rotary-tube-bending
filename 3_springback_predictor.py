@@ -146,13 +146,13 @@ def main():
     # Train conventional machine-learning baselines on the same split to enable
     # direct comparison with the sequence model.
     train_model_springback_random_forest(
-        X_train=X_train,
-        X_test=X_test,
-        springbacks_train=springbacks_train,
-        springbacks_test=springbacks_test,
-        sensor_names=sensor_names,
-        normalization_info=normalization_info,
-    )
+         X_train=X_train,
+         X_test=X_test,
+         springbacks_train=springbacks_train,
+         springbacks_test=springbacks_test,
+         sensor_names=sensor_names,
+         normalization_info=normalization_info,
+     )
 
     # Create mini-batch loaders for the sequence model. The plot loader is used
     # for the final evaluation and result visualization after training.
