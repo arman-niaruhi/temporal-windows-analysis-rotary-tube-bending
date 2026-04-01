@@ -82,7 +82,7 @@ class DataPreprocessPipeline:
         df_machine_and_movement, df_sensor, _, df_movement = (
             transformer.get_process_data()
         )
-        df_arc, df_lin1, df_lin2, _, _ = (
+        df_arc, _, _, _, _ = (
             transformer.get_geometry_data()
         )
         transformer.get_bending_setup()
@@ -90,10 +90,7 @@ class DataPreprocessPipeline:
         loader = DataLoader("data/processed")
         dataframes = {
             "machine_and_movement": df_machine_and_movement,
-            "linear1": df_lin1,
-            "linear2": df_lin2,
             "arc": df_arc,
-            "sensor": df_sensor,
             "movement": df_movement,
         }
         loader.store_to_csv(
