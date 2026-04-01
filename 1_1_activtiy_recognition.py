@@ -39,11 +39,11 @@ RESULTS_DIRECTORY = Path("results") / "activity_recognition"
 # ========================================
 # Target label to train/evaluate.
 # Options: "Multiclass", "All_and_One", "Clamping", "Bending", "Mandrel Extraction", "De-Clamping".
-TARGET_LABEL = "All_and_One"
+TARGET_LABEL = "Multiclass"
 
 # Sensor subset used by the classifier pipeline.
 # Options: "machine_and_movement", "movement".
-TARGET_PROCESS_PART = "Clamping"
+TARGET_PROCESS_PART = "machine_and_movement"
 
 # ========================================
 # Training Parameters
