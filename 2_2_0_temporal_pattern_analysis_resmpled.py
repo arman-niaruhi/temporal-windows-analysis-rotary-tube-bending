@@ -1,3 +1,52 @@
+'''
+============================================================
+2.1 Thesis Objective and Temporal Pattern Recogniton Pipeline Description using the Resampling
+============================================================
+
+This script implements the context extraction pipeline developed
+in this thesis for modeling and predicting process-specific
+target variables from multivariate time-series sensor data in
+industrial manufacturing environments for tube bending process regression problem.
+
+The primary objective of this component is to learn meaningful
+temporal representations of sensor signals and accurately
+estimate target features (e.g., springback-related variables)
+associated with different process configurations.
+
+To achieve this, the pipeline integrates structured data
+preprocessing with deep learning-based sequence modeling,
+primarily leveraging Long Short-Term Memory (LSTM) and hybrid
+Temporal Convolutional Network (TCN-LSTM) architectures. These
+models are designed to capture both short-term and long-term
+temporal dependencies inherent in sequential sensor data.
+
+The implementation provides a highly configurable experimental
+framework, including:
+    - Deterministic data preprocessing with normalization,
+      resampling, and windowing strategies
+    - Flexible feature selection and multi-target prediction
+    - Configurable model architectures and optimization settings
+    - Attention mechanisms (temporal and feature-wise) to enhance
+      interpretability and performance
+    - Multi-head output structures for handling multiple target
+      variables simultaneously
+    - Dynamic loss weighting strategies for balanced multi-task
+      learning
+
+Additionally, the pipeline supports post-hoc interpretability
+through occlusion-based temporal importance analysis, enabling
+the identification of critical time regions influencing model
+predictions.
+
+The script ensures full reproducibility through controlled
+random seeding and modular configuration management. It serves
+as the central execution unit for training, evaluation, and
+analysis of context extraction models within the scope of this
+thesis.
+
+============================================================
+'''
+
 import copy
 import logging
 from pathlib import Path

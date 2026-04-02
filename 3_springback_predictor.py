@@ -1,3 +1,64 @@
+'''
+============================================================
+3. Thesis Objective and Springback Prediction Pipeline Description
+============================================================
+
+This script implements the springback prediction pipeline
+developed in this thesis for estimating springback behavior
+from multivariate time-series sensor data acquired in
+industrial tube bending processes.
+
+The primary objective of this component is to model the
+relationship between process-related sensor signals and the
+resulting springback response, thereby enabling accurate
+regression-based prediction of springback-related target
+variables across different process configurations.
+
+To achieve this, the pipeline integrates structured data
+preprocessing with both conventional machine learning and
+deep learning approaches. In particular, it incorporates
+a Random Forest regression model as a baseline method and
+a hybrid Temporal Convolutional Network and Long Short-Term
+Memory (TCN-LSTM) architecture as the primary sequence-based
+model.
+
+This dual-model strategy enables a systematic comparative
+evaluation between classical regression techniques and
+deep learning-based temporal models, providing insights into
+their respective capabilities for capturing process dynamics
+and predicting springback behavior.
+
+The implementation provides a configurable experimental
+framework, including:
+    - Deterministic preprocessing of sensor sequences with
+      normalization and optional temporal resampling
+    - Flexible selection of process-relevant sensor inputs
+      and regression target variables
+    - Preparation of consistent train/test splits for fair
+      model comparison
+    - Baseline modeling using Random Forest regression
+    - Deep learning-based modeling using a hybrid TCN-LSTM
+      architecture for temporal feature learning
+    - Mini-batch data loading for efficient training,
+      validation, and evaluation of sequence models
+    - Configurable optimization strategies including early
+      stopping, gradient clipping, and learning-rate scheduling
+
+The hybrid TCN-LSTM model is designed to capture both local
+temporal patterns and long-range dependencies in the sensor
+data, while the Random Forest model provides a robust,
+non-sequential baseline for benchmarking predictive
+performance.
+
+The script ensures reproducibility through controlled
+configuration, fixed random seeds, and consistent data
+processing across all experiments. It serves as the central
+execution unit for training, validating, and comparing
+springback prediction models within the scope of this thesis.
+
+============================================================
+'''
+
 import logging
 
 from src.logging.logging_config import setup_logging
