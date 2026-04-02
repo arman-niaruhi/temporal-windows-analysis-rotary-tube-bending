@@ -6,7 +6,6 @@
 *.packaging
 *.pptx
 *.DS_Store
-*.png
 *.pth
 *.vscode
 *.joblib
