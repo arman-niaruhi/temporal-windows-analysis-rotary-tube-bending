@@ -1,8 +1,6 @@
 import streamlit as st
 from src.pipeline.dashboard.visualizer_utils import DataVisualizer
 
-MLFLOW_TRACKING_URI = "mlruns"
-
 
 class StreamlitApp:
     def __init__(self):

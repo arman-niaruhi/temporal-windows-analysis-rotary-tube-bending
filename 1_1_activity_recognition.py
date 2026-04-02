@@ -1,3 +1,40 @@
+'''
+============================================================
+1. Thesis Objective and Pipeline Description
+============================================================
+
+This script implements the core machine learning pipeline
+developed in this thesis for activity recognition based on
+multivariate time-series sensor data acquired from industrial
+tube bending process.
+
+The primary objective of this work is to design, train, and
+evaluate a robust classification system capable of identifying
+distinct machine operation phase, including Clamping,
+Bending, Mandrel Extraction, and De-Clamping.
+
+To achieve this, the pipeline employs a Bidirectional Long Short-Term Memory
+(BiLSTM) neural network architecture, which is well-suited for
+modeling temporal dependencies in sequential sensor signals.
+
+The implementation supports both multiclass classification
+and one-vs-all (binary) classification strategies, enabling
+flexible experimentation and comparative analysis across
+different labeling schemes.
+
+The pipeline encompasses the full machine learning workflow,
+including:
+    - Loading and processing annotated sensor datasets
+    - Configurable model training with controlled hyperparameters
+    - Validation and performance evaluation (e.g., confusion matrices)
+    - Visualization of predicted versus ground truth labels
+    - Inference and result generation for analytical purposes
+
+This script serves as the central orchestration module,
+ensuring reproducibility, modularity, and consistency across
+experiments conducted within the scope of this thesis.
+============================================================
+'''
 import logging
 from pathlib import Path
 
