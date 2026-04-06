@@ -34,6 +34,20 @@ The project is organized around top-level scripts. This README explains what eac
 |-- requirements.txt
 ```
 
+## Clone
+
+To get started with this project, clone the repository from GitHub:
+
+```bash
+git clone https://github.com/arman-niaruhi/temporal-windows-analysis-rotary-tube-bending.git
+```
+
+This will download the full project to your local machine. After cloning, navigate into the project directory:
+
+```bash
+cd temporal-windows-analysis-rotary-tube-bending
+```
+
 ## Setup
 
 Run all commands from the repository root.
