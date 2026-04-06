@@ -1,3 +1,64 @@
+'''
+============================================================
+3. Thesis Objective and Springback Prediction Pipeline Description
+============================================================
+
+This script implements the springback prediction pipeline
+developed in this thesis for estimating springback behavior
+from multivariate time-series sensor data acquired in
+industrial tube bending processes.
+
+The primary objective of this component is to model the
+relationship between process-related sensor signals and the
+resulting springback response, thereby enabling accurate
+regression-based prediction of springback-related target
+variables across different process configurations.
+
+To achieve this, the pipeline integrates structured data
+preprocessing with both conventional machine learning and
+deep learning approaches. In particular, it incorporates
+a Random Forest regression model as a baseline method and
+a hybrid Temporal Convolutional Network and Long Short-Term
+Memory (TCN-LSTM) architecture as the primary sequence-based
+model.
+
+This dual-model strategy enables a systematic comparative
+evaluation between classical regression techniques and
+deep learning-based temporal models, providing insights into
+their respective capabilities for capturing process dynamics
+and predicting springback behavior.
+
+The implementation provides a configurable experimental
+framework, including:
+    - Deterministic preprocessing of sensor sequences with
+      normalization and optional temporal resampling
+    - Flexible selection of process-relevant sensor inputs
+      and regression target variables
+    - Preparation of consistent train/test splits for fair
+      model comparison
+    - Baseline modeling using Random Forest regression
+    - Deep learning-based modeling using a hybrid TCN-LSTM
+      architecture for temporal feature learning
+    - Mini-batch data loading for efficient training,
+      validation, and evaluation of sequence models
+    - Configurable optimization strategies including early
+      stopping, gradient clipping, and learning-rate scheduling
+
+The hybrid TCN-LSTM model is designed to capture both local
+temporal patterns and long-range dependencies in the sensor
+data, while the Random Forest model provides a robust,
+non-sequential baseline for benchmarking predictive
+performance.
+
+The script ensures reproducibility through controlled
+configuration, fixed random seeds, and consistent data
+processing across all experiments. It serves as the central
+execution unit for training, validating, and comparing
+springback prediction models within the scope of this thesis.
+
+============================================================
+'''
+
 import logging
 
 from src.logging.logging_config import setup_logging
@@ -7,57 +68,124 @@ from src.pipeline.ml.spring_back_predictior.training import train_model_springba
 
 logger = logging.getLogger(__name__)
 
-# Fixed seed to make the springback experiments reproducible across runs.
+# ========================================
+# Configuration
+# ========================================
+# Random seed used to make springback experiments reproducible across runs.
+# Value: integer, e.g. 42, 123, 2025.
 SEED = 42
 
-# Paths to the processed tube-geometry dataset and annotation metadata used
-# for springback target generation.
+# Input data locations and dataset selection used for springback prediction.
 INPUT_PATH_PARAMS = {
+    # Directory containing the processed ETL sensor tables.
+    # Value: string path, e.g. "data/processed".
     "database_path": "data/processed",
+    # Sensor subset to load.
+    # Typical values: "All", "movement", "machine_and_movement".
     "process_part": "All",
+    # JSON annotation file used to derive target windows and metadata.
+    # Value: string path to a .json file.
     "annotation_json_path": "data/ml/machine-and-movement_complete.json",
 }
 
-# Preprocessing configuration for converting raw time-series measurements into
-# model-ready samples. The selected feature indices and annotated timesteps
-# define the sensor channels and process windows used in the study.
+# Preprocessing controls for converting raw sensor sequences into model-ready samples.
 PREPROCESSING_PARAMS = {
+    # Seed used in preprocessing-related random operations.
+    # Value: integer.
     "random_seed": 42,
+    # Whether sensor inputs should be normalized before training.
+    # Values: True or False.
     "normalize": True,
+    # Scaling strategy applied when normalize=True.
+    # Typical values: "standard", "minmax".
     "scaler": "standard",
+    # Whether to resample each temporal sequence before feature extraction.
+    # Values: True or False.
     "resample": False,
+    # Aggregation metric used when preprocessing creates fixed-size windows.
+    # Typical values: "mean", "max", "median".
     "agg_metric": "mean",
+    # Number of timesteps or windows kept per sample after preprocessing.
+    # Value: integer, e.g. 200, 400, 800.
     "window_num": 400,
+    # Train/test split definition used for the springback experiments.
+    # Value: string path to a split config .json file.
     "split_config_path": "config/data-split-config/train_test_split_each_setup_80.json",
+    # Indices of target features selected from the available target vector.
+    # Value: list[int], e.g. [0], [1, 3], [0, 1, 2, 3].
     "feature_indices": [1, 3],
+    # Main process annotation timestamps used for aligned plots and windows.
+    # Value: ordered list[int] in timestep units.
     "annot_timesteps": [150, 340, 820, 1280],
+    # Start/end timestamps of the mandrel extraction interval.
+    # Value: list[int], typically two values [start, end].
     "mandrel_extraction_annot_timesteps": [650, 820],
 }
 
-# Hyperparameters of the hybrid TCN-LSTM model used for springback regression.
-# These values define the temporal convolution backbone, recurrent head, and
-# optimization settings reported for the learning-based baseline.
+# Hyperparameters for the hybrid TCN-LSTM springback regressor.
 LSTM_TRAINING_PARAMS = {
+    # Output channels per temporal convolution block.
+    # Value: list[int], e.g. [32, 64, 64].
     "tcn_channels": [32, 64, 64],
+    # Kernel size of the temporal convolution layers.
+    # Value: integer >= 2, commonly 3, 5, or 10.
     "tcn_kernel_size": 10,
+    # Dropout used inside the TCN backbone.
+    # Value: float in [0, 1].
     "tcn_dropout": 0.1,
+    # Pooling strategy after temporal feature extraction.
+    # Typical values: "mean", "max".
     "pool": "mean",
+    # Whether to train a new model or reuse an existing one if the pipeline supports it.
+    # Values: True or False.
     "train": True,
+    # Hidden size of the LSTM block.
+    # Value: integer, e.g. 32, 64, 128.
     "hidden_size": 32,
+    # Number of stacked LSTM layers.
+    # Value: integer >= 1.
     "num_layers": 1,
+    # Dropout inside the LSTM stack.
+    # Value: float in [0, 1].
     "dropout": 0.1,
+    # Dropout applied before the final fully connected layers.
+    # Value: float in [0, 1].
     "fc_dropout": 0.1,
+    # Whether the LSTM should run bidirectionally.
+    # Values: True or False.
     "bidirectional": False,
+    # Optimizer learning rate.
+    # Value: positive float, e.g. 1e-3, 3e-5.
     "lr": 3e-5,
+    # Weight decay used by the optimizer.
+    # Value: non-negative float.
     "weight_decay": 3e-5,
+    # Batch size for the train and validation loaders.
+    # Value: integer, e.g. 8, 16, 32.
     "batch_size": 16,
+    # Maximum number of training epochs.
+    # Value: integer >= 1.
     "max_epochs": 1000,
+    # Minimum validation improvement required to reset early stopping.
+    # Value: non-negative float, e.g. 1e-4.
     "stop_early_min_delta": 1e-4,
+    # Number of epochs without improvement before early stopping.
+    # Value: integer >= 1.
     "stop_early_patience": 20,
+    # Factor applied when reducing the learning rate on plateau.
+    # Value: float in (0, 1), e.g. 0.5.
     "schedular_factor": 0.5,
+    # Number of plateau epochs before reducing the learning rate.
+    # Value: integer >= 1.
     "schedular_patience": 3,
+    # Maximum gradient norm for gradient clipping.
+    # Value: positive float, e.g. 1.0 or 5.0.
     "gradient_clip": 1.0,
+    # Logging frequency in epochs.
+    # Value: integer >= 1.
     "verbose_every": 2,
+    # Directory where trained springback models are stored.
+    # Value: string path.
     "model_path": "models/spring_back",
 }
 
@@ -79,13 +207,13 @@ def main():
     # Train conventional machine-learning baselines on the same split to enable
     # direct comparison with the sequence model.
     train_model_springback_random_forest(
-        X_train=X_train,
-        X_test=X_test,
-        springbacks_train=springbacks_train,
-        springbacks_test=springbacks_test,
-        sensor_names=sensor_names,
-        normalization_info=normalization_info,
-    )
+         X_train=X_train,
+         X_test=X_test,
+         springbacks_train=springbacks_train,
+         springbacks_test=springbacks_test,
+         sensor_names=sensor_names,
+         normalization_info=normalization_info,
+     )
 
     # Create mini-batch loaders for the sequence model. The plot loader is used
     # for the final evaluation and result visualization after training.

@@ -9,6 +9,43 @@ from sklearn.preprocessing import LabelEncoder, MultiLabelBinarizer
 logger = logging.getLogger(__name__)
 
 
+FIXED_VALIDATION_EXPERIMENT_IDS = [
+    2,
+    3,
+    22,
+    23,
+    40,
+    54,
+    83,
+    85,
+    110,
+    112,
+    119,
+    120,
+    121,
+    122,
+    123,
+    178,
+    179,
+    182,
+    183,
+    211,
+    212,
+    213,
+    255,
+    258,
+    261,
+    271,
+    272,
+    273,
+    302,
+    303,
+    304,
+    317,
+    318,
+]
+
+
 class ClassifierPreprocessor:
     """Preprocessor for classification tasks on sensor data with annotations."""
 
@@ -228,21 +265,21 @@ class ClassifierPreprocessor:
 
     def split_experiments(
         self,
-        experiment_groups,
-        test_ratio: float = 0.1,
+        experiment_groups=None,
+        test_ratio: float = 0.0,
         val_ratio: float = 0.2,
         seed: int = 42,
+        validation_experiment_ids: Optional[List[int]] = None,
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, List[int]]]:
         """
-        Split data by experiment groups into train, validation, and test sets.
-        Ensures that experiment IDs from the same group are never split.
+        Split data into train and validation sets.
 
         Args:
-            experiment_groups: List of lists, where each sublist contains experiment IDs
-                             that belong to the same group
+            experiment_groups: Optional grouped experiment IDs for shuffled splitting
             test_ratio: Proportion of data to allocate to test set
             val_ratio: Proportion of data to allocate to validation set
             seed: Random seed for reproducibility
+            validation_experiment_ids: Fixed validation experiment IDs
 
         Returns:
             Tuple of (train_df, val_df, test_df, splits_dict)
@@ -252,6 +289,34 @@ class ClassifierPreprocessor:
 
         sensor_df = self.sensors_df.copy()
         sensor_df["Experiment_ID"] = sensor_df["Experiment_ID"].astype(int)
+
+        if validation_experiment_ids is not None:
+            val_exps = sorted({int(exp_id) for exp_id in validation_experiment_ids})
+            all_exps = sorted(sensor_df["Experiment_ID"].unique().tolist())
+            train_exps = [exp_id for exp_id in all_exps if exp_id not in set(val_exps)]
+            test_exps: List[int] = []
+
+            train_df = sensor_df[sensor_df["Experiment_ID"].isin(train_exps)].copy()
+            val_df = sensor_df[sensor_df["Experiment_ID"].isin(val_exps)].copy()
+            test_df = sensor_df.iloc[0:0].copy()
+
+            logger.info(
+                "Data split with fixed validation IDs: train (%s exp), val (%s exp)",
+                len(train_exps),
+                len(val_exps),
+            )
+
+            return (
+                train_df,
+                val_df,
+                test_df,
+                {"train": train_exps, "val": val_exps, "test": test_exps},
+            )
+
+        if experiment_groups is None:
+            raise ValueError(
+                "experiment_groups is required when validation_experiment_ids is not provided."
+            )
 
         np.random.seed(seed)
         shuffled_groups = experiment_groups.copy()

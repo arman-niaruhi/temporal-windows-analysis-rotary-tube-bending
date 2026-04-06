@@ -100,7 +100,17 @@ def save_integrated_gradients_combined(
         pred, _ = model(X_sample, springback_sample, experiment_config)
     
     n_output_features = pred.shape[2]
-    sample_data = sensor_data[45, :, :]
+    sensor_data = np.asarray(sensor_data)
+    if sensor_data.ndim == 3:
+        sample_index = min(sensor_data.shape[0] - 1, X_sample.shape[0] - 1)
+        sample_data = sensor_data[sample_index, :, :]
+    elif sensor_data.ndim == 2:
+        sample_data = sensor_data
+    else:
+        raise ValueError(
+            "sensor_data must have shape (samples, timesteps, features) or "
+            "(timesteps, features)"
+        )
     colors = plt.cm.tab20(np.linspace(0, 1, len(sensor_names)))
     
     # FIXED: Corrected argument order - springback_sample before n_output_features
