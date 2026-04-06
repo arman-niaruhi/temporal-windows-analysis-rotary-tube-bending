@@ -4,7 +4,6 @@ import numpy as np
 import torch
 import os
 import logging
-import json
 from pathlib import Path
 from typing import Any
 from torch.utils.data import DataLoader
@@ -14,21 +13,20 @@ from src.pipeline.ml.classification.utils.model import LSTMSequenceClassifier
 from src.pipeline.ml.classification.utils.dataset_utils import (
     SegmentDataset3DSequenceWithMask,
 )
+from src.pipeline.ml.classification.utils.plot_utils import (
+    TEST_EXPERIMENT_IDS,
+    _plot_experiment,
+    _save_multiclass_confusion_matrix,
+)
 from src.pipeline.preprocessing.loader import DataLoader as DataLoaderETL
 from src.pipeline.ml.classification.utils.preprocessing_utils import (
     ClassifierPreprocessor,
+    FIXED_VALIDATION_EXPERIMENT_IDS,
 )
 
 logger = logging.getLogger(__name__)
 
-
-DEFAULT_INFERENCE_EXPERIMENT_IDS = [
-    2, 3, 22, 23, 40, 54, 83, 85, 110, 112, 119, 120, 121, 122, 123,
-    178, 179, 182, 183, 211, 212, 213, 255, 258, 261, 271, 272, 273,
-    302, 303, 304, 317, 318
-]
-
-INFERENCE_OUTPUT_SUBDIRECTORY = "All_in_One"
+DEFAULT_INFERENCE_EXPERIMENT_IDS = FIXED_VALIDATION_EXPERIMENT_IDS
 
 PREFERRED_LABEL_ORDER = [
     "Clamping",
@@ -43,7 +41,6 @@ ELIMINATED_COLUMNS = [
     "BEND-DIE_VERTICAL_Movement_[mm]",
     "PRESSURE-DIE_LATERAL_Movement_[mm]",
 ]
-
 
 def _save_confusion_matrix_plot(
     cm: np.ndarray,
@@ -107,7 +104,6 @@ def _save_confusion_matrix_plot(
 def save_validation_confusion_matrices(
     database_path: str,
     annotation_json_path: str,
-    experiment_ids_path: str,
     results_directory: str,
     hidden_size: int,
     num_layers: int,
@@ -117,13 +113,8 @@ def save_validation_confusion_matrices(
 ) -> None:
     """Save one validation-set confusion matrix per label into inference output dir."""
     results_directory = Path(results_directory)
-    output_dir = (
-        results_directory / process_part / "inference" / INFERENCE_OUTPUT_SUBDIRECTORY
-    )
+    output_dir = results_directory / process_part / "inference"
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    with open(experiment_ids_path, "r") as f:
-        experiment_groups = json.load(f)
 
     loader = DataLoaderETL(database_path)
     dataframes = loader.load_all_data_from_csv()
@@ -152,7 +143,9 @@ def save_validation_confusion_matrices(
         sensors_df = classifier_preprocessor.normalize_and_encode_labels()
         feature_cols = classifier_preprocessor.get_feature_cols()
 
-        _, val_df, _, _ = classifier_preprocessor.split_experiments(experiment_groups)
+        _, val_df, _, _ = classifier_preprocessor.split_experiments(
+            validation_experiment_ids=DEFAULT_INFERENCE_EXPERIMENT_IDS
+        )
         if val_df.empty:
             logger.warning("Validation set is empty for label %s. Skipping.", label)
             continue
@@ -200,7 +193,7 @@ def save_validation_confusion_matrices(
             output_file=target,
         )
 
-    all_label = "Multilabel"
+    all_label = "Multiclass"
     all_model_path = os.path.join(
         results_directory, process_part, all_label, "activity_detector.pth"
     )
@@ -227,7 +220,9 @@ def save_validation_confusion_matrices(
     sensors_df = classifier_preprocessor.assign_labels()
     sensors_df = classifier_preprocessor.normalize_and_encode_labels()
     feature_cols = classifier_preprocessor.get_feature_cols()
-    _, val_df, _, _ = classifier_preprocessor.split_experiments(experiment_groups)
+    _, val_df, _, _ = classifier_preprocessor.split_experiments(
+        validation_experiment_ids=DEFAULT_INFERENCE_EXPERIMENT_IDS
+    )
     if val_df.empty:
         logger.warning("Validation set is empty for All_and_One. Skipping.")
         return
@@ -342,6 +337,138 @@ def get_all_predictions(
     mask_decalmping_pred = y_pred == 0
     mask_declamping_true = exp_data["Label_encoded"].values == 0
     return exp_data, mask_decalmping_pred, mask_declamping_true
+
+
+def _resolve_combined_label(active_labels: list[str]) -> str:
+    if not active_labels:
+        return "No Label"
+
+    if "Mandrel Extraction" in active_labels:
+        return "Mandrel Extraction"
+
+    for label in PREFERRED_LABEL_ORDER:
+        if label in active_labels:
+            return label
+
+    return active_labels[0]
+
+
+def _combine_binary_masks_to_labels(
+    ordered_labels: list[str], label_masks: dict[str, np.ndarray]
+) -> list[str]:
+    if not label_masks:
+        return []
+
+    reference_length = len(next(iter(label_masks.values())))
+    combined_labels: list[str] = []
+
+    for index in range(reference_length):
+        active_labels = [
+            label
+            for label in ordered_labels
+            if label in label_masks and bool(label_masks[label][index])
+        ]
+        combined_labels.append(_resolve_combined_label(active_labels))
+
+    return combined_labels
+
+
+def plot_all_and_one_as_multiclass(
+    database_path: str,
+    annotation_json_path: str,
+    results_directory: str,
+    hidden_size: int,
+    num_layers: int,
+    labels: list[str],
+    process_part: str,
+    get_all_predictions_fn: Any,
+    experiment_ids: list[int] | None = None,
+) -> None:
+    ordered_labels = [lbl for lbl in PREFERRED_LABEL_ORDER if lbl in labels]
+    ordered_labels += [lbl for lbl in labels if lbl not in ordered_labels]
+
+    target_experiment_ids = experiment_ids or TEST_EXPERIMENT_IDS
+    output_dir = Path(results_directory) / process_part / "inference" / "All_and_One"
+    y_true_all: list[str] = []
+    y_pred_all: list[str] = []
+
+    for exp_id in target_experiment_ids:
+        experiment_predictions: dict[str, dict[str, Any]] = {}
+        exp_data = None
+
+        for label in ordered_labels:
+            label_exp_data, mask_pred, mask_true = get_all_predictions_fn(
+                label=label,
+                database_path=database_path,
+                annotation_json_path=annotation_json_path,
+                results_directory=results_directory,
+                process_part=process_part,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
+                exp_id=exp_id,
+            )
+
+            if label_exp_data is None or mask_pred is None or mask_true is None:
+                logger.warning(
+                    "Skipping All_and_One plot for experiment %s because label %s could not be inferred.",
+                    exp_id,
+                    label,
+                )
+                experiment_predictions = {}
+                break
+
+            if exp_data is None:
+                exp_data = label_exp_data
+
+            experiment_predictions[label] = {
+                "mask_pred": np.asarray(mask_pred, dtype=bool),
+                "mask_true": np.asarray(mask_true, dtype=bool),
+            }
+
+        if exp_data is None or not experiment_predictions:
+            continue
+
+        feature_cols = [
+            col
+            for col in exp_data.columns
+            if col not in ["Label", "Label_encoded", "Experiment_ID"]
+        ]
+        timestamps = exp_data.index.astype(float)
+        y_pred_names = _combine_binary_masks_to_labels(
+            ordered_labels,
+            {
+                label: values["mask_pred"]
+                for label, values in experiment_predictions.items()
+            },
+        )
+        y_true_names = _combine_binary_masks_to_labels(
+            ordered_labels,
+            {
+                label: values["mask_true"]
+                for label, values in experiment_predictions.items()
+            },
+        )
+
+        save_path = output_dir / f"All_and_One_labeled_timestamps_{exp_id}.png"
+        _plot_experiment(
+            exp_id=exp_id,
+            exp_data=exp_data,
+            feature_cols=feature_cols,
+            y_pred_names=y_pred_names,
+            y_true_names=y_true_names,
+            timestamps=timestamps,
+            save_path=save_path,
+        )
+
+        y_true_all.extend(y_true_names)
+        y_pred_all.extend(y_pred_names)
+
+    _save_multiclass_confusion_matrix(
+        y_true_all=y_true_all,
+        y_pred_all=y_pred_all,
+        output_dir=output_dir,
+        objective_label="All_and_One",
+    )
 
 
 def inference_one_label_in_one(
@@ -593,9 +720,7 @@ def inference_one_label_in_one(
 
     plt.subplots_adjust(left=0.12, hspace=0.08)
 
-    output_dir = (
-        Path(results_directory) / process_part / "inference" / INFERENCE_OUTPUT_SUBDIRECTORY
-    )
+    output_dir = Path(results_directory) / process_part / "inference"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_file = output_dir / f"individual_labels_{exp_id}.png"
