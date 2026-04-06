@@ -591,6 +591,12 @@ Used by:
 
 - `3_springback_predictor.py`
 
+## Results Application
+To visualize the Temporal Importance Analysis of this study, another web application has been developed:
+```bash
+https://temporal-importance-analysis-tube-bending-process.streamlit.app/
+```
+
 ## Practical Notes
 
 - Run scripts from the repository root because many paths are relative.
