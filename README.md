@@ -1,4 +1,4 @@
-# Tube Geometry Prediction
+# Machine Learning-Based Detection of Process Phases and Temporal Importance Windows in Rotary Tube Bending
 
 This repository contains a full workflow for tube-bending experiment data:
 
