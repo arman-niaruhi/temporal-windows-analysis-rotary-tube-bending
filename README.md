@@ -1,12 +1,12 @@
 # Machine Learning-Based Detection of Process Phases and Temporal Importance Windows in Rotary Tube Bending
 
-This repository contains a full workflow for tube-bending experiment data:
+This repository contains a full workflow for my Master's Thesis experiments:
 
 - ETL from the raw experiment pickle into CSV tables
 - manual phase annotation with a desktop GUI
 - activity recognition for process phases
 - train/test split generation for grouped experiments
-- temporal pattern analysis / context extraction
+- temporal pattern analysis/context extraction
 - springback prediction
 - interactive result inspection in Streamlit
 
